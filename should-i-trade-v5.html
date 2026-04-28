@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Should I Trade? — Market Quality Terminal v5</title>
+<style>
+  :root {
+    --bg:      #080c0f;
+    --surface: #0e1419;
+    --surface2:#131b22;
+    --border:  #1a2530;
+    --border2: #243342;
+    --green:   #00e676;
+    --yellow:  #ffd740;
+    --orange:  #ff9100;
+    --red:     #ff1744;
+    --text:    #e0e8f0;
+    --muted:   #5a7080;
+    --muted2:  #7a8ea0;
+    --accent:  #00b0ff;
+    --accent2: #7c4dff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'SF Mono', 'Fira Code', Menlo, monospace; font-size: 12px; }
+
+  /* ── TICKER ── */
+  .ticker-wrap { background: #050810; border-bottom: 1px solid var(--border); overflow: hidden; white-space: nowrap; height: 28px; display: flex; align-items: center; }
+  .ticker-inner { display: inline-block; animation: scroll 90s linear infinite; }
+  .ticker-inner:hover { animation-play-state: paused; }
+  @keyframes scroll { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+  .tick { display: inline-block; padding: 0 18px; font-size: 11px; font-weight: 600; }
+  .tick .sym { color: var(--muted); margin-right: 4px; }
+  .tick .px  { color: var(--text); }
+  .tick.up   .chg { color: var(--green); }
+  .tick.dn   .chg { color: var(--red); }
+
+  /* ── HEADER ── */
+  .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .header-left  { display: flex; align-items: center; gap: 16px; }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .logo { font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+  .subtitle { color: var(--muted); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+  .mkt-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--border2); }
+  .mkt-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .mkt-badge.open      { color: var(--green);  border-color: rgba(0,230,118,0.4); }
+  .mkt-badge.open .dot { background: var(--green); animation: pulse 1.5s infinite; }
+  .mkt-badge.premarket, .mkt-badge.afterhours { color: var(--orange); border-color: rgba(255,145,0,0.4); }
+  .mkt-badge.premarket .dot, .mkt-badge.afterhours .dot { background: var(--orange); }
+  .mkt-badge.closed, .mkt-badge.weekend { color: var(--muted); border-color: var(--border2); }
+  .mkt-badge.closed .dot, .mkt-badge.weekend .dot { background: var(--muted); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .fomc-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid var(--border2); }
+  .fomc-badge .date { color: var(--muted); font-weight: 400; }
+  .fomc-badge.green  { color: var(--green);  border-color: rgba(0,230,118,0.3); }
+  .fomc-badge.yellow { color: var(--yellow); border-color: rgba(255,215,64,0.4); }
+  .fomc-badge.orange { color: var(--orange); border-color: rgba(255,145,0,0.4); }
+  .fomc-badge.red    { color: var(--red);    border-color: rgba(255,23,68,0.45); background: rgba(255,23,68,0.08); }
+  .fomc-badge.gray   { color: var(--muted);  border-color: var(--border2); }
+
+  .ts { color: var(--muted); font-size: 10px; }
+  .countdown { color: var(--muted2); font-size: 10px; }
+  .btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px; font-family: inherit; letter-spacing: 0.5px; transition: all 0.2s; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: wait; }
+
+  /* ── MAIN ── */
+  .main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── HERO ── */
+  .hero { display: grid; grid-template-columns: clamp(185px, 14vw, 225px) 1fr clamp(140px, 11vw, 170px); gap: 14px; align-items: stretch; }
+  .decision-card, .pos-card, .score-wrap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  .decision-label, .pos-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+  .decision-badge { font-size: clamp(18px, 2.3vw, 34px); font-weight: 800; letter-spacing: clamp(0px, 0.15vw, 2px); margin-bottom: 4px; overflow: hidden; white-space: nowrap; }
+  .decision-sub { font-size: 9px; color: var(--muted); }
+  .pos-icon { font-size: 26px; margin-bottom: 4px; }
+  .pos-text { font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+  .pos-sub  { font-size: 9px; color: var(--muted); margin-top: 4px; }
+
+  .hero-mid { display: flex; align-items: center; justify-content: center; gap: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; min-width: 0; overflow: hidden; }
+  .score-circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .score-circle { position: relative; width: 110px; height: 110px; }
+  .score-circle svg { transform: rotate(-90deg); }
+  .score-circle .track { fill: none; stroke: var(--border); stroke-width: 8; }
+  .score-circle .fill  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+  .score-num { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+  .score-num .val { font-size: 28px; font-weight: 800; }
+  .score-num .tot { font-size: 10px; color: var(--muted); }
+  .score-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  .pillars-mini { display: flex; gap: 22px; }
+  .pillar-mini { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .pillar-mini .pm-score { font-size: 22px; font-weight: 700; }
+  .pillar-mini .pm-bar { width: 58px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .pillar-mini .pm-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .pillar-mini .pm-label { font-size: 9px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+
+  /* ── PILLAR CARDS ── */
+  .pillars-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .pillar-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; }
+  .pillar-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .pillar-name { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+  .pillar-score-badge { font-size: 20px; font-weight: 800; }
+  .pillar-bar { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 12px; overflow: hidden; }
+  .pillar-bar-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .metric-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; min-height: 16px; }
+  .metric-key { color: var(--muted); font-size: 10px; }
+  .metric-val { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .tag { font-size: 9px; padding: 1px 6px; border-radius: 2px; font-weight: 700; letter-spacing: 0.5px; }
+  .tag.green  { background: rgba(0,230,118,0.15);  color: var(--green); }
+  .tag.yellow { background: rgba(255,215,64,0.15); color: var(--yellow); }
+  .tag.orange { background: rgba(255,145,0,0.15);  color: var(--orange); }
+  .tag.red    { background: rgba(255,23,68,0.15);  color: var(--red); }
+  .tag.gray   { background: rgba(90,112,128,0.15); color: var(--muted); }
+
+  /* "Why" expandable */
+  .why-toggle { margin-top: auto; padding-top: 10px; font-size: 9px; color: var(--muted2); cursor: pointer; text-align: center; letter-spacing: 1px; text-transform: uppercase; border-top: 1px solid var(--border); padding-bottom: 2px; user-select: none; }
+  .why-toggle:hover { color: var(--accent); }
+  .why-body { display: none; margin-top: 8px; padding: 8px; background: rgba(0,176,255,0.04); border-radius: 3px; font-size: 9.5px; line-height: 1.6; color: var(--muted2); }
+  .why-body.open { display: block; }
+  .why-body .why-line { padding: 2px 0; }
+
+  /* ── BOTTOM GRID ── */
+  .bottom-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+  .card-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .card-subtitle { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin: 10px 0 6px 0; padding-top: 8px; border-top: 1px solid var(--border); }
+  .card-subtitle:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+  /* sector bars */
+  .sector-row { display: flex; align-items: center; margin-bottom: 4px; gap: 8px; }
+  .sector-name { width: 90px; color: var(--muted); font-size: 10px; }
+  .sector-bar-wrap { flex: 1; height: 14px; position: relative; }
+  .sector-bar { height: 14px; border-radius: 2px; min-width: 2px; transition: width 0.8s ease; display: flex; align-items: center; padding: 0 4px; }
+  .sector-pct { font-size: 9px; font-weight: 700; white-space: nowrap; }
+
+  /* execution window */
+  .exec-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .exec-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .exec-key { color: var(--muted); font-size: 10px; display: flex; align-items: center; gap: 6px; }
+  .exec-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* scoring weights */
+  .weight-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .weight-name { width: 74px; color: var(--muted); font-size: 10px; }
+  .weight-bar-wrap { flex: 1; height: 10px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .weight-bar { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .weight-right { display: flex; gap: 6px; width: 60px; justify-content: flex-end; font-size: 10px; }
+  .weight-score { font-weight: 700; }
+  .weight-pct { color: var(--muted); }
+
+  /* sparkline */
+  .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
+  .sparkline-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .sparkline { width: 100%; height: 36px; }
+
+  /* ── ROUNDTABLE ── */
+  .roundtable-section { display: flex; flex-direction: column; gap: 10px; }
+  .roundtable-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .roundtable-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
+  .roundtable-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .persona-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; transition: border-color 0.3s, transform 0.3s; opacity: 0; transform: translateY(8px); }
+  .persona-card.in { opacity: 1; transform: translateY(0); }
+  .persona-card:hover { border-color: var(--border2); }
+  .persona-card.desk-head { border-color: rgba(0,176,255,0.35); background: linear-gradient(180deg, rgba(0,176,255,0.04) 0%, var(--surface) 60%); }
+  .persona-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .persona-id { display: flex; flex-direction: column; gap: 2px; }
+  .persona-name { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
+  .persona-role { font-size: 9px; color: var(--muted); }
+  .persona-stance { font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 2px; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+  .persona-read { font-size: 10.5px; line-height: 1.55; color: var(--text); font-style: italic; min-height: 44px; }
+  .persona-points { display: flex; flex-direction: column; gap: 5px; }
+  .persona-point { font-size: 10px; line-height: 1.5; color: var(--muted2); display: flex; gap: 6px; align-items: flex-start; }
+  .persona-point .icon { flex-shrink: 0; }
+  .persona-verdict { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); font-size: 10.5px; font-weight: 700; color: var(--accent); line-height: 1.5; }
+  .desk-head .persona-verdict { color: var(--text); }
+
+  /* utils */
+  .c-green  { color: var(--green); }
+  .c-yellow { color: var(--yellow); }
+  .c-orange { color: var(--orange); }
+  .c-red    { color: var(--red); }
+  .c-muted  { color: var(--muted); }
+
+  .loading { display: flex; align-items: center; justify-content: center; height: 60vh; flex-direction: column; gap: 12px; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .err-banner { background: rgba(255,23,68,0.08); border: 1px solid rgba(255,23,68,0.3); color: var(--red); padding: 10px 14px; border-radius: 4px; font-size: 11px; margin: 14px 16px; }
+  .warn-banner { background: rgba(255,145,0,0.06); border: 1px solid rgba(255,145,0,0.25); color: var(--orange); padding: 8px 14px; border-radius: 4px; font-size: 10px; margin: 0 16px 10px 16px; display: flex; align-items: center; gap: 8px; }
+
+  /* ── ECON EVENTS ── */
+  .econ-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .econ-label { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-right: 4px; }
+  .econ-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid var(--border2); }
+  .econ-badge.red    { color: var(--red);    border-color: rgba(255,23,68,0.4);   background: rgba(255,23,68,0.07); }
+  .econ-badge.orange { color: var(--orange); border-color: rgba(255,145,0,0.35);  background: rgba(255,145,0,0.06); }
+  .econ-badge.yellow { color: var(--yellow); border-color: rgba(255,215,64,0.3); }
+  .econ-badge.gray   { color: var(--muted);  border-color: var(--border2); }
+
+  /* ── SETTINGS DRAWER ── */
+  .settings-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; }
+  .settings-overlay.open { display: flex; align-items: flex-start; justify-content: flex-end; }
+  .settings-drawer { background: var(--surface); border-left: 1px solid var(--border2); width: 280px; height: 100vh; padding: 20px; overflow-y: auto; animation: slideIn 0.2s ease; }
+  @keyframes slideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
+  .settings-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 20px; display: flex; justify-content: space-between; }
+  .settings-section { margin-bottom: 20px; }
+  .settings-section-title { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px; }
+  .weight-slider-row { margin-bottom: 12px; }
+  .weight-slider-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted2); margin-bottom: 4px; }
+  .weight-slider-label span:last-child { color: var(--text); font-weight: 700; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .settings-footer { margin-top: 16px; display: flex; gap: 8px; }
+  .settings-info { font-size: 9px; color: var(--muted); line-height: 1.6; margin-top: 10px; }
+
+  /* ── SPARKLINE LEGEND ── */
+  .spark-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .spark-leg-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--muted); cursor: pointer; user-select: none; }
+  .spark-leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .spark-leg-item.dimmed { opacity: 0.3; }
+
+  /* ── LIGHT THEME ── */
+  .light-theme {
+    --bg:      #f5f7fa;
+    --surface: #ffffff;
+    --surface2:#f0f3f7;
+    --border:  #dde3ea;
+    --border2: #c8d0da;
+    --text:    #1a2535;
+    --muted:   #6b7f94;
+    --muted2:  #4a6070;
+    --accent:  #0077cc;
+    --accent2: #6633cc;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1200px) {
+    .pillars-row { grid-template-columns: repeat(3, 1fr); }
+    .roundtable-grid { grid-template-columns: repeat(3, 1fr); }
+    /* hero uses clamp() — no fixed override needed */
+  }
+  @media (max-width: 900px) {
+    .pillars-row { grid-template-columns: repeat(2, 1fr); }
+    .roundtable-grid { grid-template-columns: repeat(2, 1fr); }
+    .bottom-row { grid-template-columns: 1fr 1fr; }
+    /* Score+pillars full-width on top; Decision & Position side-by-side below */
+    .hero { grid-template-columns: 1fr 1fr; grid-template-areas: "mid mid" "dec pos"; }
+    .hero > .decision-card { grid-area: dec; }
+    .hero > .hero-mid      { grid-area: mid; }
+    .hero > .pos-card      { grid-area: pos; }
+  }
+  @media (max-width: 600px) {
+    .pillars-row { grid-template-columns: 1fr; }
+    .roundtable-grid { grid-template-columns: 1fr; }
+    .bottom-row { grid-template-columns: 1fr; }
+    .hero { grid-template-columns: 1fr; grid-template-areas: "mid" "dec" "pos"; }
+    .decision-badge { font-size: 28px; letter-spacing: 1px; }
+    .header { flex-wrap: wrap; gap: 8px; }
+    .header-left, .header-right { flex-wrap: wrap; }
+    .main { padding: 10px; }
+    .pillars-mini { gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .pillar-mini .pm-bar { width: 48px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TICKER -->
+<div class="ticker-wrap"><div class="ticker-inner" id="ticker"></div></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <span class="logo">📊 SHOULD I TRADE?</span>
+    <span class="subtitle">Quality Terminal v6</span>
+    <span class="mkt-badge" id="mkt-badge"><span class="dot"></span><span id="mkt-label">—</span></span>
+    <span class="fomc-badge" id="fomc-badge">FOMC <span class="date" id="fomc-text">—</span></span>
+  </div>
+  <div class="header-right">
+    <span class="ts" id="et-time">—</span>
+    <span class="ts" id="data-ts">—</span>
+    <span class="countdown" id="countdown">next refresh in —</span>
+    <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)">📋</button>
+    <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme">☀</button>
+    <button class="btn" onclick="toggleSettings()" title="Settings (S)">⚙</button>
+    <button class="btn" onclick="load(true)">↺ REFRESH</button>
+  </div>
+</div>
+
+<!-- ECON EVENTS ROW -->
+<div class="econ-row" id="econ-row" style="display:none">
+  <span class="econ-label">📅 Events</span>
+  <span id="econ-badges"></span>
+</div>
+
+<!-- CONTENT -->
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <div>Loading market data…</div>
+</div>
+
+<div id="content" style="display:none">
+  <div id="coverage-warn" class="warn-banner" style="display:none"></div>
+
+  <div class="main">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="decision-card">
+        <div class="decision-label">Decision</div>
+        <div class="decision-badge" id="decision-badge">—</div>
+        <div class="decision-sub">Swing Trading</div>
+      </div>
+
+      <div class="hero-mid">
+        <div class="score-circle-wrap">
+          <div class="score-circle">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle class="track" cx="55" cy="55" r="46"/>
+              <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
+            </svg>
+            <div class="score-num">
+              <div class="val" id="score-val">—</div>
+              <div class="tot">/ 100</div>
+            </div>
+          </div>
+          <div class="score-label">Total Score</div>
+        </div>
+        <div class="pillars-mini" id="pillars-mini"></div>
+      </div>
+
+      <div class="pos-card">
+        <div class="pos-label">Position Size</div>
+        <div class="pos-icon">🛡</div>
+        <div class="pos-text" id="pos-text">—</div>
+        <div class="pos-sub">Press risk</div>
+      </div>
+    </div>
+
+    <!-- 5 PILLAR CARDS -->
+    <div class="pillars-row" id="pillars-row"></div>
+
+    <!-- BOTTOM -->
+    <div class="bottom-row">
+      <!-- Sector + Industry Performance -->
+      <div class="card">
+        <div class="card-title">📊 Breadth Under the Surface</div>
+        <div class="card-subtitle">11 SECTORS</div>
+        <div id="sector-bars"></div>
+        <div class="card-subtitle">INDUSTRY &amp; STYLE</div>
+        <div id="industry-bars"></div>
+      </div>
+
+      <!-- Execution Window -->
+      <div class="card">
+        <div class="card-title">⚡ Execution Window</div>
+        <div id="exec-window"></div>
+      </div>
+
+      <!-- Scoring Weights + Sparkline -->
+      <div class="card">
+        <div class="card-title">⚖ Scoring Weights <button class="btn" style="font-size:9px;padding:2px 6px" onclick="toggleSettings()">⚙ Edit</button></div>
+        <div id="score-weights"></div>
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
+          <span style="color:var(--muted);font-size:10px;">TOTAL SCORE</span>
+          <span style="font-size:16px;font-weight:800;" id="total-score-bottom">—</span>
+        </div>
+        <div style="margin-top:8px;font-size:9px;color:var(--muted);line-height:1.7;">
+          <span style="color:var(--green);">●</span> 80+: YES (press risk)<br>
+          <span style="color:var(--yellow);">●</span> 60–79: CAUTION (selective)<br>
+          <span style="color:var(--red);">●</span> &lt;60: NO (preserve capital)
+        </div>
+
+        <div class="sparkline-wrap">
+          <div class="sparkline-label">
+            <span>Score history</span>
+            <span id="spark-range">—</span>
+          </div>
+          <svg class="sparkline" id="sparkline" viewBox="0 0 200 36" preserveAspectRatio="none"></svg>
+          <div class="spark-legend" id="spark-legend">
+            <div class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)"><div class="spark-leg-dot" style="background:#e0e8f0"></div>Total</div>
+            <div class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)"><div class="spark-leg-dot" style="background:#00b0ff"></div>Vol</div>
+            <div class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)"><div class="spark-leg-dot" style="background:#00e676"></div>Trend</div>
+            <div class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)"><div class="spark-leg-dot" style="background:#ffd740"></div>Breadth</div>
+            <div class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)"><div class="spark-leg-dot" style="background:#ff9100"></div>Mom</div>
+            <div class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)"><div class="spark-leg-dot" style="background:#7c4dff"></div>Macro</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUNDTABLE -->
+    <div class="roundtable-section">
+      <div class="roundtable-head">
+        <span class="roundtable-title">🎙 Trading Desk Roundtable</span>
+        <button class="btn" id="rt-btn" onclick="runRoundtable()">▶ Generate Desk Read</button>
+      </div>
+      <div id="roundtable-grid" class="roundtable-grid"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SETTINGS DRAWER -->
+<div class="settings-overlay" id="settings-overlay" onclick="closeSettingsOnOverlay(event)">
+  <div class="settings-drawer">
+    <div class="settings-title">
+      <span>⚙ Settings</span>
+      <button class="btn" onclick="toggleSettings()" style="font-size:10px">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Pillar Weights (must sum to 100)</div>
+      <div class="weight-slider-row">
+        <div class="weight-slider-label"><span>Volatility</span><span id="wlbl-v">20%</span></div>
+        <input type="range" min="5" max="50" step="5" value="20" id="ws-v" oninput="onWeightChange()">
+      </div>
+      <div class="weight-slider-row">
+        <div class="weight-slider-label"><span>Trend</span><span id="wlbl-tr">25%</span></div>
+        <input type="range" min="5" max="50" step="5" value="25" id="ws-tr" oninput="onWeightChange()">
+      </div>
+      <div class="weight-slider-row">
+        <div class="weight-slider-label"><span>Breadth</span><span id="wlbl-br">20%</span></div>
+        <input type="range" min="5" max="50" step="5" value="20" id="ws-br" oninput="onWeightChange()">
+      </div>
+      <div class="weight-slider-row">
+        <div class="weight-slider-label"><span>Momentum</span><span id="wlbl-mo">20%</span></div>
+        <input type="range" min="5" max="50" step="5" value="20" id="ws-mo" oninput="onWeightChange()">
+      </div>
+      <div class="weight-slider-row">
+        <div class="weight-slider-label"><span>Macro</span><span id="wlbl-ma">15%</span></div>
+        <input type="range" min="5" max="50" step="5" value="15" id="ws-ma" oninput="onWeightChange()">
+      </div>
+      <div id="weight-sum-warn" style="font-size:9px;color:var(--red);display:none;margin-top:6px;">⚠ Weights must sum to 100</div>
+      <div class="settings-footer">
+        <button class="btn" onclick="applyWeights()" style="color:var(--green);border-color:rgba(0,230,118,0.4)">✓ Apply</button>
+        <button class="btn" onclick="resetWeights()">↺ Reset</button>
+      </div>
+      <div class="settings-info">Weights are saved locally and persist across sessions. Scores shown are recalculated in the browser from the pillar values returned by the backend.</div>
+    </div>
+
+    <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">
+      <div class="settings-section-title">Theme</div>
+      <button class="btn" onclick="toggleTheme()" id="theme-drawer-btn" style="width:100%;justify-content:center">☀ Toggle Light/Dark</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+// Safe HTML escaper — used wherever backend strings go into innerHTML
+const esc = s => { const d = document.createElement('div'); d.textContent = String(s ?? ''); return d.innerHTML; };
+const AUTO_REFRESH_MS = 5 * 60 * 1000;   // 5 minutes
+let _lastData = null;
+let _nextRefreshAt = 0;
+
+function scoreColor(s) {
+  if (s >= 80) return 'var(--green)';
+  if (s >= 60) return 'var(--yellow)';
+  if (s >= 40) return 'var(--orange)';
+  return 'var(--red)';
+}
+function colorClass(s) {
+  if (s >= 80) return 'c-green';
+  if (s >= 60) return 'c-yellow';
+  if (s >= 40) return 'c-orange';
+  return 'c-red';
+}
+function tagColor(c) { return ['green','yellow','orange','red','gray'].includes(c) ? c : 'gray'; }
+function chgStr(v)   { return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
+
+/* ── TICKER ─────────────────────────────────────────────── */
+function renderTicker(items) {
+  const doubled = [...items, ...items];
+  $('ticker').innerHTML = doubled.map(t => `
+    <span class="tick ${t.up ? 'up' : 'dn'}">
+      <span class="sym">${t.symbol}</span>
+      <span class="px">${t.price}</span>
+      <span class="chg"> ${chgStr(t.change_pct)}</span>
+    </span>`).join('');
+}
+
+/* ── HEADER BADGES ──────────────────────────────────────── */
+function renderHeader(d) {
+  const mkt = d.market_state || {};
+  $('mkt-badge').className = 'mkt-badge ' + (mkt.state || 'closed');
+  $('mkt-label').textContent = mkt.label || '—';
+  $('et-time').textContent = mkt.et_time ? `${mkt.et_date} · ${mkt.et_time}` : '—';
+
+  const fomc = d.fomc || {};
+  $('fomc-badge').className = 'fomc-badge ' + (fomc.color || 'gray');
+  $('fomc-badge').innerHTML = `${fomc.label || '—'} <span class="date">${fomc.date_pretty || ''}</span>`;
+
+  $('data-ts').textContent = d.timestamp ? `data: ${d.timestamp}` : '';
+
+  // Econ events row
+  const events = d.econ_events || [];
+  const visible = events.filter(e => e.days_until <= 14);
+  if (visible.length) {
+    $('econ-row').style.display = 'flex';
+    $('econ-badges').innerHTML = visible.map(e =>
+      `<span class="econ-badge ${esc(e.color)}">${esc(e.type)} · ${esc(e.name)} <span style="opacity:0.6">${esc(e.urgency)}</span></span>`
+    ).join(' ');
+  } else {
+    $('econ-row').style.display = 'none';
+  }
+
+  // Coverage warning
+  const cov = d.data_coverage || {};
+  if (cov.failed && cov.failed.length) {
+    $('coverage-warn').style.display = 'flex';
+    $('coverage-warn').innerHTML = `⚠ Partial data: ${cov.fetched}/${cov.requested} symbols fetched. Missing: ${cov.failed.slice(0, 8).join(', ')}${cov.failed.length > 8 ? '…' : ''}`;
+  } else {
+    $('coverage-warn').style.display = 'none';
+  }
+}
+
+/* ── HERO ───────────────────────────────────────────────── */
+function renderHero(d) {
+  const col = d.decision_color;
+  $('decision-badge').textContent = d.decision;
+  $('decision-badge').className = 'decision-badge ' + (col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : 'c-red');
+  $('pos-text').textContent = d.position_size;
+  $('pos-text').style.color = scoreColor(d.total_score);
+
+  const s = d.total_score;
+  const circ = 289;
+  const arc = $('score-arc');
+  arc.style.strokeDashoffset = circ - (s / 100) * circ;
+  arc.style.stroke = scoreColor(s);
+  $('score-val').textContent = s;
+  $('score-val').style.color = scoreColor(s);
+
+  const names = { volatility: 'VOL', trend: 'TREND', breadth: 'BREADTH', momentum: 'MOM', macro: 'MACRO' };
+  const order = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
+  $('pillars-mini').innerHTML = order.map(k => {
+    const sc = d.pillars[k].score;
+    const c  = scoreColor(sc);
+    return `<div class="pillar-mini">
+      <div class="pm-score" style="color:${c}">${sc}</div>
+      <div class="pm-bar"><div class="pm-fill" style="width:${sc}%;background:${c}"></div></div>
+      <div class="pm-label">${names[k]}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── PILLARS ────────────────────────────────────────────── */
+function tag(label, color) {
+  if (!label) return '';
+  return `<span class="tag ${tagColor(color)}">${label}</span>`;
+}
+function mrow(key, val, tagLabel, tagCol) {
+  return `<div class="metric-row">
+    <span class="metric-key">${key}</span>
+    <span class="metric-val">${val ?? ''} ${tag(tagLabel, tagCol)}</span>
+  </div>`;
+}
+
+function renderPillars(d) {
+  const defs = [
+    {
+      key: 'volatility', icon: '⚡', label: 'VOLATILITY',
+      render(p) {
+        const v = p.details;
+        return [
+          mrow('VIX Level',     v.vix_level ?? '—', v.vix_label, v.vix_color),
+          mrow('VIX Trend',     chgStr(v.vix_change_pct ?? 0), v.vix_trend, v.vix_trend_color),
+          mrow('VIX 1Y %ile',   (v.vix_pctile ?? 0) + 'th', null),
+          mrow('VIX3M',         v.vix3m_value ? `${v.vix3m_value}` : '—', v.vix_term_label, v.vix_term_color),
+          mrow('Flow Sentiment', (v.flow_score ?? '—') + '/100', v.flow_label, v.flow_color),
+          `<div class="metric-row"><span class="metric-key" style="font-size:9px;">Flow inputs</span><span class="metric-val" style="font-size:9px;color:var(--muted)">TQQQ ${chgStr(v.tqqq_chg ?? 0)} · SQQQ ${chgStr(v.sqqq_chg ?? 0)} · UVXY ${chgStr(v.uvxy_chg ?? 0)}</span></div>`,
+        ].join('');
+      },
+    },
+    {
+      key: 'trend', icon: '📈', label: 'TREND',
+      render(p) {
+        const v = p.details;
+        return [
+          mrow('SPY Price',   v.spy_price ? `$${v.spy_price}` : '—', chgStr(v.spy_change_pct ?? 0), v.spy_change_pct >= 0 ? 'green' : 'red'),
+          mrow('SPY vs 20d',  v.ma20 ? `$${v.ma20}`   : '—', v.above_20  ? '▲ Healthy'  : '▼ Warning', v.above_20  ? 'green' : 'red'),
+          mrow('SPY vs 50d',  v.ma50 ? `$${v.ma50}`   : '—', v.above_50  ? '▲ Strong'   : '▼ Weak',    v.above_50  ? 'green' : 'red'),
+          mrow('SPY vs 200d', v.ma200 ? `$${v.ma200}` : '—', v.above_200 ? '▲ Intact'   : '▼ Broken',  v.above_200 ? 'green' : 'red'),
+          mrow('QQQ',  v.qqq_price ? `$${v.qqq_price}` : '—', chgStr(v.qqq_change_pct ?? 0), v.qqq_change_pct >= 0 ? 'green' : 'red'),
+          mrow('Regime',  '',  v.regime, v.regime_color),
+          mrow('RSI(14)', v.rsi14 ?? '—', null),
+          mrow('ATH Dist', (v.ath_dist >= 0 ? '+' : '') + (v.ath_dist ?? 0) + '%', null),
+        ].join('');
+      },
+    },
+    {
+      key: 'breadth', icon: '📊', label: 'BREADTH',
+      render(p) {
+        const v = p.details;
+        const spct = v.sectors_total ? Math.round(v.sectors_positive / v.sectors_total * 100) : 0;
+        const ipct = v.industries_total ? Math.round(v.industries_positive / v.industries_total * 100) : 0;
+        return [
+          mrow('Sectors +',   `${v.sectors_positive}/${v.sectors_total}`, spct >= 73 ? 'Strong' : spct >= 45 ? 'Mixed' : 'Weak', spct >= 73 ? 'green' : spct >= 45 ? 'yellow' : 'red'),
+          mrow('Industries +', `${v.industries_positive}/${v.industries_total}`, ipct >= 67 ? 'Strong' : ipct >= 45 ? 'Mixed' : 'Weak', ipct >= 67 ? 'green' : ipct >= 45 ? 'yellow' : 'red'),
+          mrow('RSP',      v.rsp_price ? `$${v.rsp_price}` : '—', chgStr(v.rsp_change_pct ?? 0), v.rsp_change_pct >= 0 ? 'green' : 'red'),
+          mrow('RSP vs SPY', chgStr(v.rsp_vs_spy ?? 0), v.rsp_vs_spy > 0 ? 'Broad' : 'Narrow', v.rsp_vs_spy > 0 ? 'green' : 'orange'),
+          mrow('RSP > 50d',  '', v.rsp_above_50  ? 'Yes' : 'No', v.rsp_above_50  ? 'green' : 'red'),
+          mrow('RSP > 200d', '', v.rsp_above_200 ? 'Yes' : 'No', v.rsp_above_200 ? 'green' : 'red'),
+        ].join('');
+      },
+    },
+    {
+      key: 'momentum', icon: '🚀', label: 'MOMENTUM',
+      render(p) {
+        const v = p.details;
+        const l = v.leader || {}, lg = v.laggard || {};
+        return [
+          mrow('Sectors +',    v.sectors_label ?? '—', null, v.sectors_color),
+          mrow('Leader',       l.name ?? '—', l.change_pct != null ? chgStr(l.change_pct) : null, 'green'),
+          mrow('Laggard',      lg.name ?? '—', lg.change_pct != null ? chgStr(lg.change_pct) : null, 'red'),
+          mrow('Growth 3',     v.growth_leaders + '/3', null),
+          mrow('Participation', '', v.participation ?? '—', v.participation_color),
+          mrow('IWM vs SPY',    chgStr(v.iwm_vs_spy ?? 0), v.iwm_vs_spy > 0.3 ? 'Risk-On' : v.iwm_vs_spy < -0.3 ? 'Defensive' : 'Neutral', v.iwm_vs_spy > 0.3 ? 'green' : v.iwm_vs_spy < -0.3 ? 'orange' : 'yellow'),
+          mrow('RSP vs SPY',    chgStr(v.rsp_vs_spy ?? 0), v.rsp_outperforming ? 'Broad' : 'Narrow', v.rsp_outperforming ? 'green' : 'orange'),
+        ].join('');
+      },
+    },
+    {
+      key: 'macro', icon: '🌐', label: 'MACRO',
+      render(p) {
+        const v = p.details;
+        return [
+          mrow('10Y Yield',  v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color),
+          mrow('10Y MA20',   v.tnx_ma20 ? `${v.tnx_ma20}%` : '—', v.yield_label, null),
+          mrow('DXY',        v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
+          mrow('DXY MA20',   v.dxy_ma20 ?? '—', null),
+          mrow('TLT',        v.tlt_value ? `$${v.tlt_value}` : '—', chgStr(v.tlt_change_pct ?? 0), v.tlt_change_pct >= 0 ? 'green' : 'red'),
+          mrow('HYG Credit', v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color),
+          mrow('GLD (Gold)', v.gld_price ? `$${v.gld_price}` : '—', v.gld_label, v.gld_color),
+          mrow('BTC',        v.btc_price ? `$${Number(v.btc_price).toLocaleString()}` : '—', v.btc_label, v.btc_color),
+          mrow('BTC Trend',  v.btc_trend ?? '—', v.btc_from_high != null ? `${v.btc_from_high}% from high` : null, v.btc_trend_color),
+          mrow('FOMC',       v.fomc_date ?? '—', v.fomc_label, v.fomc_color),
+        ].join('');
+      },
+    },
+  ];
+
+  $('pillars-row').innerHTML = defs.map(def => {
+    const p = d.pillars[def.key];
+    const sc = p.score;
+    const c = scoreColor(sc);
+    const reasons = (p.reasons || []).map(r => `<div class="why-line">${r}</div>`).join('');
+    return `
+      <div class="pillar-card">
+        <div class="pillar-head">
+          <span class="pillar-name" style="color:${c}">${def.icon} ${def.label}</span>
+          <span class="pillar-score-badge" style="color:${c}">${sc}</span>
+        </div>
+        <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
+        ${def.render(p)}
+        <div class="why-toggle" onclick="toggleWhy(this)">▾ Why this score?</div>
+        <div class="why-body">${reasons || '<em>No reasons recorded</em>'}</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleWhy(el) {
+  const body = el.nextElementSibling;
+  const open = body.classList.toggle('open');
+  el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
+}
+
+/* ── SECTOR + INDUSTRY BARS ────────────────────────────── */
+function renderBars(elId, data) {
+  const entries = Object.entries(data || {}).sort((a, b) => b[1].change_pct - a[1].change_pct);
+  if (!entries.length) { $(elId).innerHTML = '<div style="color:var(--muted);font-size:10px;">No data</div>'; return; }
+  const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
+  $(elId).innerHTML = entries.map(([sym, v]) => {
+    const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
+    const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
+    const c  = v.change_pct >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<div class="sector-row">
+      <span class="sector-name">${v.name}</span>
+      <div class="sector-bar-wrap">
+        <div class="sector-bar" style="width:${w}%;background:${bg}">
+          <span class="sector-pct" style="color:${c}">${chgStr(v.change_pct)}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── EXECUTION WINDOW ──────────────────────────────────── */
+function renderExecution(d) {
+  const t = d.pillars.trend.details;
+  const b = d.pillars.breadth.details;
+  const m = d.pillars.momentum.details;
+
+  const checks = [
+    { label: 'Breakouts working?', ok: m.sectors_positive >= 7,       t: 'Working',     f: 'Failing'  },
+    { label: 'Leaders holding?',   ok: t.above_50 && t.above_20,      t: 'Holding',     f: 'Breaking' },
+    { label: 'Pullbacks bought?',  ok: b.rsp_change_pct >= 0,         t: 'Supported',   f: 'Sold'     },
+    { label: 'Broad participation?', ok: b.rsp_vs_spy > 0,             t: 'Broad',       f: 'Narrow'   },
+    { label: 'Follow-through?',    ok: d.total_score >= 70,           t: 'Conviction',  f: 'Weak'     },
+  ];
+
+  $('exec-window').innerHTML = checks.map(c => {
+    const col = c.ok ? 'var(--green)' : 'var(--red)';
+    return `<div class="exec-row">
+      <span class="exec-key"><span class="exec-dot" style="background:${col}"></span>${c.label}</span>
+      <span style="color:${col};font-size:10px;font-weight:700">${c.ok ? c.t : c.f}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ── CUSTOM WEIGHTS (localStorage) ────────────────────── */
+const DEFAULT_WEIGHTS = { volatility: 20, trend: 25, breadth: 20, momentum: 20, macro: 15 };
+function loadWeights() {
+  try { return JSON.parse(localStorage.getItem('pillarWeights')) || DEFAULT_WEIGHTS; }
+  catch { return { ...DEFAULT_WEIGHTS }; }
+}
+function saveWeightsLS(w) { localStorage.setItem('pillarWeights', JSON.stringify(w)); }
+
+function applyCustomWeights(data) {
+  const w = loadWeights();
+  const p = data.pillars;
+  const total = Math.round(
+    p.volatility.score * w.volatility / 100 +
+    p.trend.score      * w.trend      / 100 +
+    p.breadth.score    * w.breadth    / 100 +
+    p.momentum.score   * w.momentum   / 100 +
+    p.macro.score      * w.macro      / 100
+  );
+  return { ...data, total_score: total,
+    decision: total >= 80 ? 'YES' : total >= 60 ? 'CAUTION' : 'NO',
+    decision_color: total >= 80 ? 'green' : total >= 60 ? 'yellow' : 'red',
+    position_size: total >= 80 ? 'FULL SIZE' : total >= 60 ? 'HALF SIZE' : 'PRESERVE CAPITAL',
+    _weights: w };
+}
+
+/* ── SETTINGS DRAWER ───────────────────────────────────── */
+function toggleSettings() {
+  const overlay = $('settings-overlay');
+  const isOpen = overlay.classList.toggle('open');
+  if (isOpen) {
+    const w = loadWeights();
+    ['v','tr','br','mo','ma'].forEach((k, i) => {
+      const key = ['volatility','trend','breadth','momentum','macro'][i];
+      $(`ws-${k}`).value = w[key];
+      $(`wlbl-${k}`).textContent = w[key] + '%';
+    });
+  }
+}
+function closeSettingsOnOverlay(e) { if (e.target === $('settings-overlay')) toggleSettings(); }
+
+function onWeightChange() {
+  const keys = [['v','volatility'],['tr','trend'],['br','breadth'],['mo','momentum'],['ma','macro']];
+  const sum = keys.reduce((s, [k]) => s + parseInt($(`ws-${k}`).value), 0);
+  keys.forEach(([k]) => $(`wlbl-${k}`).textContent = $(`ws-${k}`).value + '%');
+  $('weight-sum-warn').style.display = sum !== 100 ? 'block' : 'none';
+}
+function applyWeights() {
+  const keys = [['v','volatility'],['tr','trend'],['br','breadth'],['mo','momentum'],['ma','macro']];
+  const sum = keys.reduce((s, [k]) => s + parseInt($(`ws-${k}`).value), 0);
+  if (sum !== 100) return;
+  const w = {};
+  keys.forEach(([k, full]) => { w[full] = parseInt($(`ws-${k}`).value); });
+  saveWeightsLS(w);
+  if (_lastData) {
+    const updated = applyCustomWeights(_lastData);
+    renderHero(updated);
+    renderWeights(updated);
+  }
+  toggleSettings();
+}
+function resetWeights() {
+  saveWeightsLS({ ...DEFAULT_WEIGHTS });
+  ['v','tr','br','mo','ma'].forEach((k, i) => {
+    const key = ['volatility','trend','breadth','momentum','macro'][i];
+    $(`ws-${k}`).value = DEFAULT_WEIGHTS[key];
+    $(`wlbl-${k}`).textContent = DEFAULT_WEIGHTS[key] + '%';
+  });
+  $('weight-sum-warn').style.display = 'none';
+  if (_lastData) {
+    const updated = applyCustomWeights(_lastData);
+    renderHero(updated);
+    renderWeights(updated);
+  }
+}
+
+/* ── THEME ─────────────────────────────────────────────── */
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-theme');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  $('theme-btn').textContent = isLight ? '🌙' : '☀';
+}
+function initTheme() {
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light-theme');
+    $('theme-btn').textContent = '🌙';
+  }
+}
+
+/* ── EXPORT / COPY ─────────────────────────────────────── */
+function copySnapshot() {
+  if (!_lastData) return;
+  const d = applyCustomWeights(_lastData);
+  const p = d.pillars;
+  const now = new Date().toLocaleString();
+  const lines = [
+    `=== Should I Trade? — ${now} ===`,
+    `Decision: ${d.decision}  |  Score: ${d.total_score}/100  |  Size: ${d.position_size}`,
+    ``,
+    `Pillars:`,
+    `  Volatility : ${p.volatility.score}/100`,
+    `  Trend      : ${p.trend.score}/100`,
+    `  Breadth    : ${p.breadth.score}/100`,
+    `  Momentum   : ${p.momentum.score}/100`,
+    `  Macro      : ${p.macro.score}/100`,
+    ``,
+  ];
+  const rt = document.querySelectorAll('.persona-card');
+  if (rt.length) {
+    lines.push('Roundtable:');
+    rt.forEach(card => {
+      const name = card.querySelector('.persona-name')?.textContent?.trim() || '';
+      const verdict = card.querySelector('.persona-verdict')?.textContent?.trim() || '';
+      if (name) lines.push(`  ${name}: ${verdict}`);
+    });
+  }
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.querySelector('button[onclick="copySnapshot()"]');
+    if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1500); }
+  });
+}
+
+/* ── WEIGHTS ───────────────────────────────────────────── */
+function renderWeights(d) {
+  const order = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
+  const names = { volatility: 'Volatility', trend: 'Trend', breadth: 'Breadth', momentum: 'Momentum', macro: 'Macro' };
+  const weights = d._weights || loadWeights();
+
+  $('score-weights').innerHTML = order.map(k => {
+    const sc = d.pillars[k].score;
+    const w = weights[k];
+    const c = scoreColor(sc);
+    return `<div class="weight-row">
+      <span class="weight-name">${names[k]}</span>
+      <div class="weight-bar-wrap"><div class="weight-bar" style="width:${sc}%;background:${c}"></div></div>
+      <div class="weight-right">
+        <span class="weight-score" style="color:${c}">${sc}</span>
+        <span class="weight-pct">· ${w}%</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  $('total-score-bottom').textContent = `${d.total_score}/100`;
+  $('total-score-bottom').style.color = scoreColor(d.total_score);
+}
+
+/* ── SCORE SPARKLINE ───────────────────────────────────── */
+const SPARK_LINES = { total: true, v: false, tr: false, br: false, mo: false, ma: false };
+const SPARK_COLORS = { total: '#e0e8f0', v: '#00b0ff', tr: '#00e676', br: '#ffd740', mo: '#ff9100', ma: '#7c4dff' };
+let _sparkHistory = [];
+
+function toggleSparkLine(key, el) {
+  SPARK_LINES[key] = !SPARK_LINES[key];
+  el.classList.toggle('dimmed', !SPARK_LINES[key]);
+  drawSparkline();
+}
+
+function drawSparkline() {
+  const svg = $('sparkline');
+  const history = _sparkHistory;
+  if (!history || history.length < 2) {
+    svg.innerHTML = '<text x="100" y="22" text-anchor="middle" font-size="9" fill="#5a7080">Collecting data…</text>';
+    return;
+  }
+  const W = 200, H = 36;
+  const n = history.length;
+  const allVals = [];
+  Object.keys(SPARK_LINES).forEach(k => { if (SPARK_LINES[k]) allVals.push(...history.map(h => h[k] ?? h.total)); });
+  const min = Math.min(...allVals, 30);
+  const max = Math.max(...allVals, 90);
+  const xOf = i => (i / (n - 1)) * W;
+  const yOf = v => H - ((v - min) / Math.max(1, max - min)) * (H - 4) - 2;
+  let svgContent = '';
+  Object.entries(SPARK_LINES).forEach(([key, visible]) => {
+    if (!visible) return;
+    const vals = history.map(h => h[key] ?? h.total);
+    const pts = vals.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+    const isTotal = key === 'total';
+    const last = vals[vals.length - 1];
+    const col = isTotal ? (last >= 80 ? 'var(--green)' : last >= 60 ? 'var(--yellow)' : 'var(--red)') : SPARK_COLORS[key];
+    svgContent += `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${isTotal ? 1.6 : 1}" stroke-dasharray="${isTotal ? 'none' : '3,2'}" opacity="${isTotal ? 1 : 0.75}"/>`;
+    if (isTotal) {
+      const lx = xOf(n - 1).toFixed(1);
+      const ly = yOf(last).toFixed(1);
+      svgContent += `<circle cx="${lx}" cy="${ly}" r="2.2" fill="${col}"/>`;
+    }
+  });
+  svg.innerHTML = svgContent;
+  $('spark-range').textContent = `${history[0].ts}→${history[history.length-1].ts} · ${n} pts`;
+}
+
+async function renderSparkline() {
+  try {
+    const res = await fetch('/api/history-scores');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { history } = await res.json();
+    _sparkHistory = history || [];
+    const svg = $('sparkline');
+    if (!_sparkHistory.length) {
+      svg.innerHTML = '<text x="100" y="22" text-anchor="middle" font-size="9" fill="#5a7080">Collecting data…</text>';
+      $('spark-range').textContent = '—';
+      return;
+    }
+    drawSparkline();
+  } catch(e) {
+    $('sparkline').innerHTML = '';
+  }
+}
+
+/* ── ROUNDTABLE ────────────────────────────────────────── */
+async function runRoundtable(auto=false) {
+  const btn = $('rt-btn');
+  if (!auto) btn.disabled = true;
+  btn.textContent = auto ? '▶ Generate Desk Read' : '⏳ Convening desk…';
+  try {
+    const res = await fetch('/api/analysis');
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderRoundtable(data.personas || []);
+  } catch(e) {
+    $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh Desk Read';
+  }
+}
+
+function renderRoundtable(personas) {
+  $('roundtable-grid').innerHTML = personas.map((p, i) => {
+    const stanceCol = p.stance_color || 'gray';
+    const isHead = p.persona === 'The Desk Head';
+    const bg = `rgba(${stanceCol === 'green' ? '0,230,118' : stanceCol === 'yellow' ? '255,215,64' : stanceCol === 'orange' ? '255,145,0' : stanceCol === 'red' ? '255,23,68' : '90,112,128'}, 0.15)`;
+    const fg = `var(--${stanceCol === 'gray' ? 'muted' : stanceCol})`;
+    const pts = (p.points || []).map(pt => `
+      <div class="persona-point"><span class="icon">${pt.icon}</span><span>${pt.text}</span></div>`).join('');
+    return `
+      <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
+        <div class="persona-header">
+          <div class="persona-id">
+            <div class="persona-name">${p.avatar} ${p.persona}</div>
+            <div class="persona-role">${p.role}</div>
+          </div>
+          <span class="persona-stance" style="background:${bg};color:${fg}">${p.stance}</span>
+        </div>
+        <div class="persona-read">"${p.read}"</div>
+        <div class="persona-points">${pts}</div>
+        <div class="persona-verdict">${p.verdict}</div>
+      </div>`;
+  }).join('');
+
+  // Stagger fade-in
+  const cards = document.querySelectorAll('.persona-card');
+  cards.forEach((card, i) => setTimeout(() => card.classList.add('in'), i * 120));
+}
+
+/* ── MAIN LOAD ─────────────────────────────────────────── */
+async function load(isManual = false) {
+  if (!_lastData) {
+    $('loading').style.display = 'flex';
+    $('content').style.display = 'none';
+  }
+  try {
+    const res = await fetch('/api/dashboard');
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const raw = await res.json();
+    if (raw.error) throw new Error(raw.error);
+    _lastData = raw;
+
+    // Apply custom weights before rendering
+    const data = applyCustomWeights(raw);
+
+    renderTicker(raw.ticker || []);
+    renderHeader(raw);
+    renderHero(data);
+    renderPillars(raw);
+    renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
+    renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
+    renderExecution(data);
+    renderWeights(data);
+    renderSparkline();
+
+    $('loading').style.display = 'none';
+    $('content').style.display = 'block';
+
+    _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+
+    // Auto-generate desk read on first load
+    if (isManual || !document.querySelector('.persona-card')) {
+      setTimeout(() => runRoundtable(true), 400);
+    }
+  } catch(e) {
+    $('loading').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">
+      ⚠ Error: ${e.message}<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
+  }
+}
+
+/* ── AUTO-REFRESH + COUNTDOWN ──────────────────────────── */
+function tickCountdown() {
+  if (!_nextRefreshAt) { $('countdown').textContent = ''; return; }
+  const left = Math.max(0, _nextRefreshAt - Date.now());
+  if (left === 0) {
+    _nextRefreshAt = 0;
+    $('countdown').textContent = 'refreshing…';
+    load(false);
+    return;
+  }
+  const m = Math.floor(left / 60000);
+  const s = Math.floor((left % 60000) / 1000);
+  $('countdown').textContent = `next refresh in ${m}:${s.toString().padStart(2, '0')}`;
+}
+setInterval(tickCountdown, 1000);
+
+/* ── KICKOFF ───────────────────────────────────────────── */
+initTheme();
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'r' || e.key === 'R') load(true);
+  if (e.key === 'd' || e.key === 'D') toggleTheme();
+  if (e.key === 's' || e.key === 'S') toggleSettings();
+  if (e.key === 'Escape') { if ($('settings-overlay').classList.contains('open')) toggleSettings(); }
+});
+
+load(true);
+</script>
+</body>
+</html>

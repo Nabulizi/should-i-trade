@@ -1,0 +1,9 @@
+# Should I Trade? — Market Quality Terminal v5
+# No external packages required — Python standard library only.
+# Python 3.10+ required (union type hints: dict | None, match statements).
+#
+# Run:   python3 server.py
+# Open:  http://localhost:8765
+#
+# All data: Yahoo Finance v8 API → Stooq CSV fallback (free, no API key)
+# BTC data: Yahoo Finance → CoinGecko → Binance public API

@@ -1,0 +1,27 @@
+# Runtime / generated
+history.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+nohup.out
+
+# Virtual environments
+venv/
+.venv/
+env/
