@@ -194,6 +194,66 @@ def btc_history() -> list[float]:
         return []
 
 
+# ─── fear & greed index ────────────────────────────────────────────────────
+def _fng_rating(score: float) -> str:
+    if score <= 25:  return "Extreme Fear"
+    if score <= 45:  return "Fear"
+    if score <= 55:  return "Neutral"
+    if score <= 75:  return "Greed"
+    return "Extreme Greed"
+
+
+def fetch_fear_greed() -> dict:
+    """Fetch Fear & Greed Index. Primary: CNN (stock market). Fallback: alternative.me (crypto)."""
+    # 1. CNN Fear & Greed Index
+    try:
+        body = fetch_url(
+            "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/",
+            cache_secs=300,
+            headers={"Referer": "https://edition.cnn.com/markets/fear-and-greed"})
+        d = json.loads(body)
+        fg = d.get("fear_and_greed") or {}
+        score = fg.get("score")
+        if score is not None:
+            score = float(score)
+            return {
+                "score":      round(score, 1),
+                "rating":     str(fg.get("rating") or _fng_rating(score)),
+                "prev_close": round(float(fg.get("previous_close") or score), 1),
+                "prev_week":  round(float(fg.get("previous_1_week") or score), 1),
+                "prev_month": round(float(fg.get("previous_1_month") or score), 1),
+                "source":     "CNN",
+                "available":  True,
+            }
+    except Exception:
+        pass
+
+    # 2. alternative.me crypto F&G (widely tracked sentiment proxy)
+    try:
+        body = fetch_url(
+            "https://api.alternative.me/fng/?limit=7&format=json",
+            cache_secs=300)
+        entries = json.loads(body).get("data") or []
+        if entries:
+            cur   = entries[0]
+            score = float(cur["value"])
+            p1    = float(entries[1]["value"]) if len(entries) > 1 else score
+            p7    = float(entries[6]["value"]) if len(entries) > 6 else score
+            return {
+                "score":      score,
+                "rating":     cur.get("value_classification") or _fng_rating(score),
+                "prev_close": p1,
+                "prev_week":  p7,
+                "prev_month": score,
+                "source":     "alternative.me",
+                "available":  True,
+            }
+    except Exception:
+        pass
+
+    return {"available": False}
+
+
 # ─── parallel fetch helpers ─────────────────────────────────────────────────
 def fetch_quotes_parallel(symbols: list[str], max_workers: int = 8) -> dict[str, dict | None]:
     """Fetch many quotes concurrently. Returns {symbol: quote_dict_or_None}."""
