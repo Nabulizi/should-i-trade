@@ -194,7 +194,7 @@ def btc_history() -> list[float]:
         return []
 
 
-# ─── fear & greed index ────────────────────────────────────────────────────
+# ─── fear & greed indexes ──────────────────────────────────────────────────
 def _fng_rating(score: float) -> str:
     if score <= 25:  return "Extreme Fear"
     if score <= 45:  return "Fear"
@@ -203,9 +203,8 @@ def _fng_rating(score: float) -> str:
     return "Extreme Greed"
 
 
-def fetch_fear_greed() -> dict:
-    """Fetch Fear & Greed Index. Primary: CNN (stock market). Fallback: alternative.me (crypto)."""
-    # 1. CNN Fear & Greed Index
+def fetch_fear_greed_stock() -> dict:
+    """CNN Fear & Greed Index — US stock market sentiment (7 equity indicators)."""
     try:
         body = fetch_url(
             "https://production.dataviz.cnn.io/index/fearandgreed/graphdata/",
@@ -227,8 +226,11 @@ def fetch_fear_greed() -> dict:
             }
     except Exception:
         pass
+    return {"available": False}
 
-    # 2. alternative.me crypto F&G (widely tracked sentiment proxy)
+
+def fetch_fear_greed_crypto() -> dict:
+    """alternative.me Crypto Fear & Greed Index — Bitcoin/crypto market sentiment."""
     try:
         body = fetch_url(
             "https://api.alternative.me/fng/?limit=7&format=json",
@@ -250,7 +252,6 @@ def fetch_fear_greed() -> dict:
             }
     except Exception:
         pass
-
     return {"available": False}
 
 

@@ -15,7 +15,7 @@ from typing import Any
 from data import (
     fetch_quotes_parallel, fetch_histories_parallel,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
-    fetch_fear_greed,
+    fetch_fear_greed_stock, fetch_fear_greed_crypto,
 )
 
 # ─── configuration ─────────────────────────────────────────────────────────
@@ -630,14 +630,16 @@ def compute_dashboard() -> dict:
                      ("HYG", 60)]
     histories = fetch_histories_parallel(history_pairs, max_workers=4)
 
-    # BTC + Fear & Greed fetched concurrently (different data sources)
-    with _TPE(max_workers=3) as _ex:
-        _btc_q_f   = _ex.submit(btc_quote)
-        _btc_h_f   = _ex.submit(btc_history)
-        _fng_f     = _ex.submit(fetch_fear_greed)
+    # BTC + both Fear & Greed indexes fetched concurrently
+    with _TPE(max_workers=4) as _ex:
+        _btc_q_f      = _ex.submit(btc_quote)
+        _btc_h_f      = _ex.submit(btc_history)
+        _fng_stock_f  = _ex.submit(fetch_fear_greed_stock)
+        _fng_crypto_f = _ex.submit(fetch_fear_greed_crypto)
     btc_q      = _btc_q_f.result()
     btc_closes = _btc_h_f.result()
-    fear_greed = _fng_f.result()
+    fng_stock  = _fng_stock_f.result()
+    fng_crypto = _fng_crypto_f.result()
 
     mstate = market_state()
     fomc = fomc_proximity()
@@ -700,7 +702,8 @@ def compute_dashboard() -> dict:
             "macro":      {"score": mac["score"],  "weight": 15, "details": mac["details"],  "reasons": mac["reasons"]},
         },
         "ticker": ticker,
-        "fear_greed": fear_greed,
+        "fear_greed_stock":  fng_stock,
+        "fear_greed_crypto": fng_crypto,
         "timestamp": time.strftime("%H:%M:%S UTC", time.gmtime()),
         "data_coverage": {"requested": requested, "fetched": fetched, "failed": failed},
     }
