@@ -218,6 +218,25 @@
   .spark-leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .spark-leg-item.dimmed { opacity: 0.3; }
 
+  /* ── FEAR & GREED ── */
+  .fng-card { display: flex; flex-direction: column; gap: 10px; }
+  .fng-header { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
+  .fng-panels { display: flex; gap: 0; align-items: flex-start; }
+  .fng-panel { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; flex-wrap: wrap; }
+  .fng-panel-title { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted2); white-space: nowrap; }
+  .fng-sep { width: 1px; background: var(--border); align-self: stretch; margin: 0 18px; flex-shrink: 0; }
+  .fng-gauge-wrap { flex-shrink: 0; }
+  .fng-info { display: flex; flex-direction: column; gap: 5px; min-width: 110px; }
+  .fng-score { font-size: 36px; font-weight: 800; line-height: 1; }
+  .fng-rating { font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-top: 1px; }
+  .fng-divider { border: none; border-top: 1px solid var(--border); margin: 3px 0; }
+  .fng-hist { display: flex; gap: 16px; flex-wrap: wrap; }
+  .fng-hist-item { display: flex; flex-direction: column; gap: 2px; }
+  .fng-hist-label { font-size: 8px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .fng-hist-val { font-size: 11px; font-weight: 700; }
+  .fng-source { font-size: 8px; color: var(--muted); }
+  .fng-unavail { color: var(--muted); font-size: 10px; padding: 6px 0; }
+
   /* ── LIGHT THEME ── */
   .light-theme {
     --bg:      #f5f7fa;
@@ -338,6 +357,9 @@
 
     <!-- 5 PILLAR CARDS -->
     <div class="pillars-row" id="pillars-row"></div>
+
+    <!-- FEAR & GREED -->
+    <div class="card fng-card" id="fng-card" style="display:none"></div>
 
     <!-- BOTTOM -->
     <div class="bottom-row">
@@ -962,6 +984,111 @@ function renderRoundtable(personas) {
   cards.forEach((card, i) => setTimeout(() => card.classList.add('in'), i * 120));
 }
 
+/* ── FEAR & GREED ──────────────────────────────────────── */
+function fngColor(score) {
+  if (score <= 25) return '#ff1744';
+  if (score <= 45) return '#ff9100';
+  if (score <= 55) return '#ffd740';
+  if (score <= 75) return '#69f0ae';
+  return '#00e676';
+}
+
+function buildFngGauge(score) {
+  const cx = 100, cy = 100, r = 70, sw = 11;
+  const PI = Math.PI;
+  const ang = s => PI + (s / 100) * PI;
+  const ax  = a => cx + r * Math.cos(a);
+  const ay  = a => cy + r * Math.sin(a);
+
+  function arcPath(s1, s2) {
+    const a1 = ang(s1), a2 = ang(s2);
+    const x1 = ax(a1).toFixed(2), y1 = ay(a1).toFixed(2);
+    const x2 = ax(a2).toFixed(2), y2 = ay(a2).toFixed(2);
+    const large = (a2 - a1) > PI ? 1 : 0;
+    return `M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2}`;
+  }
+
+  const col = fngColor(score);
+  const zones = [[0,25,'#ff1744'],[25,45,'#ff9100'],[45,55,'#ffd740'],[55,75,'#69f0ae'],[75,100,'#00e676']];
+
+  let p = [];
+  p.push(`<path d="${arcPath(0,100)}" fill="none" stroke="var(--border)" stroke-width="${sw + 2}" stroke-linecap="round"/>`);
+  zones.forEach(([s1,s2,c]) => {
+    p.push(`<path d="${arcPath(s1,s2)}" fill="none" stroke="${c}" stroke-width="${sw}" opacity="0.18"/>`);
+  });
+  if (score > 0.5) {
+    p.push(`<path d="${arcPath(0, Math.min(score, 99.9))}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/>`);
+  }
+  const na = ang(score);
+  p.push(`<circle cx="${ax(na).toFixed(2)}" cy="${ay(na).toFixed(2)}" r="7" fill="${col}" stroke="var(--bg)" stroke-width="2"/>`);
+  [0,25,50,75,100].forEach(s => {
+    const a = ang(s);
+    const ir = r - sw / 2 - 2, or2 = r + sw / 2 + 2;
+    p.push(`<line x1="${(cx+ir*Math.cos(a)).toFixed(1)}" y1="${(cy+ir*Math.sin(a)).toFixed(1)}" x2="${(cx+or2*Math.cos(a)).toFixed(1)}" y2="${(cy+or2*Math.sin(a)).toFixed(1)}" stroke="var(--bg)" stroke-width="1.5"/>`);
+  });
+  p.push(`<text x="${cx}" y="${cy-18}" text-anchor="middle" font-size="32" font-weight="800" fill="${col}" font-family="SF Mono,Fira Code,monospace">${Math.round(score)}</text>`);
+  p.push(`<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="8" fill="var(--muted)" font-family="monospace" letter-spacing="1">/ 100</text>`);
+  p.push(`<text x="${(ax(ang(0))-4).toFixed(1)}" y="${(ay(ang(0))+14).toFixed(1)}" text-anchor="end" font-size="7.5" fill="#ff174499" font-family="monospace">FEAR</text>`);
+  p.push(`<text x="${(ax(ang(100))+4).toFixed(1)}" y="${(ay(ang(100))+14).toFixed(1)}" text-anchor="start" font-size="7.5" fill="#00e67699" font-family="monospace">GREED</text>`);
+
+  return `<svg viewBox="0 0 200 115" width="170" height="98" style="display:block">${p.join('')}</svg>`;
+}
+
+function fngPanel(fg, title, emoji) {
+  if (!fg || !fg.available) {
+    return `<div class="fng-panel">
+      <div class="fng-panel-title">${emoji} ${title}</div>
+      <div class="fng-unavail">Unavailable</div>
+    </div>`;
+  }
+  const score    = fg.score;
+  const col      = fngColor(score);
+  const prevDiff = score - fg.prev_close;
+  const weekDiff = score - fg.prev_week;
+
+  function histItem(label, val, diff) {
+    const dc  = diff >= 0 ? 'var(--green)' : 'var(--red)';
+    const arr = diff >= 0 ? '▲' : '▼';
+    return `<div class="fng-hist-item">
+      <span class="fng-hist-label">${label}</span>
+      <span class="fng-hist-val" style="color:${dc}">${arr} ${val.toFixed(0)}</span>
+    </div>`;
+  }
+
+  return `<div class="fng-panel">
+    <div class="fng-panel-title">${emoji} ${title}</div>
+    <div class="fng-gauge-wrap">${buildFngGauge(score)}</div>
+    <div class="fng-info">
+      <div class="fng-score" style="color:${col}">${Math.round(score)}</div>
+      <div class="fng-rating" style="color:${col}">${esc(fg.rating)}</div>
+      <hr class="fng-divider">
+      <div class="fng-hist">
+        ${histItem('Prev Close', fg.prev_close, prevDiff)}
+        ${histItem('1 Week Ago', fg.prev_week,  weekDiff)}
+      </div>
+      <div class="fng-source">${esc(fg.source)}</div>
+    </div>
+  </div>`;
+}
+
+function renderFearGreed(d) {
+  const card   = $('fng-card');
+  const stock  = d.fear_greed_stock  || {};
+  const crypto = d.fear_greed_crypto || {};
+  if (!stock.available && !crypto.available) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'flex';
+  card.innerHTML = `
+    <div class="fng-header">🧠 FEAR &amp; GREED</div>
+    <div class="fng-panels">
+      ${fngPanel(stock,  'Stocks',  '📈')}
+      <div class="fng-sep"></div>
+      ${fngPanel(crypto, 'Crypto',  '₿')}
+    </div>`;
+}
+
 /* ── MAIN LOAD ─────────────────────────────────────────── */
 async function load(isManual = false) {
   if (!_lastData) {
@@ -984,6 +1111,7 @@ async function load(isManual = false) {
     renderPillars(raw);
     renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
     renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
+    renderFearGreed(raw);
     renderExecution(data);
     renderWeights(data);
     renderSparkline();
