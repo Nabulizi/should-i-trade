@@ -84,6 +84,40 @@ def yf_history(symbol: str, days: int = 220) -> list[float]:
         return []
 
 
+def yf_ohlcv(symbol: str, days: int = 220) -> dict:
+    """Fetch daily OHLCV from Yahoo (same URL as yf_history — cache hit).
+    Returns {closes, volumes, highs, lows} as aligned lists, empty on failure."""
+    period = "1y" if days <= 252 else "2y"
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{_yf_sym(symbol)}"
+           f"?interval=1d&range={period}&includePrePost=false")
+    empty = {"closes": [], "volumes": [], "highs": [], "lows": []}
+    try:
+        q = json.loads(fetch_url(url, cache_secs=300))["chart"]["result"][0]["indicators"]["quote"][0]
+        rows = [
+            (c, v, h, l)
+            for c, v, h, l in zip(
+                q.get("close",  []), q.get("volume", []),
+                q.get("high",   []), q.get("low",    []))
+            if all(x is not None for x in (c, v, h, l))
+        ]
+        if not rows:
+            return empty
+        closes, volumes, highs, lows = zip(*rows)
+        return {"closes": list(closes), "volumes": list(volumes),
+                "highs":  list(highs),  "lows":    list(lows)}
+    except Exception:
+        return empty
+
+
+def get_ohlcv(symbol: str, days: int = 220) -> dict:
+    """OHLCV with closes-only fallback if high/low/volume are unavailable."""
+    d = yf_ohlcv(symbol, days)
+    if d["closes"]:
+        return d
+    closes = get_history(symbol, days)
+    return {"closes": closes, "volumes": [], "highs": [], "lows": []}
+
+
 # ─── stooq fallback ────────────────────────────────────────────────────────
 # Stooq uses lowercase tickers with .us suffix for US listings and ^prefix
 # for indices. Free, no key, reliable. CSV format.
