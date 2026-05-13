@@ -32,6 +32,7 @@ _HISTORY_META = {"last_ts": 0.0}            # tracks last-append time; avoids us
 _DASHBOARD_CACHE = {"ts": 0.0, "data": None}
 _DASHBOARD_TTL = 60   # seconds
 _DASHBOARD_LOCK = threading.Lock()
+_COMPUTE_LOCK   = threading.Lock()   # serialises computation; prevents thundering herd
 
 
 def _load_history() -> None:
@@ -57,17 +58,25 @@ def _save_history(snapshot: list) -> None:
 
 
 def get_cached_dashboard() -> dict:
+    # Fast path — cache hit, no blocking
     with _DASHBOARD_LOCK:
         now = time.time()
         if _DASHBOARD_CACHE["data"] and now - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
             return _DASHBOARD_CACHE["data"]
 
-    # Compute outside the lock (network-bound)
-    data = compute_dashboard()
+    # Cache miss — only one thread computes; the rest queue here then get the
+    # fresh result from cache (double-checked locking pattern).
+    with _COMPUTE_LOCK:
+        with _DASHBOARD_LOCK:
+            now = time.time()
+            if _DASHBOARD_CACHE["data"] and now - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
+                return _DASHBOARD_CACHE["data"]
 
-    with _DASHBOARD_LOCK:
-        _DASHBOARD_CACHE["data"] = data
-        _DASHBOARD_CACHE["ts"] = time.time()
+        data = compute_dashboard()
+
+        with _DASHBOARD_LOCK:
+            _DASHBOARD_CACHE["data"] = data
+            _DASHBOARD_CACHE["ts"] = time.time()
 
     # Record in history
     now_ts = time.time()

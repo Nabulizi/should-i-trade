@@ -60,6 +60,8 @@
 
   .ts { color: var(--muted); font-size: 10px; }
   .countdown { color: var(--muted2); font-size: 10px; }
+  #refresh-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; opacity: 0; transition: opacity 0.3s; vertical-align: middle; margin-left: 4px; }
+  #refresh-dot.active { opacity: 1; animation: pulse 1s infinite; }
   .btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px; font-family: inherit; letter-spacing: 0.5px; transition: all 0.2s; }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn:disabled { opacity: 0.4; cursor: wait; }
@@ -297,7 +299,7 @@
   <div class="header-right">
     <span class="ts" id="et-time">—</span>
     <span class="ts" id="data-ts">—</span>
-    <span class="countdown" id="countdown">next refresh in —</span>
+    <span class="countdown" id="countdown">next refresh in —</span><span id="refresh-dot" title="Updating…"></span>
     <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)">📋</button>
     <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme">☀</button>
     <button class="btn" onclick="toggleSettings()" title="Settings (S)">⚙</button>
@@ -1091,9 +1093,13 @@ function renderFearGreed(d) {
 
 /* ── MAIN LOAD ─────────────────────────────────────────── */
 async function load(isManual = false) {
-  if (!_lastData) {
+  const isFirst = !_lastData;
+  if (isFirst) {
     $('loading').style.display = 'flex';
     $('content').style.display = 'none';
+  } else {
+    // Background refresh: show subtle indicator, keep dashboard fully interactive
+    $('refresh-dot').classList.add('active');
   }
   try {
     const res = await fetch('/api/dashboard');
@@ -1102,32 +1108,41 @@ async function load(isManual = false) {
     if (raw.error) throw new Error(raw.error);
     _lastData = raw;
 
-    // Apply custom weights before rendering
     const data = applyCustomWeights(raw);
 
-    renderTicker(raw.ticker || []);
-    renderHeader(raw);
-    renderHero(data);
-    renderPillars(raw);
-    renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
-    renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
-    renderFearGreed(raw);
-    renderExecution(data);
-    renderWeights(data);
+    // Batch all DOM mutations in one animation frame to avoid layout thrashing
+    requestAnimationFrame(() => {
+      renderTicker(raw.ticker || []);
+      renderHeader(raw);
+      renderHero(data);
+      renderPillars(raw);
+      renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
+      renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
+      renderFearGreed(raw);
+      renderExecution(data);
+      renderWeights(data);
+      if (isFirst) {
+        $('loading').style.display = 'none';
+        $('content').style.display = 'block';
+      }
+      $('refresh-dot').classList.remove('active');
+    });
+
     renderSparkline();
-
-    $('loading').style.display = 'none';
-    $('content').style.display = 'block';
-
     _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
 
-    // Auto-generate desk read on first load
-    if (isManual || !document.querySelector('.persona-card')) {
+    if (isManual || isFirst || !document.querySelector('.persona-card')) {
       setTimeout(() => runRoundtable(true), 400);
     }
   } catch(e) {
-    $('loading').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">
-      ⚠ Error: ${e.message}<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
+    $('refresh-dot').classList.remove('active');
+    if (isFirst) {
+      $('loading').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">
+        ⚠ Error: ${e.message}<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
+    } else {
+      // Background refresh failed — keep stale data visible, retry on next cycle
+      _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
+    }
   }
 }
 
