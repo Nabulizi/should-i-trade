@@ -438,6 +438,88 @@ def econ_proximity() -> list[dict]:
     return sorted(upcoming, key=lambda x: x["days_until"])[:3]
 
 
+# ─── Options Expiration calendar ──────────────────────────────────────────────
+# Standard monthly OpEx = 3rd Friday of each month.
+# Quarterly (Mar/Jun/Sep/Dec) = "Triple Witching" — stock futures + index options
+# + equity options all expire simultaneously. Higher gamma, pinning, and vol effects.
+_QUARTERLY_OPEX_MONTHS = {3, 6, 9, 12}
+
+
+def _third_friday(year: int, month: int):
+    """Return the date of the 3rd Friday of the given year/month."""
+    d = datetime(year, month, 1).date()
+    days_to_friday = (4 - d.weekday()) % 7   # Friday = weekday 4
+    return d + timedelta(days=days_to_friday + 14)  # first Friday + 2 weeks
+
+
+def opex_proximity() -> dict:
+    """Days until next options expiration (3rd Friday). Flags Triple Witching months."""
+    today = datetime.utcnow().date()
+    y, m = today.year, today.month
+    # Scan the next 6 months to find the next OpEx >= today
+    for _ in range(6):
+        opex_date = _third_friday(y, m)
+        if opex_date >= today:
+            break
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+    else:
+        return {"days_until": None, "label": "N/A", "color": "gray",
+                "is_quarterly": False, "kind": "OpEx", "date_pretty": None}
+
+    is_quarterly = m in _QUARTERLY_OPEX_MONTHS
+    kind = "Triple Witching" if is_quarterly else "Monthly OpEx"
+    days = (opex_date - today).days
+
+    if   days == 0: label, color = f"{kind} TODAY",       "red"
+    elif days == 1: label, color = f"{kind} Tomorrow",    "red"
+    elif days <= 3: label, color = f"{kind} in {days}d",  "orange"
+    elif days <= 7: label, color = f"OpEx week ({days}d)", "yellow"
+    else:           label, color = f"OpEx in {days}d",    "gray"
+
+    return {
+        "days_until":   days,
+        "date_pretty":  opex_date.strftime("%b %d"),
+        "label":        label,
+        "color":        color,
+        "is_quarterly": is_quarterly,
+        "kind":         kind,
+    }
+
+
+# ─── Seasonality ────────────────────────────────────────────────────────────────
+# Historical monthly S&P 500 average bias (Stock Trader's Almanac / academic data).
+# Score adjustments intentionally small (max ±8 pts) — seasonality is a weak signal.
+_MONTHLY_SEASONALITY = {
+    1:  {"score": +3, "label": "Jan Effect",      "bias": "Mild Bullish",    "color": "green"},
+    2:  {"score":  0, "label": "Feb Neutral",     "bias": "Neutral",         "color": "yellow"},
+    3:  {"score": +3, "label": "Spring Rally",    "bias": "Mild Bullish",    "color": "green"},
+    4:  {"score": +6, "label": "April Strength",  "bias": "Historically Strong", "color": "green"},
+    5:  {"score": -5, "label": "Sell in May",     "bias": "Historically Weak","color": "orange"},
+    6:  {"score":  0, "label": "June Neutral",    "bias": "Neutral",         "color": "yellow"},
+    7:  {"score": +5, "label": "Summer Rally",    "bias": "Mild Bullish",    "color": "green"},
+    8:  {"score": -5, "label": "Aug Weakness",    "bias": "Historically Weak","color": "orange"},
+    9:  {"score": -8, "label": "September Effect","bias": "Weakest Month",   "color": "red"},
+    10: {"score": +2, "label": "Oct Reversal",    "bias": "Volatile",        "color": "yellow"},
+    11: {"score": +7, "label": "Year-End Rally",  "bias": "Historically Strong", "color": "green"},
+    12: {"score": +6, "label": "Santa Rally",     "bias": "Historically Strong", "color": "green"},
+}
+
+
+def seasonality() -> dict:
+    """Current month's historical seasonal bias for US equities."""
+    month = datetime.utcnow().month
+    s = _MONTHLY_SEASONALITY[month]
+    return {
+        "month":     month,
+        "score_adj": s["score"],
+        "label":     s["label"],
+        "bias":      s["bias"],
+        "color":     s["color"],
+    }
+
+
 # 2026 FOMC meeting decision dates (day 2 of each meeting, when statement hits).
 # Source: federalreserve.gov  ·  Update annually when Fed publishes new schedule.
 _FOMC_2026_2027 = [
