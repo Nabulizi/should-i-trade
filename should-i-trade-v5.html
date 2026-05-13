@@ -590,6 +590,7 @@ function renderPillars(d) {
           mrow('VIX Trend',     chgStr(v.vix_change_pct ?? 0), v.vix_trend, v.vix_trend_color),
           mrow('VIX 1Y %ile',   (v.vix_pctile ?? 0) + 'th', null),
           mrow('VIX3M',         v.vix3m_value ? `${v.vix3m_value}` : '—', v.vix_term_label, v.vix_term_color),
+          mrow('VIX9D/VIX',     v.vix9d_value ? `${v.vix9d_value} (${v.vix9d_ratio}x)` : '—', v.vix9d_label, v.vix9d_color),
           mrow('Flow Sentiment', (v.flow_score ?? '—') + '/100', v.flow_label, v.flow_color),
           `<div class="metric-row"><span class="metric-key" style="font-size:9px;">Flow inputs</span><span class="metric-val" style="font-size:9px;color:var(--muted)">TQQQ ${chgStr(v.tqqq_chg ?? 0)} · SQQQ ${chgStr(v.sqqq_chg ?? 0)} · UVXY ${chgStr(v.uvxy_chg ?? 0)}</span></div>`,
         ].join('');
@@ -608,6 +609,8 @@ function renderPillars(d) {
           mrow('Regime',  '',  v.regime, v.regime_color),
           mrow('RSI(14)', v.rsi14 ?? '—', null),
           mrow('ATH Dist', (v.ath_dist >= 0 ? '+' : '') + (v.ath_dist ?? 0) + '%', null),
+          mrow('SPY Volume', v.vol_ratio != null ? `${v.vol_ratio}x avg` : '—', v.vol_label, v.vol_color),
+          mrow('Mkt Character', v.char_atr_pct != null ? `ATR ${v.char_atr_pct}%` : '—', v.char_label, v.char_color),
         ].join('');
       },
     },

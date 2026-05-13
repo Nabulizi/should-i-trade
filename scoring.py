@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor as _TPE
 from typing import Any
 
 from data import (
-    get_quote, get_history,
+    get_quote, get_history, get_ohlcv,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
 )
@@ -45,7 +45,7 @@ INDUSTRY_NAMES = {
 }
 
 # Everything the dashboard needs in one shot.
-CORE_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "TLT", "^TNX",
+CORE_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^VIX9D", "TLT", "^TNX",
                 "DX-Y.NYB", "TQQQ", "SQQQ", "UVXY", "HYG", "GLD"]
 
 
@@ -112,6 +112,60 @@ def pct(q, key="changePct"):
 
 def price(q):
     return q.get("price") if q else None
+
+
+def atr14(highs: list[float], lows: list[float], closes: list[float], n: int = 14) -> float | None:
+    """Wilder-smoothed ATR(n). Requires at least n+1 data points."""
+    if len(closes) < n + 1 or len(highs) < n + 1 or len(lows) < n + 1:
+        return None
+    trs = []
+    for i in range(1, len(closes)):
+        h, l, pc = highs[i], lows[i], closes[i - 1]
+        trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+    if len(trs) < n:
+        return None
+    atr = sum(trs[:n]) / n
+    for tr in trs[n:]:
+        atr = (atr * (n - 1) + tr) / n
+    return atr
+
+
+def bb_width(closes: list[float], period: int = 20, mult: float = 2.0) -> float | None:
+    """Bollinger Band Width = (upper - lower) / middle, as a ratio."""
+    data = [c for c in closes[-period:] if c is not None]
+    if len(data) < period:
+        return None
+    mid = sum(data) / period
+    if mid == 0:
+        return None
+    std = (sum((c - mid) ** 2 for c in data) / period) ** 0.5
+    return (2 * mult * std) / mid
+
+
+def classify_market_character(closes: list[float], highs: list[float], lows: list[float]) -> dict:
+    """Classify recent market regime: Trending / Choppy / Extended / Mixed."""
+    if not closes or not highs or not lows:
+        return {"label": "Unknown", "color": "gray", "atr_pct": None, "bbw_pct": None}
+    cur = closes[-1]
+    atr_val = atr14(highs, lows, closes)
+    atr_pct = round(atr_val / cur * 100, 2) if (atr_val and cur) else None
+    bbw = bb_width(closes)
+    bbw_pct = round(bbw * 100, 2) if bbw is not None else None
+    rsi = wilder_rsi(closes, 14)
+
+    if atr_pct is not None and bbw_pct is not None:
+        if rsi and rsi > 72:
+            label, color = "Extended", "red"
+        elif atr_pct > 1.5 and bbw_pct > 8.0:
+            label, color = "Trending", "green"
+        elif atr_pct < 0.6 or bbw_pct < 3.0:
+            label, color = "Choppy", "orange"
+        else:
+            label, color = "Mixed", "yellow"
+    else:
+        label, color = "Unknown", "gray"
+
+    return {"label": label, "color": color, "atr_pct": atr_pct, "bbw_pct": bbw_pct}
 
 
 # ─── pillar 1 — volatility ─────────────────────────────────────────────────
@@ -215,11 +269,36 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
         vix_vs_vix3m=vix_vs_vix3m,
     )
 
+    # VIX9D/VIX ratio — near-term vs. 30-day fear premium (free P/C proxy)
+    # VIX9D > VIX: near-term fear spike, hedging demand elevated → bearish
+    # VIX9D << VIX: near-term calm, complacency or resolved event → bullish
+    vix9d_q = quotes.get("^VIX9D")
+    vix9d_val = price(vix9d_q)
+    vix9d_ratio, vix9d_label, vix9d_color = None, "N/A", "gray"
+    if vix_val and vix9d_val and vix_val > 0:
+        vix9d_ratio = round(vix9d_val / vix_val, 3)
+        if vix9d_ratio > 1.0:
+            d, vix9d_label, vix9d_color = -12, "Fear Spike", "red"
+            score += d
+            reasons.append(f"{d} VIX9D/VIX {vix9d_ratio:.2f}x — near-term fear elevated")
+        elif vix9d_ratio < 0.90:
+            d, vix9d_label, vix9d_color = +6, "Calm", "green"
+            score += d
+            reasons.append(f"+{d} VIX9D/VIX {vix9d_ratio:.2f}x — near-term calm, event risk low")
+        else:
+            vix9d_label, vix9d_color = "Neutral", "yellow"
+            reasons.append(f"+0 VIX9D/VIX {vix9d_ratio:.2f}x — near-term neutral")
+    details.update(
+        vix9d_value=round(vix9d_val, 2) if vix9d_val else None,
+        vix9d_ratio=vix9d_ratio, vix9d_label=vix9d_label, vix9d_color=vix9d_color,
+    )
+
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
 
 # ─── pillar 2 — trend ──────────────────────────────────────────────────────
-def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float]) -> dict:
+def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
+                spy_ohlcv: dict | None = None) -> dict:
     spy_q, qqq_q = quotes.get("SPY"), quotes.get("QQQ")
     spy_px, qqq_px = price(spy_q), price(qqq_q)
     spy_mas = compute_mas(spy_closes) if spy_closes else {}
@@ -260,6 +339,48 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float]) 
     spy_1y_hi = max(spy_closes[-252:]) if len(spy_closes) >= 252 else (max(spy_closes) if spy_closes else spy_px or 1)
     ath_dist = round((spy_px / spy_1y_hi - 1) * 100, 1) if spy_px and spy_1y_hi else 0
 
+    # Volume confirmation — SPY volume vs. 20-day average
+    vol_ratio, vol_label, vol_color = None, "N/A", "gray"
+    if spy_ohlcv and spy_ohlcv.get("volumes"):
+        vols = [v for v in spy_ohlcv["volumes"] if v and v > 0]
+        if len(vols) >= 21:
+            avg_vol = sum(vols[-21:-1]) / 20   # 20-day avg, excluding today
+            today_vol = vols[-1]
+            vol_ratio = round(today_vol / avg_vol, 2)
+            spy_chg_val = pct(spy_q)
+            if vol_ratio >= 1.2 and spy_chg_val > 0:
+                d, vol_label, vol_color = +8, "High-Vol Rally", "green"
+                score += d
+                reasons.append(f"+{d} Volume {vol_ratio:.1f}x avg — confirming rally")
+            elif vol_ratio >= 1.2 and spy_chg_val < 0:
+                d, vol_label, vol_color = -8, "High-Vol Selloff", "red"
+                score += d
+                reasons.append(f"{d} Volume {vol_ratio:.1f}x avg — confirming selloff")
+            elif vol_ratio < 0.7:
+                d, vol_label, vol_color = -3, "Low Volume", "orange"
+                score += d
+                reasons.append(f"{d} Volume {vol_ratio:.1f}x avg — low conviction")
+            else:
+                vol_label, vol_color = "Normal", "yellow"
+                reasons.append(f"+0 Volume {vol_ratio:.1f}x avg — normal")
+
+    # Market character (ATR + Bollinger Band Width)
+    char_label, char_color, char_atr_pct, char_bbw_pct = "N/A", "gray", None, None
+    if spy_ohlcv and spy_ohlcv.get("highs") and spy_ohlcv.get("lows") and spy_closes:
+        char = classify_market_character(spy_closes, spy_ohlcv["highs"], spy_ohlcv["lows"])
+        char_label    = char["label"]
+        char_color    = char["color"]
+        char_atr_pct  = char.get("atr_pct")
+        char_bbw_pct  = char.get("bbw_pct")
+        if char_label == "Choppy":
+            score -= 5
+            reasons.append("-5 Market character: Choppy — elevated false-breakout risk")
+        elif char_label == "Extended":
+            score -= 8
+            reasons.append("-8 Market character: Extended — mean-reversion risk")
+        elif char_label == "Trending":
+            reasons.append("+0 Market character: Trending — directional bias intact")
+
     details = {
         "spy_price": round(spy_px, 2) if spy_px else None,
         "spy_change_pct": round(pct(spy_q), 2),
@@ -273,6 +394,9 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float]) 
         "regime": regime, "regime_color": rc,
         "ath_dist": ath_dist,
         "rsi14": rsi,
+        "vol_ratio": vol_ratio, "vol_label": vol_label, "vol_color": vol_color,
+        "char_label": char_label, "char_color": char_color,
+        "char_atr_pct": char_atr_pct, "char_bbw_pct": char_bbw_pct,
     }
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
@@ -632,16 +756,19 @@ def compute_dashboard() -> dict:
     # Fire all network requests concurrently — quotes, histories, BTC and
     # both F&G indexes are independent and previously ran in three sequential
     # phases; collapsing them into one pool cuts cold load by ~50%.
+    # SPY OHLCV reuses the same Yahoo URL as get_history("SPY") — cache hit.
     with _TPE(max_workers=16) as ex:
-        q_futs  = {ex.submit(get_quote,   s):    s for s in all_symbols}
-        h_futs  = {ex.submit(get_history, s, d): s for s, d in history_pairs}
-        btc_q_f = ex.submit(btc_quote)
-        btc_h_f = ex.submit(btc_history)
-        fng_s_f = ex.submit(fetch_fear_greed_stock)
-        fng_c_f = ex.submit(fetch_fear_greed_crypto)
+        q_futs      = {ex.submit(get_quote,   s):    s for s in all_symbols}
+        h_futs      = {ex.submit(get_history, s, d): s for s, d in history_pairs}
+        spy_ohlcv_f = ex.submit(get_ohlcv, "SPY", 220)
+        btc_q_f     = ex.submit(btc_quote)
+        btc_h_f     = ex.submit(btc_history)
+        fng_s_f     = ex.submit(fetch_fear_greed_stock)
+        fng_c_f     = ex.submit(fetch_fear_greed_crypto)
 
     quotes     = {q_futs[f]:  f.result() for f in q_futs}
     histories  = {h_futs[f]:  f.result() for f in h_futs}
+    spy_ohlcv  = spy_ohlcv_f.result()
     btc_q      = btc_q_f.result()
     btc_closes = btc_h_f.result()
     fng_stock  = fng_s_f.result()
@@ -653,7 +780,7 @@ def compute_dashboard() -> dict:
 
     # Score each pillar (with graceful fallback per pillar)
     vol  = _safe_pillar(score_volatility, quotes, histories.get("^VIX", []), name="Volatility")
-    tr   = _safe_pillar(score_trend, quotes, histories.get("SPY", []), histories.get("QQQ", []), name="Trend")
+    tr   = _safe_pillar(score_trend, quotes, histories.get("SPY", []), histories.get("QQQ", []), spy_ohlcv, name="Trend")
     br   = _safe_pillar(score_breadth, quotes, histories.get("RSP", []), name="Breadth")
     mom  = _safe_pillar(score_momentum, quotes, name="Momentum")
     mac  = _safe_pillar(score_macro, quotes,
