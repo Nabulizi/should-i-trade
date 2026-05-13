@@ -90,12 +90,15 @@ def percentile_1y(closes: list[float]) -> int:
 
 
 def compute_mas(closes: list[float]) -> dict:
+    ma20  = simple_ma(closes, 20)
+    ma50  = simple_ma(closes, 50)
+    ma200 = simple_ma(closes, 200)
     return {
-        "ma20":    round(simple_ma(closes, 20), 4)  if simple_ma(closes, 20)  else None,
-        "ma50":    round(simple_ma(closes, 50), 4)  if simple_ma(closes, 50)  else None,
-        "ma200":   round(simple_ma(closes, 200), 4) if simple_ma(closes, 200) else None,
-        "rsi14":   wilder_rsi(closes, 14),
-        "pctile":  percentile_1y(closes),
+        "ma20":   round(ma20,  4) if ma20  is not None else None,
+        "ma50":   round(ma50,  4) if ma50  is not None else None,
+        "ma200":  round(ma200, 4) if ma200 is not None else None,
+        "rsi14":  wilder_rsi(closes, 14),
+        "pctile": percentile_1y(closes),
     }
 
 
