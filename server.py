@@ -74,6 +74,12 @@ def get_cached_dashboard() -> dict:
 
         data = compute_dashboard()
 
+        # Score delta vs. last recorded snapshot (before we append the new one)
+        with _HISTORY_LOCK:
+            prev_total = _HISTORY[-1]["total"] if _HISTORY else None
+        data["score_delta"] = (data["total_score"] - prev_total
+                               if prev_total is not None else None)
+
         with _DASHBOARD_LOCK:
             _DASHBOARD_CACHE["data"] = data
             _DASHBOARD_CACHE["ts"] = time.time()

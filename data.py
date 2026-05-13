@@ -520,6 +520,56 @@ def seasonality() -> dict:
     }
 
 
+# ─── Earnings Season ────────────────────────────────────────────────────────────
+# Approximate windows when the bulk of S&P 500 companies report each quarter.
+# Q4 → Jan/Feb, Q1 → Apr/May, Q2 → Jul/Aug, Q3 → Oct/Nov.
+_EARNINGS_WINDOWS = [
+    (1,  8, 2,  7,  "Q4"),
+    (4,  7, 5,  2,  "Q1"),
+    (7,  7, 8,  1,  "Q2"),
+    (10, 7, 11, 1,  "Q3"),
+]
+
+
+def earnings_season() -> dict:
+    """Return current or next earnings season status with gap-risk context."""
+    today = datetime.utcnow()
+    year  = today.year
+
+    for ms, ds, me, de, quarter in _EARNINGS_WINDOWS:
+        start = datetime(year, ms, ds)
+        end   = datetime(year, me, de)
+        if start <= today <= end:
+            days_left = (end.date() - today.date()).days
+            return {
+                "in_season":  True,
+                "quarter":    quarter,
+                "label":      f"{quarter} Earnings",
+                "detail":     f"~{days_left}d remaining",
+                "color":      "orange",
+                "days_until": 0,
+            }
+
+    # Not currently in a season — find the next one
+    candidates = []
+    for yr in (year, year + 1):
+        for ms, ds, me, de, quarter in _EARNINGS_WINDOWS:
+            start = datetime(yr, ms, ds)
+            if start.date() > today.date():
+                candidates.append(((start.date() - today.date()).days, quarter))
+    if candidates:
+        days_until, quarter = min(candidates)
+        return {
+            "in_season":  False,
+            "quarter":    quarter,
+            "label":      f"{quarter} Earnings",
+            "detail":     f"in {days_until}d",
+            "color":      "yellow" if days_until <= 14 else "gray",
+            "days_until": days_until,
+        }
+    return {"in_season": False, "label": "N/A", "color": "gray", "days_until": None}
+
+
 # 2026 FOMC meeting decision dates (day 2 of each meeting, when statement hits).
 # Source: federalreserve.gov  ·  Update annually when Fed publishes new schedule.
 _FOMC_2026_2027 = [

@@ -239,6 +239,30 @@
   .fng-source { font-size: 8px; color: var(--muted); }
   .fng-unavail { color: var(--muted); font-size: 10px; padding: 6px 0; }
 
+  /* ── SCORE DELTA ── */
+  .score-delta { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; margin-top: 2px; }
+  .score-delta.up   { color: var(--green); }
+  .score-delta.dn   { color: var(--red); }
+  .score-delta.flat { color: var(--muted); }
+
+  /* ── OVERRIDE BANNER ── */
+  .override-banner { background: rgba(255,23,68,0.12); border: 1px solid rgba(255,23,68,0.35); border-radius: 4px; padding: 6px 14px; font-size: 10px; color: var(--red); font-weight: 600; display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+  .override-banner span { display: block; }
+
+  /* ── CONFLICTS ── */
+  .conflicts-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .conflict-card { display: flex; gap: 10px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; }
+  .conflict-card.warning { border-left: 3px solid var(--orange); }
+  .conflict-card.caution { border-left: 3px solid var(--yellow); }
+  .conflict-card.info    { border-left: 3px solid var(--accent); }
+  .conflict-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .conflict-body { flex: 1; }
+  .conflict-title { font-size: 10px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .conflict-detail { font-size: 9px; color: var(--muted2); line-height: 1.5; }
+
+  /* ── RADAR CHART ── */
+  .radar-wrap { display: flex; justify-content: center; align-items: center; padding: 4px 0; }
+
   /* ── LIGHT THEME ── */
   .light-theme {
     --bg:      #f5f7fa;
@@ -359,6 +383,10 @@
 
     <!-- 5 PILLAR CARDS -->
     <div class="pillars-row" id="pillars-row"></div>
+
+    <!-- OVERRIDE BANNER + CONFLICTS -->
+    <div id="override-banner" class="override-banner" style="display:none"></div>
+    <div id="conflicts-row" class="conflicts-row" style="display:none"></div>
 
     <!-- FEAR & GREED -->
     <div class="card fng-card" id="fng-card" style="display:none"></div>
@@ -516,12 +544,16 @@ function renderHeader(d) {
 
   $('data-ts').textContent = d.timestamp ? `data: ${d.timestamp}` : '';
 
-  // Econ events row
+  // Econ events row — includes earnings season flag
   const events = d.econ_events || [];
   const visible = events.filter(e => e.days_until <= 14);
-  if (visible.length) {
+  const earn = d.earnings || {};
+  const earnBadge = (earn.in_season || earn.days_until <= 14)
+    ? `<span class="econ-badge ${esc(earn.color)}">🏦 ${esc(earn.label)} <span style="opacity:0.6">${esc(earn.detail || '')}</span></span>`
+    : '';
+  if (visible.length || earnBadge) {
     $('econ-row').style.display = 'flex';
-    $('econ-badges').innerHTML = visible.map(e =>
+    $('econ-badges').innerHTML = earnBadge + visible.map(e =>
       `<span class="econ-badge ${esc(e.color)}">${esc(e.type)} · ${esc(e.name)} <span style="opacity:0.6">${esc(e.urgency)}</span></span>`
     ).join(' ');
   } else {
@@ -536,6 +568,46 @@ function renderHeader(d) {
   } else {
     $('coverage-warn').style.display = 'none';
   }
+}
+
+/* ── RADAR CHART ────────────────────────────────────────── */
+function buildRadarChart(pillars) {
+  const keys   = ['volatility','trend','breadth','momentum','macro'];
+  const labels = ['VOL','TREND','BREADTH','MOM','MACRO'];
+  const cx = 100, cy = 100, maxR = 72, sz = 200;
+  const n = keys.length;
+  const step = (2 * Math.PI) / n;
+  const start = -Math.PI / 2;
+  function pt(i, r) {
+    const a = start + i * step;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  }
+  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="160" height="160">`;
+  // Grid rings
+  [25,50,75,100].forEach(pct => {
+    const r = maxR * pct / 100;
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+  });
+  // Axis lines
+  for (let i = 0; i < n; i++) {
+    const [x,y] = pt(i, maxR);
+    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
+  }
+  // Score polygon
+  const pts = keys.map((k,i) => pt(i, maxR * (pillars[k]?.score ?? 50) / 100));
+  svg += `<polygon points="${pts.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="rgba(0,176,255,0.15)" stroke="#00b0ff" stroke-width="1.5"/>`;
+  // Dots + labels
+  keys.forEach((k,i) => {
+    const sc = pillars[k]?.score ?? 50;
+    const [x,y] = pts[i];
+    const col = sc >= 70 ? '#00e676' : sc >= 45 ? '#ffd740' : '#ff1744';
+    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${col}"/>`;
+    const [lx,ly] = pt(i, maxR + 16);
+    svg += `<text x="${lx.toFixed(1)}" y="${(ly-3).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="7.5" font-family="monospace">${labels[i]}</text>`;
+    svg += `<text x="${lx.toFixed(1)}" y="${(ly+6).toFixed(1)}" text-anchor="middle" fill="${col}" font-size="7" font-family="monospace">${sc}</text>`;
+  });
+  svg += '</svg>';
+  return svg;
 }
 
 /* ── HERO ───────────────────────────────────────────────── */
@@ -554,17 +626,24 @@ function renderHero(d) {
   $('score-val').textContent = s;
   $('score-val').style.color = scoreColor(s);
 
-  const names = { volatility: 'VOL', trend: 'TREND', breadth: 'BREADTH', momentum: 'MOM', macro: 'MACRO' };
-  const order = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
-  $('pillars-mini').innerHTML = order.map(k => {
-    const sc = d.pillars[k].score;
-    const c  = scoreColor(sc);
-    return `<div class="pillar-mini">
-      <div class="pm-score" style="color:${c}">${sc}</div>
-      <div class="pm-bar"><div class="pm-fill" style="width:${sc}%;background:${c}"></div></div>
-      <div class="pm-label">${names[k]}</div>
-    </div>`;
-  }).join('');
+  // Score delta badge
+  const delta = d.score_delta;
+  let deltaHtml = '';
+  if (delta !== null && delta !== undefined) {
+    const cls = delta > 0 ? 'up' : delta < 0 ? 'dn' : 'flat';
+    const sign = delta > 0 ? '+' : '';
+    deltaHtml = `<div class="score-delta ${cls}">${sign}${delta} since last snapshot</div>`;
+  }
+  // Insert delta below the score label if not already there
+  const scoreLabel = document.querySelector('.score-label');
+  if (scoreLabel) {
+    let existing = scoreLabel.nextElementSibling;
+    if (existing && existing.classList.contains('score-delta')) existing.remove();
+    if (deltaHtml) scoreLabel.insertAdjacentHTML('afterend', deltaHtml);
+  }
+
+  // Radar chart replaces pillar mini-bars
+  $('pillars-mini').innerHTML = `<div class="radar-wrap">${buildRadarChart(d.pillars)}</div>`;
 }
 
 /* ── PILLARS ────────────────────────────────────────────── */
@@ -629,6 +708,9 @@ function renderPillars(d) {
           mrow('RSP vs SPY', chgStr(v.rsp_vs_spy ?? 0), v.rsp_vs_spy > 0 ? 'Broad' : 'Narrow', v.rsp_vs_spy > 0 ? 'green' : 'orange'),
           mrow('RSP > 50d',  '', v.rsp_above_50  ? 'Yes' : 'No', v.rsp_above_50  ? 'green' : 'red'),
           mrow('RSP > 200d', '', v.rsp_above_200 ? 'Yes' : 'No', v.rsp_above_200 ? 'green' : 'red'),
+          v.pct_sectors_above_200 != null ? mrow('Sectors > 200d', `${v.sectors_above_200}/${v.sectors_above_200_total}`,
+            v.pct_sectors_above_200 >= 73 ? 'Broad Bull' : v.pct_sectors_above_200 <= 36 ? 'Structural Weakness' : 'Mixed',
+            v.pct_sectors_above_200 >= 73 ? 'green' : v.pct_sectors_above_200 <= 36 ? 'red' : 'yellow') : '',
         ].join('');
       },
     },
@@ -1110,6 +1192,36 @@ function renderFearGreed(d) {
     </div>`;
 }
 
+/* ── OVERRIDE BANNER + CONFLICTS ───────────────────────── */
+function renderConflicts(d) {
+  // Override banner
+  const overrides = d.override_reasons || [];
+  const ob = $('override-banner');
+  if (overrides.length) {
+    ob.style.display = 'flex';
+    ob.innerHTML = overrides.map(r => `<span>${esc(r)}</span>`).join('');
+  } else {
+    ob.style.display = 'none';
+  }
+
+  // Signal conflict cards
+  const conflicts = d.conflicts || [];
+  const cr = $('conflicts-row');
+  if (!conflicts.length) { cr.style.display = 'none'; return; }
+  cr.style.display = 'flex';
+  const icons = { warning: '⚠️', caution: '🔶', info: 'ℹ️' };
+  cr.innerHTML = `
+    <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">⚡ SIGNAL CONFLICTS</div>
+    ${conflicts.map(c => `
+      <div class="conflict-card ${esc(c.severity)}">
+        <div class="conflict-icon">${icons[c.severity] || '⚠️'}</div>
+        <div class="conflict-body">
+          <div class="conflict-title">${esc(c.title)}</div>
+          <div class="conflict-detail">${esc(c.detail)}</div>
+        </div>
+      </div>`).join('')}`;
+}
+
 /* ── MAIN LOAD ─────────────────────────────────────────── */
 async function load(isManual = false) {
   const isFirst = !_lastData;
@@ -1135,6 +1247,7 @@ async function load(isManual = false) {
       renderHeader(raw);
       renderHero(data);
       renderPillars(raw);
+      renderConflicts(raw);
       renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
       renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
       renderFearGreed(raw);

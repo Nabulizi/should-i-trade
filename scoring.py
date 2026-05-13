@@ -16,7 +16,7 @@ from data import (
     get_quote, get_history, get_ohlcv,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
-    opex_proximity, seasonality,
+    opex_proximity, seasonality, earnings_season,
 )
 
 # ─── configuration ─────────────────────────────────────────────────────────
@@ -511,7 +511,8 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
 
 
 # ─── pillar 3 — breadth ────────────────────────────────────────────────────
-def score_breadth(quotes: dict, rsp_closes: list[float]) -> dict:
+def score_breadth(quotes: dict, rsp_closes: list[float],
+                  sector_histories: dict | None = None) -> dict:
     rsp_q, spy_q = quotes.get("RSP"), quotes.get("SPY")
     rsp_px = price(rsp_q)
     rsp_mas = compute_mas(rsp_closes) if rsp_closes else {}
@@ -558,6 +559,28 @@ def score_breadth(quotes: dict, rsp_closes: list[float]) -> dict:
         score += 15
         reasons.append("+15 RSP > 200d MA")
 
+    # Sector ETF % above 200d MA — structural breadth health
+    n_above_200, n_sec_valid = 0, 0
+    sector_above_200_data = {}
+    if sector_histories:
+        for sym in SECTOR_SYMBOLS:
+            closes = sector_histories.get(sym, [])
+            if len(closes) >= 150:
+                ma200 = simple_ma(closes, 200) if len(closes) >= 200 else simple_ma(closes, len(closes))
+                above = bool(ma200 and closes[-1] > ma200)
+                sector_above_200_data[sym] = above
+                n_sec_valid += 1
+                if above:
+                    n_above_200 += 1
+    pct_above_200 = round(n_above_200 / n_sec_valid * 100) if n_sec_valid else None
+    if pct_above_200 is not None:
+        if pct_above_200 >= 73:
+            score += 10
+            reasons.append(f"+10 {n_above_200}/{n_sec_valid} sectors above 200d MA — broad bull")
+        elif pct_above_200 <= 36:
+            score -= 10
+            reasons.append(f"-10 Only {n_above_200}/{n_sec_valid} sectors above 200d MA — structural weakness")
+
     # Sector + industry data
     sector_data = {s: {"name": SECTOR_NAMES[s],
                         "change_pct": round(pct(q), 2),
@@ -579,6 +602,10 @@ def score_breadth(quotes: dict, rsp_closes: list[float]) -> dict:
         "rsp_vs_spy": round(rsp_chg - spy_chg, 2),
         "sector_data": sector_data,
         "industry_data": industry_data,
+        "sectors_above_200": n_above_200,
+        "sectors_above_200_total": n_sec_valid,
+        "pct_sectors_above_200": pct_above_200,
+        "sector_above_200_data": sector_above_200_data,
     }
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
@@ -924,6 +951,72 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
 
+# ─── conflict detector ─────────────────────────────────────────────────────
+def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
+    """Find pairs of signals that contradict each other. Helps avoid overconfidence."""
+    tr  = pillars["trend"]["details"]
+    vol = pillars["volatility"]["details"]
+    mom = pillars["momentum"]["details"]
+    mac = pillars["macro"]["details"]
+
+    char       = tr.get("char_label", "")
+    regime     = tr.get("regime", "")
+    macd_l     = tr.get("macd_label", "")
+    vol_l      = tr.get("vol_label", "")
+    vix9d_l    = vol.get("vix9d_label", "")
+    skew_l     = vol.get("skew_label", "")
+    rs_rot     = mom.get("rs_rotation_label", "")
+    curve_l    = mac.get("curve_label", "")
+    season_adj = mac.get("season_adj", 0)
+    season_lbl = mac.get("season_label", "")
+
+    conflicts = []
+
+    # Overbought market + bullish momentum
+    if char == "Extended" and macd_l.startswith("Bullish"):
+        conflicts.append({"title": "Overbought + Bullish MACD",
+            "detail": "RSI>72 (Extended character) but MACD still bullish — late-stage momentum, mean-reversion risk is elevated. Consider tighter stops.",
+            "severity": "warning"})
+
+    # Near-term fear spike in an uptrend
+    if vix9d_l == "Fear Spike" and regime in ("Uptrend", "Recovering"):
+        conflicts.append({"title": "VIX9D Fear Spike in Uptrend",
+            "detail": "Near-term hedging demand surging despite bullish price trend — a binary risk event (earnings, Fed, geopolitical) may be approaching.",
+            "severity": "warning"})
+
+    # Defensive sector rotation while price trend is bullish
+    if rs_rot == "Defensive Rotation" and regime in ("Uptrend", "Recovering"):
+        conflicts.append({"title": "Defensive RS Rotation in Bull Trend",
+            "detail": "Institutional RS flowing into XLU/XLP/XLV while price trend remains intact — potential early distribution. Smart money may be rotating out.",
+            "severity": "warning"})
+
+    # High-volume selloff in an uptrend
+    if vol_l == "High-Vol Selloff" and regime in ("Uptrend", "Recovering"):
+        conflicts.append({"title": "High-Volume Selloff in Uptrend",
+            "detail": "Conviction selling while trend is technically intact — possible distribution or key support test. Don't add longs on this bar.",
+            "severity": "warning"})
+
+    # Elevated tail-risk hedging + bullish MACD
+    if skew_l in ("Elevated", "Extreme Tail Risk") and macd_l.startswith("Bullish"):
+        conflicts.append({"title": "Elevated SKEW + Bullish MACD",
+            "detail": "Institutions buying OTM puts while momentum reads bullish — they may be hedging existing longs, not predicting a top, but the insurance cost is high.",
+            "severity": "info"})
+
+    # Inverted yield curve at a bullish/caution score
+    if curve_l in ("Inverted", "Deeply Inverted") and total_score >= 55:
+        conflicts.append({"title": "Inverted Yield Curve",
+            "detail": "3M-10Y spread is negative — historically precedes recessions by 6–18 months. Near-term trading may still work but reduce position timeframe and size.",
+            "severity": "caution"})
+
+    # Seasonal headwind + intact uptrend
+    if season_adj <= -5 and regime == "Uptrend":
+        conflicts.append({"title": f"Seasonal Headwind ({season_lbl}) + Uptrend",
+            "detail": "Historically weak period but price trend is intact. Seasonality is a low-weight signal — don't fight the trend, but stay alert for the first sign of weakness.",
+            "severity": "info"})
+
+    return conflicts
+
+
 # ─── orchestrator ──────────────────────────────────────────────────────────
 def _safe_pillar(fn, *args, name: str = "?") -> dict:
     """Call a pillar scorer; return neutral fallback on exception."""
@@ -941,10 +1034,10 @@ def _safe_pillar(fn, *args, name: str = "?") -> dict:
 def compute_dashboard() -> dict:
     """Fetch everything in one parallel batch then score all 5 pillars."""
     all_symbols   = CORE_SYMBOLS + SECTOR_SYMBOLS + INDUSTRY_SYMBOLS
-    # Core history + sector RS histories (65 days = enough for 1M and 3M RS)
+    # Core history + sector histories (220d for 200d MA + RS in one fetch)
     history_pairs = ([("SPY", 220), ("QQQ", 220), ("RSP", 220),
                       ("^VIX", 252), ("^TNX", 60), ("DX-Y.NYB", 60), ("HYG", 60)]
-                     + [(s, 65) for s in SECTOR_SYMBOLS])
+                     + [(s, 220) for s in SECTOR_SYMBOLS])
 
     # Fire all network requests concurrently. Sector histories run in the same pool;
     # since they're independent Yahoo requests, net time increase is minimal.
@@ -967,16 +1060,17 @@ def compute_dashboard() -> dict:
 
     sector_histories = {s: histories.get(s, []) for s in SECTOR_SYMBOLS}
 
-    mstate = market_state()
-    fomc   = fomc_proximity()
-    opex   = opex_proximity()
-    season = seasonality()
+    mstate  = market_state()
+    fomc    = fomc_proximity()
+    opex    = opex_proximity()
+    season  = seasonality()
+    earnings = earnings_season()
     econ_events = econ_proximity()
 
     # Score each pillar (with graceful fallback per pillar)
     vol  = _safe_pillar(score_volatility, quotes, histories.get("^VIX", []), name="Volatility")
     tr   = _safe_pillar(score_trend, quotes, histories.get("SPY", []), histories.get("QQQ", []), spy_ohlcv, name="Trend")
-    br   = _safe_pillar(score_breadth, quotes, histories.get("RSP", []), name="Breadth")
+    br   = _safe_pillar(score_breadth, quotes, histories.get("RSP", []), sector_histories, name="Breadth")
     mom  = _safe_pillar(score_momentum, quotes, sector_histories, name="Momentum")
     mac  = _safe_pillar(score_macro, quotes,
                         histories.get("^TNX", []), histories.get("DX-Y.NYB", []),
@@ -990,9 +1084,33 @@ def compute_dashboard() -> dict:
                 mom["score"]  * PILLAR_WEIGHTS["momentum"] +
                 mac["score"]  * PILLAR_WEIGHTS["macro"])
 
+    # ── Hard regime overrides ──────────────────────────────────────────────
+    # Certain conditions should cap the decision regardless of the weighted total.
+    override_reasons = []
+    vix_level    = vol["details"].get("vix_level") or 0
+    spy_above_200 = tr["details"].get("above_200", True)
+
+    if vix_level >= 40:
+        if total > 39:
+            total = 39
+        override_reasons.append(f"⛔ VIX {vix_level:.0f} ≥ 40 — extreme fear, hard NO regardless of other signals")
+    elif vix_level >= 35:
+        if total > 55:
+            total = 55
+        override_reasons.append(f"⚠ VIX {vix_level:.0f} ≥ 35 — high fear, score capped at CAUTION")
+
+    if not spy_above_200 and total > 55:
+        total = 55
+        override_reasons.append("⚠ SPY below 200d MA — bear market regime, score capped at CAUTION")
+
     if   total >= 80: decision, dc, pos = "YES",     "green",  "FULL SIZE"
     elif total >= 60: decision, dc, pos = "CAUTION", "yellow", "HALF SIZE"
     else:             decision, dc, pos = "NO",      "red",    "PRESERVE CAPITAL"
+
+    conflicts = detect_conflicts(
+        {"trend": tr, "volatility": vol, "momentum": mom, "macro": mac},
+        total
+    )
 
     # Ticker
     ticker = []
@@ -1024,7 +1142,10 @@ def compute_dashboard() -> dict:
         "fomc": fomc,
         "opex": opex,
         "season": season,
+        "earnings": earnings,
         "econ_events": econ_events,
+        "conflicts": conflicts,
+        "override_reasons": override_reasons,
         "pillars": {
             "volatility": {"score": vol["score"],  "weight": 20, "details": vol["details"],  "reasons": vol["reasons"]},
             "trend":      {"score": tr["score"],   "weight": 25, "details": tr["details"],   "reasons": tr["reasons"]},
