@@ -591,6 +591,7 @@ function renderPillars(d) {
           mrow('VIX 1Y %ile',   (v.vix_pctile ?? 0) + 'th', null),
           mrow('VIX3M',         v.vix3m_value ? `${v.vix3m_value}` : '—', v.vix_term_label, v.vix_term_color),
           mrow('VIX9D/VIX',     v.vix9d_value ? `${v.vix9d_value} (${v.vix9d_ratio}x)` : '—', v.vix9d_label, v.vix9d_color),
+          mrow('SKEW',          v.skew_value ? `${v.skew_value}` : '—', v.skew_label, v.skew_color),
           mrow('Flow Sentiment', (v.flow_score ?? '—') + '/100', v.flow_label, v.flow_color),
           `<div class="metric-row"><span class="metric-key" style="font-size:9px;">Flow inputs</span><span class="metric-val" style="font-size:9px;color:var(--muted)">TQQQ ${chgStr(v.tqqq_chg ?? 0)} · SQQQ ${chgStr(v.sqqq_chg ?? 0)} · UVXY ${chgStr(v.uvxy_chg ?? 0)}</span></div>`,
         ].join('');
@@ -611,6 +612,7 @@ function renderPillars(d) {
           mrow('ATH Dist', (v.ath_dist >= 0 ? '+' : '') + (v.ath_dist ?? 0) + '%', null),
           mrow('SPY Volume', v.vol_ratio != null ? `${v.vol_ratio}x avg` : '—', v.vol_label, v.vol_color),
           mrow('Mkt Character', v.char_atr_pct != null ? `ATR ${v.char_atr_pct}%` : '—', v.char_label, v.char_color),
+          mrow('MACD(12,26,9)', v.macd_line != null ? `${v.macd_line} / Sig ${v.macd_signal}` : '—', v.macd_label, v.macd_color),
         ].join('');
       },
     },
@@ -643,6 +645,16 @@ function renderPillars(d) {
           mrow('Participation', '', v.participation ?? '—', v.participation_color),
           mrow('IWM vs SPY',    chgStr(v.iwm_vs_spy ?? 0), v.iwm_vs_spy > 0.3 ? 'Risk-On' : v.iwm_vs_spy < -0.3 ? 'Defensive' : 'Neutral', v.iwm_vs_spy > 0.3 ? 'green' : v.iwm_vs_spy < -0.3 ? 'orange' : 'yellow'),
           mrow('RSP vs SPY',    chgStr(v.rsp_vs_spy ?? 0), v.rsp_outperforming ? 'Broad' : 'Narrow', v.rsp_outperforming ? 'green' : 'orange'),
+          mrow('RS Rotation',  '', v.rs_rotation_label ?? '—', v.rs_rotation_color),
+          ...(v.sector_rs && v.sector_rs.length ? [
+            `<div class="metric-row"><span class="metric-key" style="font-size:9px;color:var(--muted)">Sector RS (1M+3M blend) — top leaders</span></div>`,
+            ...v.sector_rs.slice(0, 5).map((r, i) => mrow(
+              `${i+1}. ${r.name}`,
+              `RS ${r.rs_score > 0 ? '+' : ''}${r.rs_score}`,
+              `1M ${r.return_1m > 0 ? '+' : ''}${r.return_1m}%`,
+              r.rs_score >= 0 ? 'green' : 'red'
+            )),
+          ] : []),
         ].join('');
       },
     },
@@ -651,16 +663,20 @@ function renderPillars(d) {
       render(p) {
         const v = p.details;
         return [
-          mrow('10Y Yield',  v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color),
-          mrow('10Y MA20',   v.tnx_ma20 ? `${v.tnx_ma20}%` : '—', v.yield_label, null),
-          mrow('DXY',        v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
-          mrow('DXY MA20',   v.dxy_ma20 ?? '—', null),
-          mrow('TLT',        v.tlt_value ? `$${v.tlt_value}` : '—', chgStr(v.tlt_change_pct ?? 0), v.tlt_change_pct >= 0 ? 'green' : 'red'),
-          mrow('HYG Credit', v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color),
-          mrow('GLD (Gold)', v.gld_price ? `$${v.gld_price}` : '—', v.gld_label, v.gld_color),
-          mrow('BTC',        v.btc_price ? `$${Number(v.btc_price).toLocaleString()}` : '—', v.btc_label, v.btc_color),
-          mrow('BTC Trend',  v.btc_trend ?? '—', v.btc_from_high != null ? `${v.btc_from_high}% from high` : null, v.btc_trend_color),
-          mrow('FOMC',       v.fomc_date ?? '—', v.fomc_label, v.fomc_color),
+          mrow('10Y Yield',    v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color),
+          mrow('10Y MA20',    v.tnx_ma20 ? `${v.tnx_ma20}%` : '—', v.yield_label, null),
+          mrow('3M Yield',    v.irx_value ? `${v.irx_value}%` : '—', null, null),
+          mrow('Yield Curve', v.curve_spread != null ? `${v.curve_spread > 0 ? '+' : ''}${v.curve_spread}%` : '—', v.curve_label, v.curve_color),
+          mrow('DXY',         v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
+          mrow('DXY MA20',    v.dxy_ma20 ?? '—', null),
+          mrow('TLT',         v.tlt_value ? `$${v.tlt_value}` : '—', chgStr(v.tlt_change_pct ?? 0), v.tlt_change_pct >= 0 ? 'green' : 'red'),
+          mrow('HYG Credit',  v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color),
+          mrow('GLD (Gold)',  v.gld_price ? `$${v.gld_price}` : '—', v.gld_label, v.gld_color),
+          mrow('BTC',         v.btc_price ? `$${Number(v.btc_price).toLocaleString()}` : '—', v.btc_label, v.btc_color),
+          mrow('BTC Trend',   v.btc_trend ?? '—', v.btc_from_high != null ? `${v.btc_from_high}% from high` : null, v.btc_trend_color),
+          mrow('FOMC',        v.fomc_date ?? '—', v.fomc_label, v.fomc_color),
+          mrow('OpEx',        v.opex_date ?? '—', v.opex_label, v.opex_color),
+          mrow('Seasonality', v.season_label ?? '—', v.season_bias, v.season_color),
         ].join('');
       },
     },

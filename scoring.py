@@ -16,6 +16,7 @@ from data import (
     get_quote, get_history, get_ohlcv,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
+    opex_proximity, seasonality,
 )
 
 # ─── configuration ─────────────────────────────────────────────────────────
@@ -45,8 +46,8 @@ INDUSTRY_NAMES = {
 }
 
 # Everything the dashboard needs in one shot.
-CORE_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^VIX9D", "TLT", "^TNX",
-                "DX-Y.NYB", "TQQQ", "SQQQ", "UVXY", "HYG", "GLD"]
+CORE_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^VIX9D", "^SKEW",
+                "TLT", "^TNX", "^IRX", "DX-Y.NYB", "TQQQ", "SQQQ", "UVXY", "HYG", "GLD"]
 
 
 # ─── math primitives ───────────────────────────────────────────────────────
@@ -112,6 +113,59 @@ def pct(q, key="changePct"):
 
 def price(q):
     return q.get("price") if q else None
+
+
+def ema(closes: list[float], n: int) -> list[float]:
+    """Return full EMA series. Seeded with the first n-period SMA."""
+    if len(closes) < n:
+        return []
+    k = 2.0 / (n + 1)
+    series = [sum(closes[:n]) / n]
+    for c in closes[n:]:
+        series.append(series[-1] * (1 - k) + c * k)
+    return series
+
+
+def macd(closes: list[float], fast: int = 12, slow: int = 26,
+         signal: int = 9) -> dict | None:
+    """MACD(fast, slow, signal). Returns None if insufficient data."""
+    if len(closes) < slow + signal:
+        return None
+    fast_ema = ema(closes, fast)
+    slow_ema = ema(closes, slow)
+    diff = len(fast_ema) - len(slow_ema)
+    macd_line = [f - s for f, s in zip(fast_ema[diff:], slow_ema)]
+    if len(macd_line) < signal:
+        return None
+    sig_ema = ema(macd_line, signal)
+    histogram = [m - s for m, s in zip(macd_line[-len(sig_ema):], sig_ema)]
+    return {
+        "macd_line":      round(macd_line[-1], 3),
+        "signal_line":    round(sig_ema[-1], 3),
+        "histogram":      round(histogram[-1], 3),
+        "prev_histogram": round(histogram[-2], 3) if len(histogram) >= 2 else None,
+    }
+
+
+def compute_sector_rs(sector_histories: dict) -> list[dict]:
+    """Rank sectors by blended 1M + 3M momentum (RS score). Sorted best-first."""
+    results = []
+    for sym, closes in sector_histories.items():
+        if len(closes) < 22:
+            continue
+        cur  = closes[-1]
+        m1   = (cur / closes[-22] - 1) * 100 if len(closes) >= 22 else 0
+        m3   = (cur / closes[-64] - 1) * 100 if len(closes) >= 64 else m1
+        rs   = round(0.4 * m1 + 0.6 * m3, 2)
+        results.append({
+            "symbol":    sym,
+            "name":      SECTOR_NAMES.get(sym, sym),
+            "rs_score":  rs,
+            "return_1m": round(m1, 2),
+            "return_3m": round(m3, 2),
+        })
+    results.sort(key=lambda x: x["rs_score"], reverse=True)
+    return results
 
 
 def atr14(highs: list[float], lows: list[float], closes: list[float], n: int = 14) -> float | None:
@@ -293,6 +347,33 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
         vix9d_ratio=vix9d_ratio, vix9d_label=vix9d_label, vix9d_color=vix9d_color,
     )
 
+    # SKEW Index — OTM put demand measures "tail risk" / black-swan insurance cost.
+    # High SKEW = institutions buying OTM puts = crash hedging elevated.
+    # Low SKEW = no crash protection demand = potential complacency.
+    skew_q = quotes.get("^SKEW")
+    skew_val = price(skew_q)
+    skew_label, skew_color = "N/A", "gray"
+    if skew_val:
+        if skew_val >= 150:
+            d, skew_label, skew_color = -15, "Extreme Tail Risk", "red"
+            score += d
+            reasons.append(f"{d} SKEW {skew_val:.0f} — extreme crash insurance demand")
+        elif skew_val >= 140:
+            d, skew_label, skew_color = -8, "Elevated", "orange"
+            score += d
+            reasons.append(f"{d} SKEW {skew_val:.0f} — elevated tail risk hedging")
+        elif skew_val >= 120:
+            skew_label, skew_color = "Normal", "yellow"
+            reasons.append(f"+0 SKEW {skew_val:.0f} — normal tail risk appetite")
+        else:
+            d, skew_label, skew_color = +4, "Complacent", "green"
+            score += d
+            reasons.append(f"+{d} SKEW {skew_val:.0f} — low tail risk demand, calm market")
+    details.update(
+        skew_value=round(skew_val, 1) if skew_val else None,
+        skew_label=skew_label, skew_color=skew_color,
+    )
+
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
 
@@ -381,6 +462,32 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
         elif char_label == "Trending":
             reasons.append("+0 Market character: Trending — directional bias intact")
 
+    # MACD(12,26,9) on SPY — momentum crossover signal
+    macd_d = macd(spy_closes) if spy_closes else None
+    macd_line_val = signal_val = hist_val = prev_hist = None
+    macd_label, macd_color = "N/A", "gray"
+    if macd_d:
+        macd_line_val = macd_d["macd_line"]
+        signal_val    = macd_d["signal_line"]
+        hist_val      = macd_d["histogram"]
+        prev_hist     = macd_d.get("prev_histogram")
+        bull = macd_line_val > signal_val
+        hist_expanding = (prev_hist is not None and
+                          ((hist_val > 0 and hist_val > prev_hist) or
+                           (hist_val < 0 and hist_val < prev_hist)))
+        if bull and macd_line_val > 0:
+            d, macd_label, macd_color = +10, "Bullish (above 0)", "green"
+        elif bull and macd_line_val <= 0:
+            d, macd_label, macd_color = +5, "Bullish (below 0)", "yellow"
+        elif not bull and macd_line_val > 0:
+            d, macd_label, macd_color = -5, "Bearish (above 0)", "orange"
+        else:
+            d, macd_label, macd_color = -10, "Bearish (below 0)", "red"
+        if hist_expanding and bull:
+            d += 3    # histogram widening = momentum accelerating
+        score += d
+        reasons.append(f"{'+' if d>=0 else ''}{d} MACD {macd_line_val:.2f}/Signal {signal_val:.2f} — {macd_label}")
+
     details = {
         "spy_price": round(spy_px, 2) if spy_px else None,
         "spy_change_pct": round(pct(spy_q), 2),
@@ -397,6 +504,8 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
         "vol_ratio": vol_ratio, "vol_label": vol_label, "vol_color": vol_color,
         "char_label": char_label, "char_color": char_color,
         "char_atr_pct": char_atr_pct, "char_bbw_pct": char_bbw_pct,
+        "macd_line": macd_line_val, "macd_signal": signal_val,
+        "macd_hist": hist_val, "macd_label": macd_label, "macd_color": macd_color,
     }
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
@@ -475,7 +584,7 @@ def score_breadth(quotes: dict, rsp_closes: list[float]) -> dict:
 
 
 # ─── pillar 4 — momentum ───────────────────────────────────────────────────
-def score_momentum(quotes: dict) -> dict:
+def score_momentum(quotes: dict, sector_histories: dict | None = None) -> dict:
     spy_q, rsp_q = quotes.get("SPY"), quotes.get("RSP")
     rsp_chg, spy_chg = pct(rsp_q), pct(spy_q)
     rsp_vs_spy = round(rsp_chg - spy_chg, 2)
@@ -536,6 +645,30 @@ def score_momentum(quotes: dict) -> dict:
     else:
         participation, pc = "Narrow", "red"
 
+    # Sector Relative Strength (1M + 3M blended momentum ranking)
+    # Shows where institutional money is rotating, not just what moved today.
+    sector_rs_list = []
+    rs_rotation_label, rs_rotation_color = "N/A", "gray"
+    if sector_histories:
+        sector_rs_list = compute_sector_rs(sector_histories)
+        if len(sector_rs_list) >= 3:
+            leaders_syms  = {r["symbol"] for r in sector_rs_list[:3]}
+            laggards_syms = {r["symbol"] for r in sector_rs_list[-3:]}
+            cyclicals  = {"XLY", "XLF", "XLK", "XLE", "XLI"}
+            defensives = {"XLU", "XLP", "XLV"}
+            n_cyc_lead = len(leaders_syms & cyclicals)
+            n_def_lead = len(leaders_syms & defensives)
+            if n_cyc_lead >= 2:
+                d, rs_rotation_label, rs_rotation_color = +5, "Cyclical Leadership", "green"
+                score += d
+                reasons.append(f"+{d} Sector RS: cyclicals leading — risk-on rotation")
+            elif n_def_lead >= 2:
+                d, rs_rotation_label, rs_rotation_color = -5, "Defensive Rotation", "red"
+                score += d
+                reasons.append(f"{d} Sector RS: defensives leading — risk-off rotation")
+            else:
+                rs_rotation_label, rs_rotation_color = "Mixed Rotation", "yellow"
+
     details = {
         "sectors_positive": n_pos, "sectors_total": n_valid,
         "sectors_label": f"{n_pos}/{n_valid}",
@@ -549,6 +682,8 @@ def score_momentum(quotes: dict) -> dict:
         "leader":  {"symbol": leader[0],  "name": SECTOR_NAMES.get(leader[0], "--"),  "change_pct": round(leader[1], 2)},
         "laggard": {"symbol": laggard[0], "name": SECTOR_NAMES.get(laggard[0], "--"), "change_pct": round(laggard[1], 2)},
         "participation": participation, "participation_color": pc,
+        "sector_rs": sector_rs_list,
+        "rs_rotation_label": rs_rotation_label, "rs_rotation_color": rs_rotation_color,
     }
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
@@ -556,7 +691,8 @@ def score_momentum(quotes: dict) -> dict:
 # ─── pillar 5 — macro ──────────────────────────────────────────────────────
 def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
                 btc_q: dict | None, btc_closes: list[float], fomc: dict,
-                hyg_closes: list[float] | None = None) -> dict:
+                hyg_closes: list[float] | None = None,
+                opex: dict | None = None, season: dict | None = None) -> dict:
     tnx_q, dxy_q, tlt_q = quotes.get("^TNX"), quotes.get("DX-Y.NYB"), quotes.get("TLT")
     tnx_val, dxy_px = price(tnx_q), price(dxy_q)
     tnx_chg, dxy_chg, tlt_chg = pct(tnx_q), pct(dxy_q), pct(tlt_q)
@@ -688,6 +824,34 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
         else:
             gld_label, gld_color = "Flat", "gray"
 
+    # Yield Curve — 3-month T-bill (^IRX) vs 10-year Treasury (^TNX)
+    # Inversion (short > long) historically precedes recessions and bear markets.
+    irx_q   = quotes.get("^IRX")
+    irx_val = price(irx_q)
+    curve_spread = None
+    curve_label, curve_color = "N/A", "gray"
+    if tnx_val and irx_val:
+        curve_spread = round(tnx_val - irx_val, 2)
+        if   curve_spread < -0.5:
+            d, curve_label, curve_color = -15, "Deeply Inverted", "red"
+            score += d
+            reasons.append(f"{d} Yield curve {curve_spread:+.2f}% — deep inversion, recession watch")
+        elif curve_spread < 0:
+            d, curve_label, curve_color = -8, "Inverted", "red"
+            score += d
+            reasons.append(f"{d} Yield curve {curve_spread:+.2f}% — inverted, elevated risk")
+        elif curve_spread < 0.5:
+            curve_label, curve_color = "Flat", "orange"
+            reasons.append(f"+0 Yield curve {curve_spread:+.2f}% — flat, watch for inversion")
+        elif curve_spread < 1.5:
+            d, curve_label, curve_color = +5, "Normal", "yellow"
+            score += d
+            reasons.append(f"+{d} Yield curve {curve_spread:+.2f}% — normal slope")
+        else:
+            d, curve_label, curve_color = +8, "Steep", "green"
+            score += d
+            reasons.append(f"+{d} Yield curve {curve_spread:+.2f}% — steep curve, growth priced in")
+
     # FOMC event risk — dampen score if meeting is imminent (markets pin)
     fomc_days = fomc.get("days_until")
     if fomc_days is not None:
@@ -700,6 +864,22 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
         elif fomc_days <= 7:
             score -= 3
             reasons.append(f"-3 FOMC in {fomc_days}d — stay nimble")
+
+    # Options Expiration — gamma pinning, false breakouts, vol squeezes near OpEx
+    opex_days = opex.get("days_until") if opex else None
+    if opex_days is not None:
+        if opex_days == 0:
+            score -= 5
+            reasons.append(f"-5 {opex.get('kind', 'OpEx')} today — gamma pinning, use caution")
+        elif opex_days <= 2:
+            score -= 3
+            reasons.append(f"-3 {opex.get('kind', 'OpEx')} in {opex_days}d — approaching expiration")
+
+    # Seasonality — monthly historical bias (weak signal, small adjustment)
+    season_adj = season.get("score_adj", 0) if season else 0
+    if season and season_adj != 0:
+        score += season_adj
+        reasons.append(f"{'+' if season_adj>=0 else ''}{season_adj} Seasonality: {season.get('label')} — {season.get('bias')}")
 
     details = {
         "tnx_value": round(tnx_val, 3) if tnx_val else None,
@@ -728,6 +908,18 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
         "fomc_date": fomc.get("date_pretty"),
         "fomc_label": fomc.get("label"),
         "fomc_color": fomc.get("color"),
+        "irx_value": round(irx_val, 3) if irx_val else None,
+        "curve_spread": curve_spread,
+        "curve_label": curve_label, "curve_color": curve_color,
+        "opex_days": opex_days,
+        "opex_date": opex.get("date_pretty") if opex else None,
+        "opex_label": opex.get("label") if opex else "N/A",
+        "opex_color": opex.get("color") if opex else "gray",
+        "opex_kind":  opex.get("kind") if opex else None,
+        "season_label": season.get("label") if season else "N/A",
+        "season_bias":  season.get("bias") if season else "N/A",
+        "season_color": season.get("color") if season else "gray",
+        "season_adj":   season_adj,
     }
     return {"score": clamp(score), "details": details, "reasons": reasons}
 
@@ -749,15 +941,14 @@ def _safe_pillar(fn, *args, name: str = "?") -> dict:
 def compute_dashboard() -> dict:
     """Fetch everything in one parallel batch then score all 5 pillars."""
     all_symbols   = CORE_SYMBOLS + SECTOR_SYMBOLS + INDUSTRY_SYMBOLS
-    history_pairs = [("SPY", 220), ("QQQ", 220), ("RSP", 220),
-                     ("^VIX", 252), ("^TNX", 60), ("DX-Y.NYB", 60),
-                     ("HYG", 60)]
+    # Core history + sector RS histories (65 days = enough for 1M and 3M RS)
+    history_pairs = ([("SPY", 220), ("QQQ", 220), ("RSP", 220),
+                      ("^VIX", 252), ("^TNX", 60), ("DX-Y.NYB", 60), ("HYG", 60)]
+                     + [(s, 65) for s in SECTOR_SYMBOLS])
 
-    # Fire all network requests concurrently — quotes, histories, BTC and
-    # both F&G indexes are independent and previously ran in three sequential
-    # phases; collapsing them into one pool cuts cold load by ~50%.
-    # SPY OHLCV reuses the same Yahoo URL as get_history("SPY") — cache hit.
-    with _TPE(max_workers=16) as ex:
+    # Fire all network requests concurrently. Sector histories run in the same pool;
+    # since they're independent Yahoo requests, net time increase is minimal.
+    with _TPE(max_workers=24) as ex:
         q_futs      = {ex.submit(get_quote,   s):    s for s in all_symbols}
         h_futs      = {ex.submit(get_history, s, d): s for s, d in history_pairs}
         spy_ohlcv_f = ex.submit(get_ohlcv, "SPY", 220)
@@ -774,18 +965,23 @@ def compute_dashboard() -> dict:
     fng_stock  = fng_s_f.result()
     fng_crypto = fng_c_f.result()
 
+    sector_histories = {s: histories.get(s, []) for s in SECTOR_SYMBOLS}
+
     mstate = market_state()
-    fomc = fomc_proximity()
+    fomc   = fomc_proximity()
+    opex   = opex_proximity()
+    season = seasonality()
     econ_events = econ_proximity()
 
     # Score each pillar (with graceful fallback per pillar)
     vol  = _safe_pillar(score_volatility, quotes, histories.get("^VIX", []), name="Volatility")
     tr   = _safe_pillar(score_trend, quotes, histories.get("SPY", []), histories.get("QQQ", []), spy_ohlcv, name="Trend")
     br   = _safe_pillar(score_breadth, quotes, histories.get("RSP", []), name="Breadth")
-    mom  = _safe_pillar(score_momentum, quotes, name="Momentum")
+    mom  = _safe_pillar(score_momentum, quotes, sector_histories, name="Momentum")
     mac  = _safe_pillar(score_macro, quotes,
                         histories.get("^TNX", []), histories.get("DX-Y.NYB", []),
-                        btc_q, btc_closes, fomc, histories.get("HYG", []), name="Macro")
+                        btc_q, btc_closes, fomc, histories.get("HYG", []),
+                        opex, season, name="Macro")
 
     # Weighted total
     total = int(vol["score"]  * PILLAR_WEIGHTS["volatility"] +
@@ -826,6 +1022,8 @@ def compute_dashboard() -> dict:
         "decision": decision, "decision_color": dc, "position_size": pos,
         "market_state": mstate,
         "fomc": fomc,
+        "opex": opex,
+        "season": season,
         "econ_events": econ_events,
         "pillars": {
             "volatility": {"score": vol["score"],  "weight": 20, "details": vol["details"],  "reasons": vol["reasons"]},
