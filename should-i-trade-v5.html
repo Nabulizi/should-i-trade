@@ -705,7 +705,7 @@ function renderPillars(d) {
           mrow('Sectors +',   `${v.sectors_positive}/${v.sectors_total}`, spct >= 73 ? 'Strong' : spct >= 45 ? 'Mixed' : 'Weak', spct >= 73 ? 'green' : spct >= 45 ? 'yellow' : 'red'),
           mrow('Industries +', `${v.industries_positive}/${v.industries_total}`, ipct >= 67 ? 'Strong' : ipct >= 45 ? 'Mixed' : 'Weak', ipct >= 67 ? 'green' : ipct >= 45 ? 'yellow' : 'red'),
           mrow('RSP',      v.rsp_price ? `$${v.rsp_price}` : '—', chgStr(v.rsp_change_pct ?? 0), v.rsp_change_pct >= 0 ? 'green' : 'red'),
-          mrow('RSP vs SPY', chgStr(v.rsp_vs_spy ?? 0), v.rsp_vs_spy > 0 ? 'Broad' : 'Narrow', v.rsp_vs_spy > 0 ? 'green' : 'orange'),
+          mrow('RSP vs SPY', chgStr(v.rsp_vs_spy ?? 0), v.rsp_vs_spy > 0 ? 'Equal-Wt Led' : 'Large-Cap Led', v.rsp_vs_spy > 0 ? 'green' : 'orange'),
           mrow('RSP > 50d',  '', v.rsp_above_50  ? 'Yes' : 'No', v.rsp_above_50  ? 'green' : 'red'),
           mrow('RSP > 200d', '', v.rsp_above_200 ? 'Yes' : 'No', v.rsp_above_200 ? 'green' : 'red'),
           v.pct_sectors_above_200 != null ? mrow('Sectors > 200d', `${v.sectors_above_200}/${v.sectors_above_200_total}`,
@@ -726,7 +726,7 @@ function renderPillars(d) {
           mrow('Growth 3',     v.growth_leaders + '/3', null),
           mrow('Participation', '', v.participation ?? '—', v.participation_color),
           mrow('IWM vs SPY',    chgStr(v.iwm_vs_spy ?? 0), v.iwm_vs_spy > 0.3 ? 'Risk-On' : v.iwm_vs_spy < -0.3 ? 'Defensive' : 'Neutral', v.iwm_vs_spy > 0.3 ? 'green' : v.iwm_vs_spy < -0.3 ? 'orange' : 'yellow'),
-          mrow('RSP vs SPY',    chgStr(v.rsp_vs_spy ?? 0), v.rsp_outperforming ? 'Broad' : 'Narrow', v.rsp_outperforming ? 'green' : 'orange'),
+          mrow('RSP vs SPY',    chgStr(v.rsp_vs_spy ?? 0), v.rsp_outperforming ? 'Equal-Wt Led' : 'Large-Cap Led', v.rsp_outperforming ? 'green' : 'orange'),
           mrow('RS Rotation',  '', v.rs_rotation_label ?? '—', v.rs_rotation_color),
           ...(v.sector_rs && v.sector_rs.length ? [
             `<div class="metric-row"><span class="metric-key" style="font-size:9px;color:var(--muted)">Sector RS (1M+3M blend) — top leaders</span></div>`,
@@ -819,7 +819,7 @@ function renderExecution(d) {
     { label: 'Breakouts working?', ok: m.sectors_positive >= 7,       t: 'Working',     f: 'Failing'  },
     { label: 'Leaders holding?',   ok: t.above_50 && t.above_20,      t: 'Holding',     f: 'Breaking' },
     { label: 'Pullbacks bought?',  ok: b.rsp_change_pct >= 0,         t: 'Supported',   f: 'Sold'     },
-    { label: 'Broad participation?', ok: b.rsp_vs_spy > 0,             t: 'Broad',       f: 'Narrow'   },
+    { label: 'Equal-weight leading?', ok: b.rsp_vs_spy > 0,             t: 'Equal-Wt Led', f: 'Large-Cap Led' },
     { label: 'Follow-through?',    ok: d.total_score >= 70,           t: 'Conviction',  f: 'Weak'     },
   ];
 
