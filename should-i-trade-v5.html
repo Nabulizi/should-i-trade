@@ -341,23 +341,23 @@
 
       <div class="hero-divider"></div>
 
-      <!-- Score gauge -->
-      <div class="score-circle-wrap">
-        <div class="score-circle">
-          <svg width="80" height="80" viewBox="0 0 110 110">
-            <circle class="track" cx="55" cy="55" r="46"/>
-            <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
-          </svg>
-          <div class="score-num">
-            <div class="val" id="score-val">—</div>
-            <div class="tot">/ 100</div>
+      <!-- Score + Radar (fills space, centers content) -->
+      <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:24px;">
+        <div class="score-circle-wrap">
+          <div class="score-circle">
+            <svg width="80" height="80" viewBox="0 0 110 110">
+              <circle class="track" cx="55" cy="55" r="46"/>
+              <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
+            </svg>
+            <div class="score-num">
+              <div class="val" id="score-val">—</div>
+              <div class="tot">/ 100</div>
+            </div>
           </div>
+          <div class="score-label">Total Score</div>
         </div>
-        <div class="score-label">Total Score</div>
+        <div id="pillars-mini" style="flex-shrink:0;"></div>
       </div>
-
-      <!-- Radar chart -->
-      <div id="pillars-mini" style="flex-shrink:0; margin-left:16px;"></div>
 
       <div class="hero-divider"></div>
 
@@ -570,7 +570,7 @@ function buildRadarChart(pillars) {
     const a = start + i * step;
     return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
   }
-  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="160" height="160">`;
+  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="110" height="110">`;
   // Grid rings
   [25,50,75,100].forEach(pct => {
     const r = maxR * pct / 100;
@@ -590,9 +590,9 @@ function buildRadarChart(pillars) {
     const [x,y] = pts[i];
     const col = sc >= 70 ? '#00e676' : sc >= 45 ? '#ffd740' : '#ff1744';
     svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${col}"/>`;
-    const [lx,ly] = pt(i, maxR + 16);
-    svg += `<text x="${lx.toFixed(1)}" y="${(ly-3).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="7.5" font-family="monospace">${labels[i]}</text>`;
-    svg += `<text x="${lx.toFixed(1)}" y="${(ly+6).toFixed(1)}" text-anchor="middle" fill="${col}" font-size="7" font-family="monospace">${sc}</text>`;
+    const [lx,ly] = pt(i, maxR + 18);
+    svg += `<text x="${lx.toFixed(1)}" y="${(ly-2).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.80)" font-size="15" font-family="monospace">${labels[i]}</text>`;
+    svg += `<text x="${lx.toFixed(1)}" y="${(ly+13).toFixed(1)}" text-anchor="middle" fill="${col}" font-size="17" font-family="monospace" font-weight="700">${sc}</text>`;
   });
   svg += '</svg>';
   return svg;
