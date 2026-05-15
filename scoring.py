@@ -413,9 +413,18 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
 
     rsi = spy_mas.get("rsi14")
     if rsi is not None:
-        if   rsi >= 75: reasons.append(f"⚠ RSI {rsi} — severely overbought")
-        elif rsi >= 70: reasons.append(f"ℹ RSI {rsi} — overbought")
-        elif rsi <= 30: reasons.append(f"ℹ RSI {rsi} — oversold, bounce candidate")
+        if rsi >= 75:
+            score -= 15
+            reasons.append(f"-15 RSI {rsi} — severely overbought, high mean-reversion risk, don't chase")
+        elif rsi >= 70:
+            score -= 8
+            reasons.append(f"-8 RSI {rsi} — overbought, wait for pullback to 20d before entry")
+        elif rsi <= 30:
+            score += 5
+            reasons.append(f"+5 RSI {rsi} — oversold, bounce candidate")
+        elif 45 <= rsi <= 60:
+            score += 5
+            reasons.append(f"+5 RSI {rsi} — sweet spot, ideal swing entry zone after pullback")
 
     spy_1y_hi = max(spy_closes[-252:]) if len(spy_closes) >= 252 else (max(spy_closes) if spy_closes else spy_px or 1)
     ath_dist = round((spy_px / spy_1y_hi - 1) * 100, 1) if spy_px and spy_1y_hi else 0
