@@ -12,11 +12,11 @@
     --border2: #243342;
     --green:   #00e676;
     --yellow:  #ffd740;
-    --orange:  #ff9100;
+    --orange:  #ffaa00;
     --red:     #ff1744;
     --text:    #e0e8f0;
-    --muted:   #5a7080;
-    --muted2:  #7a8ea0;
+    --muted:   #6b8298;
+    --muted2:  #8aa0b4;
     --accent:  #00b0ff;
     --accent2: #7c4dff;
   }
@@ -69,27 +69,33 @@
   /* ── MAIN ── */
   .main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
 
-  /* ── HERO STRIP ── */
-  .hero-strip { display: flex; align-items: center; gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 28px; }
-  .hero-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .hero-block.fill { flex: 1; align-items: flex-start; }
-  .hero-divider { width: 1px; background: var(--border); align-self: stretch; margin: 0 28px; flex-shrink: 0; }
-  .hero-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
-  .decision-badge { font-size: clamp(16px, 2vw, 28px); font-weight: 800; letter-spacing: clamp(0px, 0.1vw, 2px); white-space: nowrap; }
+  /* ── HERO ── */
+  .hero { display: grid; grid-template-columns: clamp(185px, 14vw, 225px) 1fr clamp(140px, 11vw, 170px); gap: 14px; align-items: stretch; }
+  .decision-card, .pos-card, .score-wrap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  .decision-label, .pos-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+  .decision-badge { font-size: clamp(18px, 2.3vw, 34px); font-weight: 800; letter-spacing: clamp(0px, 0.15vw, 2px); margin-bottom: 4px; overflow: hidden; white-space: nowrap; }
   .decision-sub { font-size: 9px; color: var(--muted); }
-  .pos-icon { font-size: 20px; }
-  .pos-text { font-size: 12px; font-weight: 700; letter-spacing: 1px; }
-  .pos-sub  { font-size: 9px; color: var(--muted); }
+  .pos-icon { font-size: 26px; margin-bottom: 4px; }
+  .pos-text { font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+  .pos-sub  { font-size: 9px; color: var(--muted); margin-top: 4px; }
 
-  .score-circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-  .score-circle { position: relative; width: 80px; height: 80px; }
+  .hero-mid { display: flex; align-items: center; justify-content: center; gap: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; min-width: 0; overflow: hidden; }
+  .score-circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .score-circle { position: relative; width: 110px; height: 110px; }
   .score-circle svg { transform: rotate(-90deg); }
-  .score-circle .track { fill: none; stroke: var(--border); stroke-width: 6; }
-  .score-circle .fill  { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+  .score-circle .track { fill: none; stroke: var(--border); stroke-width: 8; }
+  .score-circle .fill  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
   .score-num { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
-  .score-num .val { font-size: 22px; font-weight: 800; }
-  .score-num .tot { font-size: 9px; color: var(--muted); }
+  .score-num .val { font-size: 28px; font-weight: 800; }
+  .score-num .tot { font-size: 10px; color: var(--muted); }
   .score-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  .pillars-mini { display: flex; gap: 22px; }
+  .pillar-mini { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .pillar-mini .pm-score { font-size: 22px; font-weight: 700; }
+  .pillar-mini .pm-bar { width: 58px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .pillar-mini .pm-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+  .pillar-mini .pm-label { font-size: 9px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
 
   /* ── PILLAR CARDS ── */
   .pillars-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
@@ -148,7 +154,16 @@
   /* sparkline */
   .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
   .sparkline-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; }
-  .sparkline { width: 100%; height: 36px; }
+  .sparkline { width: 100%; height: 60px; }
+  .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
+
+  /* ── DECISION CONTEXT ── */
+  .decision-context { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; text-align: left; }
+  .dc-row { display: flex; align-items: center; gap: 6px; font-size: 9px; color: var(--muted2); }
+  .dc-label { letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 62px; }
+  .dc-posture { font-size: 10px; color: var(--text); font-weight: 600; line-height: 1.4; }
+  .confidence-bar { display: flex; gap: 3px; }
+  .conf-seg { width: 18px; height: 3px; border-radius: 1px; }
 
   /* ── ROUNDTABLE ── */
   .roundtable-section { display: flex; flex-direction: column; gap: 10px; }
@@ -274,18 +289,23 @@
     .pillars-row { grid-template-columns: repeat(2, 1fr); }
     .roundtable-grid { grid-template-columns: repeat(2, 1fr); }
     .bottom-row { grid-template-columns: 1fr 1fr; }
-    .hero-strip { flex-wrap: wrap; justify-content: center; }
-    .hero-divider { display: none; }
+    /* Score+pillars full-width on top; Decision & Position side-by-side below */
+    .hero { grid-template-columns: 1fr 1fr; grid-template-areas: "mid mid" "dec pos"; }
+    .hero > .decision-card { grid-area: dec; }
+    .hero > .hero-mid      { grid-area: mid; }
+    .hero > .pos-card      { grid-area: pos; }
   }
   @media (max-width: 600px) {
     .pillars-row { grid-template-columns: 1fr; }
     .roundtable-grid { grid-template-columns: 1fr; }
     .bottom-row { grid-template-columns: 1fr; }
-    .hero-strip { flex-direction: column; align-items: center; padding: 14px; gap: 12px; }
-    .decision-badge { font-size: 24px; letter-spacing: 1px; }
+    .hero { grid-template-columns: 1fr; grid-template-areas: "mid" "dec" "pos"; }
+    .decision-badge { font-size: 28px; letter-spacing: 1px; }
     .header { flex-wrap: wrap; gap: 8px; }
     .header-left, .header-right { flex-wrap: wrap; }
     .main { padding: 10px; }
+    .pillars-mini { gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .pillar-mini .pm-bar { width: 48px; }
   }
 </style>
 </head>
@@ -330,22 +350,19 @@
 
   <div class="main">
 
-    <!-- HERO STRIP -->
-    <div class="hero-strip">
-      <!-- Decision -->
-      <div class="hero-block" style="min-width:130px;">
-        <div class="hero-label">Decision</div>
+    <!-- HERO -->
+    <div class="hero">
+      <div class="decision-card">
+        <div class="decision-label">Decision</div>
         <div class="decision-badge" id="decision-badge">—</div>
-        <div class="decision-sub">Swing Trading</div>
+        <div class="decision-sub" id="decision-sub">Swing Trading</div>
+        <div class="decision-context" id="decision-context" style="display:none"></div>
       </div>
 
-      <div class="hero-divider"></div>
-
-      <!-- Score + Radar (fills space, centers content) -->
-      <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:24px;">
+      <div class="hero-mid">
         <div class="score-circle-wrap">
           <div class="score-circle">
-            <svg width="80" height="80" viewBox="0 0 110 110">
+            <svg width="110" height="110" viewBox="0 0 110 110">
               <circle class="track" cx="55" cy="55" r="46"/>
               <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
             </svg>
@@ -356,14 +373,11 @@
           </div>
           <div class="score-label">Total Score</div>
         </div>
-        <div id="pillars-mini" style="flex-shrink:0;"></div>
+        <div class="pillars-mini" id="pillars-mini"></div>
       </div>
 
-      <div class="hero-divider"></div>
-
-      <!-- Position Size -->
-      <div class="hero-block" style="min-width:120px;">
-        <div class="hero-label">Position Size</div>
+      <div class="pos-card">
+        <div class="pos-label">Position Size</div>
         <div class="pos-icon">🛡</div>
         <div class="pos-text" id="pos-text">—</div>
         <div class="pos-sub">Press risk</div>
@@ -415,7 +429,7 @@
             <span>Score history</span>
             <span id="spark-range">—</span>
           </div>
-          <svg class="sparkline" id="sparkline" viewBox="0 0 200 36" preserveAspectRatio="none"></svg>
+          <svg class="sparkline" id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none"></svg>
           <div class="spark-legend" id="spark-legend">
             <div class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)"><div class="spark-leg-dot" style="background:#e0e8f0"></div>Total</div>
             <div class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)"><div class="spark-leg-dot" style="background:#00b0ff"></div>Vol</div>
@@ -570,7 +584,7 @@ function buildRadarChart(pillars) {
     const a = start + i * step;
     return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
   }
-  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="110" height="110">`;
+  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="160" height="160">`;
   // Grid rings
   [25,50,75,100].forEach(pct => {
     const r = maxR * pct / 100;
@@ -601,12 +615,34 @@ function buildRadarChart(pillars) {
 /* ── HERO ───────────────────────────────────────────────── */
 function renderHero(d) {
   const col = d.decision_color;
+  const s   = d.total_score;
   $('decision-badge').textContent = d.decision;
   $('decision-badge').className = 'decision-badge ' + (col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : 'c-red');
   $('pos-text').textContent = d.position_size;
-  $('pos-text').style.color = scoreColor(d.total_score);
+  $('pos-text').style.color = scoreColor(s);
 
-  const s = d.total_score;
+  // ── Decision context: regime, posture, confidence ──────
+  const regime  = d.pillars?.trend?.details?.regime || null;
+  const posture = s >= 80 ? 'Aggressive entries, press risk'
+                : s >= 70 ? 'Selective swing entries'
+                : s >= 60 ? 'Reduce size, be selective'
+                :           'Preserve capital, wait';
+  const confLevel = s >= 75 ? 4 : s >= 60 ? 3 : s >= 45 ? 2 : 1;
+  const confColor = s >= 75 ? 'var(--green)' : s >= 60 ? 'var(--yellow)' : 'var(--orange)';
+  const confSegs  = [1,2,3,4,5].map(i =>
+    `<div class="conf-seg" style="background:${i <= confLevel ? confColor : 'var(--border)'}"></div>`
+  ).join('');
+  const regimeTag = regime
+    ? `<span class="tag ${regime.toLowerCase().includes('up') ? 'green' : regime.toLowerCase().includes('down') ? 'red' : 'yellow'}">${regime}</span>`
+    : '';
+  const ctx = $('decision-context');
+  ctx.style.display = 'flex';
+  ctx.innerHTML = `
+    ${regime ? `<div class="dc-row"><span class="dc-label">Regime</span>${regimeTag}</div>` : ''}
+    <div class="dc-posture">${posture}</div>
+    <div class="dc-row"><span class="dc-label">Confidence</span><div class="confidence-bar">${confSegs}</div></div>
+  `;
+
   const circ = 289;
   const arc = $('score-arc');
   arc.style.strokeDashoffset = circ - (s / 100) * circ;
@@ -647,26 +683,24 @@ function mrow(key, val, tagLabel, tagCol) {
 }
 
 function renderPillars(d) {
-  const sep = `<div class="pillar-sep"></div>`;
-
   const defs = [
     {
       key: 'volatility', icon: '⚡', label: 'VOLATILITY',
       primary(p) {
         const v = p.details;
         return [
-          mrow('VIX Level',      v.vix_level ?? '—',                             v.vix_label,      v.vix_color),
-          mrow('VIX Trend',      chgStr(v.vix_change_pct ?? 0),                  v.vix_trend,      v.vix_trend_color),
-          mrow('VIX9D/VIX',      v.vix9d_value ? `${v.vix9d_value} (${v.vix9d_ratio}x)` : '—', v.vix9d_label, v.vix9d_color),
-          mrow('SKEW',           v.skew_value ?? '—',                             v.skew_label,     v.skew_color),
-          mrow('Flow Sentiment', (v.flow_score ?? '—') + '/100',                  v.flow_label,     v.flow_color),
+          mrow('VIX Level',     v.vix_level ?? '—', v.vix_label, v.vix_color),
+          mrow('VIX Trend',     chgStr(v.vix_change_pct ?? 0), v.vix_trend, v.vix_trend_color),
+          mrow('VIX 1Y %ile',   (v.vix_pctile ?? 0) + 'th', null),
+          mrow('VIX3M',         v.vix3m_value ? `${v.vix3m_value}` : '—', v.vix_term_label, v.vix_term_color),
         ].join('');
       },
       detail(p) {
         const v = p.details;
         return [
-          mrow('VIX 1Y %ile', (v.vix_pctile ?? 0) + 'th', null),
-          mrow('VIX3M',       v.vix3m_value ?? '—', v.vix_term_label, v.vix_term_color),
+          mrow('VIX9D/VIX',     v.vix9d_value ? `${v.vix9d_value} (${v.vix9d_ratio}x)` : '—', v.vix9d_label, v.vix9d_color),
+          mrow('SKEW',          v.skew_value ? `${v.skew_value}` : '—', v.skew_label, v.skew_color),
+          mrow('Flow Sentiment', (v.flow_score ?? '—') + '/100', v.flow_label, v.flow_color),
           `<div class="metric-row"><span class="metric-key" style="font-size:9px;">Flow inputs</span><span class="metric-val" style="font-size:9px;color:var(--muted)">TQQQ ${chgStr(v.tqqq_chg ?? 0)} · SQQQ ${chgStr(v.sqqq_chg ?? 0)} · UVXY ${chgStr(v.uvxy_chg ?? 0)}</span></div>`,
         ].join('');
       },
@@ -676,23 +710,23 @@ function renderPillars(d) {
       primary(p) {
         const v = p.details;
         return [
-          mrow('SPY Price',     v.spy_price ? `$${v.spy_price}` : '—', chgStr(v.spy_change_pct ?? 0), v.spy_change_pct >= 0 ? 'green' : 'red'),
-          mrow('SPY vs 50d',    v.ma50  ? `$${v.ma50}`  : '—', v.above_50  ? '▲ Strong' : '▼ Weak',   v.above_50  ? 'green' : 'red'),
-          mrow('SPY vs 200d',   v.ma200 ? `$${v.ma200}` : '—', v.above_200 ? '▲ Intact' : '▼ Broken', v.above_200 ? 'green' : 'red'),
-          sep,
-          mrow('MACD(12,26,9)', v.macd_line != null ? `${v.macd_line} / Sig ${v.macd_signal}` : '—', v.macd_label, v.macd_color),
-          mrow('SPY Volume',    v.vol_ratio != null ? `${v.vol_ratio}x avg` : '—', v.vol_label, v.vol_color),
-          mrow('Mkt Character', v.char_atr_pct != null ? `ATR ${v.char_atr_pct}%` : '—', v.char_label, v.char_color),
+          mrow('SPY Price',   v.spy_price ? `$${v.spy_price}` : '—', chgStr(v.spy_change_pct ?? 0), v.spy_change_pct >= 0 ? 'green' : 'red'),
+          mrow('SPY vs 20d',  v.ma20 ? `$${v.ma20}`   : '—', v.above_20  ? '▲ Healthy'  : '▼ Warning', v.above_20  ? 'green' : 'red'),
+          mrow('SPY vs 50d',  v.ma50 ? `$${v.ma50}`   : '—', v.above_50  ? '▲ Strong'   : '▼ Weak',    v.above_50  ? 'green' : 'red'),
+          mrow('SPY vs 200d', v.ma200 ? `$${v.ma200}` : '—', v.above_200 ? '▲ Intact'   : '▼ Broken',  v.above_200 ? 'green' : 'red'),
+          `<div class="pillar-sep"></div>`,
+          mrow('Regime',  '',  v.regime, v.regime_color),
         ].join('');
       },
       detail(p) {
         const v = p.details;
         return [
-          mrow('SPY vs 20d', v.ma20 ? `$${v.ma20}` : '—', v.above_20 ? '▲ Healthy' : '▼ Warning', v.above_20 ? 'green' : 'red'),
-          mrow('QQQ',        v.qqq_price ? `$${v.qqq_price}` : '—', chgStr(v.qqq_change_pct ?? 0), v.qqq_change_pct >= 0 ? 'green' : 'red'),
-          mrow('Regime',     '', v.regime, v.regime_color),
-          mrow('RSI(14)',    v.rsi14 ?? '—', null),
-          mrow('ATH Dist',   (v.ath_dist >= 0 ? '+' : '') + (v.ath_dist ?? 0) + '%', null),
+          mrow('QQQ',  v.qqq_price ? `$${v.qqq_price}` : '—', chgStr(v.qqq_change_pct ?? 0), v.qqq_change_pct >= 0 ? 'green' : 'red'),
+          mrow('RSI(14)', v.rsi14 ?? '—', null),
+          mrow('ATH Dist', (v.ath_dist >= 0 ? '+' : '') + (v.ath_dist ?? 0) + '%', null),
+          mrow('SPY Volume', v.vol_ratio != null ? `${v.vol_ratio}x avg` : '—', v.vol_label, v.vol_color),
+          mrow('Mkt Character', v.char_atr_pct != null ? `ATR ${v.char_atr_pct}%` : '—', v.char_label, v.char_color),
+          mrow('MACD(12,26,9)', v.macd_line != null ? `${v.macd_line} / Sig ${v.macd_signal}` : '—', v.macd_label, v.macd_color),
         ].join('');
       },
     },
@@ -701,22 +735,22 @@ function renderPillars(d) {
       primary(p) {
         const v = p.details;
         const spct = v.sectors_total ? Math.round(v.sectors_positive / v.sectors_total * 100) : 0;
+        const ipct = v.industries_total ? Math.round(v.industries_positive / v.industries_total * 100) : 0;
         return [
-          mrow('Sectors +',     `${v.sectors_positive}/${v.sectors_total}`, spct >= 73 ? 'Strong' : spct >= 45 ? 'Mixed' : 'Weak', spct >= 73 ? 'green' : spct >= 45 ? 'yellow' : 'red'),
-          mrow('RSP vs SPY',    chgStr(v.rsp_vs_spy ?? 0), v.rsp_vs_spy > 0 ? 'Equal-Wt Led' : 'Large-Cap Led', v.rsp_vs_spy > 0 ? 'green' : 'orange'),
-          v.pct_sectors_above_200 != null ? mrow('Sectors > 200d', `${v.sectors_above_200}/${v.sectors_above_200_total}`,
-            v.pct_sectors_above_200 >= 73 ? 'Broad Bull' : v.pct_sectors_above_200 <= 36 ? 'Structural Weakness' : 'Mixed',
-            v.pct_sectors_above_200 >= 73 ? 'green' : v.pct_sectors_above_200 <= 36 ? 'red' : 'yellow') : '',
-          mrow('RSP > 50d',     '', v.rsp_above_50  ? 'Yes' : 'No', v.rsp_above_50  ? 'green' : 'red'),
-          mrow('RSP > 200d',    '', v.rsp_above_200 ? 'Yes' : 'No', v.rsp_above_200 ? 'green' : 'red'),
+          mrow('Sectors +',   `${v.sectors_positive}/${v.sectors_total}`, spct >= 73 ? 'Strong' : spct >= 45 ? 'Mixed' : 'Weak', spct >= 73 ? 'green' : spct >= 45 ? 'yellow' : 'red'),
+          mrow('Industries +', `${v.industries_positive}/${v.industries_total}`, ipct >= 67 ? 'Strong' : ipct >= 45 ? 'Mixed' : 'Weak', ipct >= 67 ? 'green' : ipct >= 45 ? 'yellow' : 'red'),
+          mrow('RSP',      v.rsp_price ? `$${v.rsp_price}` : '—', chgStr(v.rsp_change_pct ?? 0), v.rsp_change_pct >= 0 ? 'green' : 'red'),
+          mrow('RSP vs SPY', chgStr(v.rsp_vs_spy ?? 0), v.rsp_vs_spy > 0 ? 'Equal-Wt Led' : 'Large-Cap Led', v.rsp_vs_spy > 0 ? 'green' : 'orange'),
         ].join('');
       },
       detail(p) {
         const v = p.details;
-        const ipct = v.industries_total ? Math.round(v.industries_positive / v.industries_total * 100) : 0;
         return [
-          mrow('Industries +', `${v.industries_positive}/${v.industries_total}`, ipct >= 67 ? 'Strong' : ipct >= 45 ? 'Mixed' : 'Weak', ipct >= 67 ? 'green' : ipct >= 45 ? 'yellow' : 'red'),
-          mrow('RSP Price',    v.rsp_price ? `$${v.rsp_price}` : '—', chgStr(v.rsp_change_pct ?? 0), v.rsp_change_pct >= 0 ? 'green' : 'red'),
+          mrow('RSP > 50d',  '', v.rsp_above_50  ? 'Yes' : 'No', v.rsp_above_50  ? 'green' : 'red'),
+          mrow('RSP > 200d', '', v.rsp_above_200 ? 'Yes' : 'No', v.rsp_above_200 ? 'green' : 'red'),
+          v.pct_sectors_above_200 != null ? mrow('Sectors > 200d', `${v.sectors_above_200}/${v.sectors_above_200_total}`,
+            v.pct_sectors_above_200 >= 73 ? 'Broad Bull' : v.pct_sectors_above_200 <= 36 ? 'Structural Weakness' : 'Mixed',
+            v.pct_sectors_above_200 >= 73 ? 'green' : v.pct_sectors_above_200 <= 36 ? 'red' : 'yellow') : '',
         ].join('');
       },
     },
@@ -724,31 +758,31 @@ function renderPillars(d) {
       key: 'momentum', icon: '🚀', label: 'MOMENTUM',
       primary(p) {
         const v = p.details;
-        const l = v.leader || {};
-        // Top-3 sector RS as inline chips
-        const chips = (v.sector_rs || []).slice(0, 3).map(r => {
-          const cls = r.rs_score >= 0 ? 'green' : 'red';
-          const short = r.name.split(' ')[0];
-          return `<span class="rs-chip tag ${cls}">${short} ${r.rs_score > 0 ? '+' : ''}${r.rs_score}</span>`;
-        }).join('');
+        const chips = (v.sector_rs && v.sector_rs.length)
+          ? `<div class="rs-chips">${v.sector_rs.slice(0, 3).map(r => {
+              const bg = r.rs_score >= 0 ? 'rgba(0,230,118,0.15)' : 'rgba(255,23,68,0.15)';
+              const col = r.rs_score >= 0 ? 'var(--green)' : 'var(--red)';
+              return `<span class="rs-chip" style="background:${bg};color:${col}">${r.name}</span>`;
+            }).join('')}</div>` : '';
         return [
-          mrow('Sectors +',    v.sectors_label ?? '—', null, v.sectors_color),
-          mrow('Leader',       l.name ?? '—', l.change_pct != null ? chgStr(l.change_pct) : null, 'green'),
           mrow('Participation', '', v.participation ?? '—', v.participation_color),
+          mrow('IWM vs SPY',    chgStr(v.iwm_vs_spy ?? 0), v.iwm_vs_spy > 0.3 ? 'Risk-On' : v.iwm_vs_spy < -0.3 ? 'Defensive' : 'Neutral', v.iwm_vs_spy > 0.3 ? 'green' : v.iwm_vs_spy < -0.3 ? 'orange' : 'yellow'),
+          mrow('RSP vs SPY',    chgStr(v.rsp_vs_spy ?? 0), v.rsp_outperforming ? 'Equal-Wt Led' : 'Large-Cap Led', v.rsp_outperforming ? 'green' : 'orange'),
           mrow('RS Rotation',  '', v.rs_rotation_label ?? '—', v.rs_rotation_color),
-          chips ? `<div class="rs-chips">${chips}</div>` : '',
+          chips,
         ].join('');
       },
       detail(p) {
         const v = p.details;
-        const lg = v.laggard || {};
+        const l = v.leader || {}, lg = v.laggard || {};
         return [
-          mrow('Laggard',   lg.name ?? '—', lg.change_pct != null ? chgStr(lg.change_pct) : null, 'red'),
-          mrow('Growth 3',  v.growth_leaders + '/3', null),
-          mrow('IWM vs SPY', chgStr(v.iwm_vs_spy ?? 0), v.iwm_vs_spy > 0.3 ? 'Risk-On' : v.iwm_vs_spy < -0.3 ? 'Defensive' : 'Neutral', v.iwm_vs_spy > 0.3 ? 'green' : v.iwm_vs_spy < -0.3 ? 'orange' : 'yellow'),
-          mrow('RSP vs SPY', chgStr(v.rsp_vs_spy ?? 0), v.rsp_outperforming ? 'Equal-Wt Led' : 'Large-Cap Led', v.rsp_outperforming ? 'green' : 'orange'),
+          mrow('Sectors +',    v.sectors_label ?? '—', null, v.sectors_color),
+          mrow('Leader',       l.name ?? '—', l.change_pct != null ? chgStr(l.change_pct) : null, 'green'),
+          mrow('Laggard',      lg.name ?? '—', lg.change_pct != null ? chgStr(lg.change_pct) : null, 'red'),
+          mrow('Growth 3',     v.growth_leaders + '/3', null),
+          `<div class="pillar-sep"></div>`,
           ...(v.sector_rs && v.sector_rs.length ? [
-            `<div class="metric-row"><span class="metric-key" style="font-size:9px;color:var(--muted)">Full Sector RS (1M+3M blend)</span></div>`,
+            `<div class="metric-row"><span class="metric-key" style="font-size:9px;color:var(--muted)">Sector RS (1M+3M blend)</span></div>`,
             ...v.sector_rs.slice(0, 5).map((r, i) => mrow(
               `${i+1}. ${r.name}`,
               `RS ${r.rs_score > 0 ? '+' : ''}${r.rs_score}`,
@@ -763,32 +797,31 @@ function renderPillars(d) {
       key: 'macro', icon: '🌐', label: 'MACRO',
       primary(p) {
         const v = p.details;
-        const sf = d.fear_greed_stock || {};
+        const sf = d.fear_greed_stock || {}, cf = d.fear_greed_crypto || {};
         return [
-          mrow('10Y Yield',   v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color),
+          mrow('10Y Yield',    v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color),
           mrow('Yield Curve', v.curve_spread != null ? `${v.curve_spread > 0 ? '+' : ''}${v.curve_spread}%` : '—', v.curve_label, v.curve_color),
-          sep,
+          mrow('DXY',         v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
           mrow('HYG Credit',  v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color),
-          mrow('GLD (Gold)',  v.gld_price ? `$${v.gld_price}` : '—', v.gld_label, v.gld_color),
-          sep,
-          mrow('Seasonality', v.season_label ?? '—', v.season_bias, v.season_color),
+          `<div class="pillar-sep"></div>`,
           sf.available ? mrow('Stocks F&G', Math.round(sf.score), sf.rating, fngColor(sf.score)) : mrow('Stocks F&G', '—', null, null),
+          cf.available ? mrow('Crypto F&G', Math.round(cf.score), cf.rating, fngColor(cf.score)) : mrow('Crypto F&G', '—', null, null),
         ].join('');
       },
       detail(p) {
         const v = p.details;
-        const cf = d.fear_greed_crypto || {};
         return [
-          mrow('10Y MA20',  v.tnx_ma20 ? `${v.tnx_ma20}%` : '—', v.yield_label, null),
-          mrow('3M Yield',  v.irx_value ? `${v.irx_value}%` : '—', null, null),
-          mrow('DXY',       v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
-          mrow('DXY MA20',  v.dxy_ma20 ?? '—', null),
-          mrow('TLT',       v.tlt_value ? `$${v.tlt_value}` : '—', chgStr(v.tlt_change_pct ?? 0), v.tlt_change_pct >= 0 ? 'green' : 'red'),
-          mrow('BTC',       v.btc_price ? `$${Number(v.btc_price).toLocaleString()}` : '—', v.btc_label, v.btc_color),
-          mrow('BTC Trend', v.btc_trend ?? '—', v.btc_from_high != null ? `${v.btc_from_high}% from high` : null, v.btc_trend_color),
-          mrow('FOMC',      v.fomc_date ?? '—', v.fomc_label, v.fomc_color),
-          mrow('OpEx',      v.opex_date ?? '—', v.opex_label, v.opex_color),
-          cf.available ? mrow('Crypto F&G', Math.round(cf.score), cf.rating, fngColor(cf.score)) : mrow('Crypto F&G', '—', null, null),
+          mrow('10Y MA20',    v.tnx_ma20 ? `${v.tnx_ma20}%` : '—', v.yield_label, null),
+          mrow('3M Yield',    v.irx_value ? `${v.irx_value}%` : '—', null, null),
+          mrow('DXY MA20',    v.dxy_ma20 ?? '—', null),
+          mrow('TLT',         v.tlt_value ? `$${v.tlt_value}` : '—', chgStr(v.tlt_change_pct ?? 0), v.tlt_change_pct >= 0 ? 'green' : 'red'),
+          mrow('GLD (Gold)',  v.gld_price ? `$${v.gld_price}` : '—', v.gld_label, v.gld_color),
+          mrow('BTC',         v.btc_price ? `$${Number(v.btc_price).toLocaleString()}` : '—', v.btc_label, v.btc_color),
+          mrow('BTC Trend',   v.btc_trend ?? '—', v.btc_from_high != null ? `${v.btc_from_high}% from high` : null, v.btc_trend_color),
+          `<div class="pillar-sep"></div>`,
+          mrow('FOMC',        v.fomc_date ?? '—', v.fomc_label, v.fomc_color),
+          mrow('OpEx',        v.opex_date ?? '—', v.opex_label, v.opex_color),
+          mrow('Seasonality', v.season_label ?? '—', v.season_bias, v.season_color),
         ].join('');
       },
     },
@@ -799,7 +832,6 @@ function renderPillars(d) {
     const sc = p.score;
     const c = scoreColor(sc);
     const reasons = (p.reasons || []).map(r => `<div class="why-line">${r}</div>`).join('');
-    const detailHtml = def.detail ? def.detail(p) : '';
     return `
       <div class="pillar-card">
         <div class="pillar-head">
@@ -808,26 +840,26 @@ function renderPillars(d) {
         </div>
         <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
         ${def.primary(p)}
-        ${detailHtml ? `
-          <div class="detail-toggle" onclick="toggleDetail(this)">▾ more</div>
-          <div class="detail-rows">${detailHtml}</div>
-        ` : ''}
+        <div class="detail-toggle" onclick="toggleDetail(this)">▾ more</div>
+        <div class="detail-rows">
+          ${def.detail(p)}
+        </div>
         <div class="why-toggle" onclick="toggleWhy(this)">▾ Why this score?</div>
         <div class="why-body">${reasons || '<em>No reasons recorded</em>'}</div>
       </div>`;
   }).join('');
 }
 
-function toggleWhy(el) {
-  const body = el.nextElementSibling;
-  const open = body.classList.toggle('open');
-  el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
-}
-
 function toggleDetail(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
   el.innerHTML = (open ? '▴' : '▾') + ' more';
+}
+
+function toggleWhy(el) {
+  const body = el.nextElementSibling;
+  const open = body.classList.toggle('open');
+  el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
 }
 
 /* ── SECTOR + INDUSTRY BARS ────────────────────────────── */
@@ -1036,7 +1068,7 @@ function drawSparkline() {
     svg.innerHTML = '<text x="100" y="22" text-anchor="middle" font-size="9" fill="#5a7080">Collecting data…</text>';
     return;
   }
-  const W = 200, H = 36;
+  const W = 400, H = 60;
   const n = history.length;
   const allVals = [];
   Object.keys(SPARK_LINES).forEach(k => { if (SPARK_LINES[k]) allVals.push(...history.map(h => h[k] ?? h.total)); });
