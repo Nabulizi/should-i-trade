@@ -542,7 +542,11 @@ function renderHeader(d) {
 
   const fomc = d.fomc || {};
   $('fomc-badge').className = 'fomc-badge ' + (fomc.color || 'gray');
-  $('fomc-badge').innerHTML = `${fomc.label || '—'} <span class="date">${fomc.date_pretty || ''}</span>`;
+  if (d.fomc_calendar_stale) {
+    $('fomc-badge').innerHTML = `⚠ FOMC calendar outdated <span class="date">update _FOMC_2026_2027 in data.py</span>`;
+  } else {
+    $('fomc-badge').innerHTML = `${fomc.label || '—'} <span class="date">${fomc.date_pretty || ''}</span>`;
+  }
 
   $('data-ts').textContent = d.timestamp ? `data: ${d.timestamp}` : '';
 

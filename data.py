@@ -586,7 +586,7 @@ def fomc_proximity() -> dict:
     next_date = next((d for d in upcoming if d >= today), None)
     if not next_date:
         return {"days_until": None, "date": None,
-                "label": "Calendar outdated", "color": "gray"}
+                "label": "⚠ Calendar outdated", "color": "orange"}
 
     days = (next_date - today).days
     if days == 0:

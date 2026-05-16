@@ -1212,6 +1212,7 @@ def compute_dashboard() -> dict:
         "earnings": earnings,
         "econ_events": econ_events,
         "econ_calendar_stale": len(econ_events) < 2,
+        "fomc_calendar_stale": fomc.get("days_until") is None,
         "conflicts": conflicts,
         "override_reasons": override_reasons,
         "pillars": {
