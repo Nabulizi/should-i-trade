@@ -961,8 +961,56 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
 
 
 # ─── conflict detector ─────────────────────────────────────────────────────
+#
+# Two-tier design:
+#   1. Signal-level checks  — need specific named values deep inside pillar
+#      details (e.g. vix9d_label, macd_label). Stay as if-statements because
+#      the conditions don't reduce to simple score comparisons.
+#   2. Pillar divergence table — compare two pillar *scores* against thresholds.
+#      Fully declarative: adding a new divergence = one line in PILLAR_DIVERGENCES.
+#
+# ── Pillar divergence rules ────────────────────────────────────────────────
+# Each entry: (strong_pillar, min_score, weak_pillar, max_score,
+#              title, detail, severity)
+# Fires when strong_pillar >= min_score AND weak_pillar <= max_score.
+PILLAR_DIVERGENCES = [
+    ("trend", 85, "momentum", 45,
+     "Strong Trend + Weak Participation",
+     "SPY price structure intact but only a handful of sectors participating — "
+     "narrow rallies are fragile. Index strength is not market strength. "
+     "Don't add new longs; let winners run but don't chase.",
+     "warning"),
+
+    ("trend", 85, "breadth", 40,
+     "Strong Trend + Breadth Breakdown",
+     "Price trend holding while sector breadth deteriorates — classic distribution phase. "
+     "The average stock is already rolling over while the index is held up by mega-caps. "
+     "Shorten hold times, tighten stops.",
+     "warning"),
+
+    ("trend", 80, "macro", 35,
+     "Bull Trend + Macro Headwind",
+     "Price structure bullish but macro conditions (yields, credit, dollar) are deteriorating. "
+     "Works until it doesn't — trade shorter timeframes and reduce overnight exposure.",
+     "caution"),
+
+    ("trend", 80, "volatility", 35,
+     "Bull Trend + Elevated Volatility",
+     "Price trend bullish but volatility elevated — moves will be sharp in both directions. "
+     "Size down even when direction is right. Wide stops eat your edge.",
+     "caution"),
+
+    ("volatility", 75, "breadth", 40,
+     "Calm Vol + Weak Breadth",
+     "VIX is low (complacency zone) but breadth is already weak underneath — "
+     "the next volatility spike may be larger than the quiet tape implies.",
+     "info"),
+]
+
+
 def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
-    """Find pairs of signals that contradict each other. Helps avoid overconfidence."""
+    """Find contradicting signals across pillars. Two-tier: signal-level checks
+    for specific named values, declarative table for pillar score divergences."""
     tr  = pillars["trend"]["details"]
     vol = pillars["volatility"]["details"]
     mom = pillars["momentum"]["details"]
@@ -981,9 +1029,11 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
 
     conflicts = []
 
-    # Overbought market + bullish momentum
+    # ── 1. Signal-level checks ─────────────────────────────────────────────
+
+    # Overbought market character + bullish MACD
     if char == "Extended" and macd_l.startswith("Bullish"):
-        conflicts.append({"title": "Overbought + Bullish MACD",
+        conflicts.append({"title": "Overbought + Bullish Trend MACD",
             "detail": "RSI>72 (Extended character) but MACD still bullish — late-stage momentum, mean-reversion risk is elevated. Consider tighter stops.",
             "severity": "warning"})
 
@@ -1007,11 +1057,11 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
 
     # Elevated tail-risk hedging + bullish MACD
     if skew_l in ("Elevated", "Extreme Tail Risk") and macd_l.startswith("Bullish"):
-        conflicts.append({"title": "Elevated SKEW + Bullish MACD",
-            "detail": "Institutions buying OTM puts while momentum reads bullish — they may be hedging existing longs, not predicting a top, but the insurance cost is high.",
+        conflicts.append({"title": "Elevated SKEW + Bullish Trend MACD",
+            "detail": "Institutions buying OTM puts while SPY's price MACD reads bullish — they may be hedging existing longs, not predicting a top, but the insurance cost is high.",
             "severity": "info"})
 
-    # Inverted yield curve at a bullish/caution score
+    # Inverted yield curve at a positive score
     if curve_l in ("Inverted", "Deeply Inverted") and total_score >= 55:
         conflicts.append({"title": "Inverted Yield Curve",
             "detail": "3M-10Y spread is negative — historically precedes recessions by 6–18 months. Near-term trading may still work but reduce position timeframe and size.",
@@ -1022,6 +1072,12 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
         conflicts.append({"title": f"Seasonal Headwind ({season_lbl}) + Uptrend",
             "detail": "Historically weak period but price trend is intact. Seasonality is a low-weight signal — don't fight the trend, but stay alert for the first sign of weakness.",
             "severity": "info"})
+
+    # ── 2. Pillar divergence checks (declarative table) ────────────────────
+    scores = {k: pillars[k]["score"] for k in pillars}
+    for strong_k, strong_min, weak_k, weak_max, title, detail, severity in PILLAR_DIVERGENCES:
+        if scores.get(strong_k, 0) >= strong_min and scores.get(weak_k, 100) <= weak_max:
+            conflicts.append({"title": title, "detail": detail, "severity": severity})
 
     return conflicts
 
@@ -1119,7 +1175,7 @@ def compute_dashboard() -> dict:
     else:             decision, dc, pos = "STRONG NO",  "red",    "PRESERVE CAPITAL"
 
     conflicts = detect_conflicts(
-        {"trend": tr, "volatility": vol, "momentum": mom, "macro": mac},
+        {"trend": tr, "volatility": vol, "breadth": br, "momentum": mom, "macro": mac},
         total
     )
 
