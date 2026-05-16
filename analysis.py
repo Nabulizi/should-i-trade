@@ -54,7 +54,7 @@ def persona_technician(d: dict) -> dict:
 
     points = []
 
-    # RSI — actual read from the scoring engine's categories
+    # RSI
     if rsi is not None:
         if rsi >= 75:
             points.append({"icon": "🔴", "text": f"RSI {rsi} — severely overbought. Mean reversion risk elevated; don't chase."})
@@ -64,17 +64,24 @@ def persona_technician(d: dict) -> dict:
             points.append({"icon": "✅", "text": f"RSI {rsi} — oversold. Look for failed breakdown → reversal setups."})
         elif 45 <= rsi <= 60:
             points.append({"icon": "✅", "text": f"RSI {rsi} — sweet spot. Ideal swing entry zone; room to run."})
+        else:
+            points.append({"icon": "⚠️", "text": f"RSI {rsi} — no clean edge here. Wait for reset toward 45–60 before adding."})
 
-    # MACD histogram direction — momentum confirmation or divergence
+    # MACD — label values from scoring engine are e.g. "Bullish (above 0)", "Bearish (below 0)"
     if macd_hist is not None:
-        if macd_hist > 0 and macd_label in ("Bullish", "Strengthening"):
-            points.append({"icon": "✅", "text": f"MACD histogram positive and {macd_label.lower()} — momentum confirming the trend. No divergence to worry about."})
-        elif macd_hist > 0 and macd_label == "Weakening":
-            points.append({"icon": "⚠️", "text": "MACD histogram positive but shrinking — momentum is fading. Tighten stops on existing longs."})
-        elif macd_hist < 0 and macd_label in ("Bearish", "Strengthening"):
-            points.append({"icon": "🔴", "text": f"MACD histogram negative and {macd_label.lower()} — momentum against you. No new longs until crossover."})
-        elif macd_hist < 0 and macd_label == "Weakening":
-            points.append({"icon": "⚠️", "text": "MACD histogram negative but narrowing — selling momentum fading, potential base forming."})
+        bull = macd_label.startswith("Bullish")
+        bear = macd_label.startswith("Bearish")
+        above_zero = "above 0" in macd_label
+        if bull and above_zero:
+            points.append({"icon": "✅", "text": f"MACD line and histogram both above zero ({macd_label}) — momentum confirming the trend."})
+        elif bull and not above_zero:
+            points.append({"icon": "⚠️", "text": f"MACD histogram positive but line still below zero ({macd_label}) — early recovery, not yet confirmed."})
+        elif bear and above_zero:
+            points.append({"icon": "⚠️", "text": f"MACD line above zero but histogram negative ({macd_label}) — momentum fading. Tighten stops."})
+        elif bear and not above_zero:
+            points.append({"icon": "🔴", "text": f"MACD line and histogram both below zero ({macd_label}) — no momentum tailwind. No new longs until crossover."})
+        else:
+            points.append({"icon": "⚪", "text": f"MACD {macd_label} — no clear signal."})
 
     # ATH distance
     if ath >= -1:
