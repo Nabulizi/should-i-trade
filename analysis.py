@@ -43,6 +43,8 @@ def persona_technician(d: dict) -> dict:
         read = "Full bull stack but the tape is choppy. Structure is intact; execution is hard. Stick to A+ pullbacks, skip intraday noise."
     elif ma_count == 3 and char_label == "Extended":
         read = "Full bull stack but SPY is extended. Regime says long; price says don't chase. Wait for the first pullback base."
+    elif ma_count == 3:
+        read = "Full bull stack — SPY above 20/50/200. This is an environment for offense, not defense."
     elif ma_count == 2:
         read = f"Trend is repairing but not confirmed. Price above {ma_count}/3 majors — treat rallies with discipline, not conviction."
     elif ma_count == 1:
