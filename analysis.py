@@ -345,11 +345,18 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
     pos_size = d.get("position_size", "—")
     stance, color = _pick_stance(total)
 
-    # Count stances from other personas
     stances = [p["stance"] for p in others]
     bulls = stances.count("Bullish")
     bears = sum(1 for s in stances if s in ("Bearish", "Defensive"))
     cautious = stances.count("Cautious")
+
+    # Read active conflicts directly from the scoring engine — this is the
+    # key upgrade: Desk Head now synthesises real signal conflicts, not just
+    # counts bull/bear votes from the other personas.
+    all_conflicts = d.get("conflicts", [])
+    warnings = [c for c in all_conflicts if c["severity"] == "warning"]
+    n_warn = len(warnings)
+    warn_names = " · ".join(c["title"] for c in warnings[:2])
 
     m = d["pillars"]["macro"]["details"]
     fomc_days = m.get("fomc_days")
@@ -358,11 +365,15 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
     t = d["pillars"]["trend"]["details"]
     above_200 = t.get("above_200", False)
 
-    # Opening read — reconcile the desk
-    if bulls >= 3 and bears == 0:
+    # Opening read — stance vote + conflict awareness
+    if bulls >= 3 and bears == 0 and n_warn == 0:
         read = f"Desk is aligned long. {bulls}/4 analysts bullish, zero bears. Conditions rarely get this clean — press size."
+    elif bulls >= 3 and bears == 0 and n_warn > 0:
+        read = f"Desk is aligned long but {n_warn} active conflict{'s' if n_warn > 1 else ''}: {warn_names}. Don't press size blindly — the warning signs are real."
     elif bears >= 3:
         read = f"Desk is aligned defensive. {bears}/4 analysts negative. Capital preservation trumps opportunity cost here."
+    elif bulls >= 2 and bears <= 1 and n_warn > 0:
+        read = f"Desk leans constructive ({bulls} bulls, {bears} defensive) but {n_warn} active conflict{'s' if n_warn > 1 else ''}: {warn_names}. Trade selectively — not every setup is equal right now."
     elif bulls >= 2 and bears <= 1:
         read = f"Desk leans constructive but not unanimous — {bulls} bulls, {cautious} cautious, {bears} defensive. Trade it, but don't force it."
     elif bulls == bears:
@@ -373,7 +384,7 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
     points = []
     points.append({"icon": "🎯", "text": f"VERDICT: {decision} · Score {total}/100 · {pos_size}"})
 
-    # Key risk call-out
+    # Key event risk
     if fomc_days is not None and fomc_days <= 3:
         points.append({"icon": "🔴", "text": f"FOMC IN {fomc_days} DAYS — this overrides everything else. Cut size now."})
     elif vix >= 25:
@@ -381,24 +392,48 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
     elif not above_200:
         points.append({"icon": "⚠️", "text": "SPY below 200d — bear-market rules apply. Quick in, quick out."})
 
-    # Execution rule — the single most important output
-    if total >= 85 and vix < 20 and (fomc_days is None or fomc_days > 7):
-        rule = "FULL SIZE. Press the bid on A/B setups. Add on intraday pullbacks to 20d."
-    elif total >= 70 and (fomc_days is None or fomc_days > 7):
-        rule = "STANDARD SIZE. Run your normal game. A/B+ setups, stops below the entry base."
-    elif total >= 55 and (fomc_days is None or fomc_days > 3):
-        rule = "HALF SIZE. A+ setups only. Clean pullback entries, stops at the breakout level."
-    elif total >= 40 and above_200:
-        rule = "MINIMAL. Quarter size max. Tightest stops, take profits at first resistance."
-    elif fomc_days is not None and fomc_days <= 3:
+    # Surface top-2 WARNING conflicts as direct action items.
+    # Extract the actionable clause after the em-dash; trim to 100 chars.
+    for c in warnings[:2]:
+        parts = c["detail"].split(" — ", 1)
+        action = parts[1] if len(parts) > 1 else c["detail"]
+        if len(action) > 100:
+            action = action[:97] + "…"
+        points.append({"icon": "⚠️", "text": f"{c['title']}: {action}"})
+
+    # Execution rule — base tier from score, automatically downgraded one
+    # step if any WARNING conflicts are active.
+    if fomc_days is not None and fomc_days <= 3:
         rule = "FLAT into FOMC. Any new positions must close before 2:00 ET on decision day."
+    elif not above_200:
+        rule = "STAND ASIDE. No new longs. Cash is a position — wait for conditions to clear."
+    elif total >= 85 and vix < 20 and (fomc_days is None or fomc_days > 7):
+        rule = ("STANDARD SIZE (conflicts active — downgraded from FULL). A+ setups only, not A/B."
+                if warnings else
+                "FULL SIZE. Press the bid on A/B setups. Add on intraday pullbacks to 20d.")
+    elif total >= 70:
+        rule = ("HALF SIZE (conflicts active — downgraded from STANDARD). Tighter stops than normal."
+                if warnings else
+                "STANDARD SIZE. Run your normal game. A/B+ setups, stops below the entry base.")
+    elif total >= 55:
+        rule = ("MINIMAL (conflicts active — downgraded from HALF). One position max, tightest stops."
+                if warnings else
+                "HALF SIZE. A+ setups only. Clean pullback entries, stops at the breakout level.")
+    elif total >= 40:
+        rule = ("STAND ASIDE — too many conflicts at this score level."
+                if warnings else
+                "MINIMAL. Quarter size max. Tightest stops, take profits at first resistance.")
     else:
         rule = "STAND ASIDE. No new longs. Cash is a position — wait for conditions to clear."
 
     points.append({"icon": "⚡", "text": f"EXECUTION: {rule}"})
 
-    # Final line
-    if total >= 85:
+    # Final verdict — conflict-aware
+    if n_warn >= 2 and total >= 55:
+        verdict = f"{n_warn} active conflicts — size down one tier, trust A+ setups only."
+    elif n_warn >= 1 and total >= 70:
+        verdict = "Good tape with active conflicts — run your process, respect the warnings."
+    elif total >= 85:
         verdict = "Strong tape. Don't overthink it — press size."
     elif total >= 70:
         verdict = "Good tape. Run your process, don't force it."

@@ -553,9 +553,12 @@ function renderHeader(d) {
   const earnBadge = (earn.in_season || earn.days_until <= 14)
     ? `<span class="econ-badge ${esc(earn.color)}">🏦 ${esc(earn.label)} <span style="opacity:0.6">${esc(earn.detail || '')}</span></span>`
     : '';
-  if (visible.length || earnBadge) {
+  const staleBadge = d.econ_calendar_stale
+    ? `<span class="econ-badge orange">⚠ ECON CALENDAR outdated — update _ECON_CALENDAR in data.py</span>`
+    : '';
+  if (visible.length || earnBadge || staleBadge) {
     $('econ-row').style.display = 'flex';
-    $('econ-badges').innerHTML = earnBadge + visible.map(e =>
+    $('econ-badges').innerHTML = staleBadge + earnBadge + visible.map(e =>
       `<span class="econ-badge ${esc(e.color)}">${esc(e.type)} · ${esc(e.name)} <span style="opacity:0.6">${esc(e.urgency)}</span></span>`
     ).join(' ');
   } else {

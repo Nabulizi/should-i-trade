@@ -1211,6 +1211,7 @@ def compute_dashboard() -> dict:
         "season": season,
         "earnings": earnings,
         "econ_events": econ_events,
+        "econ_calendar_stale": len(econ_events) < 2,
         "conflicts": conflicts,
         "override_reasons": override_reasons,
         "pillars": {
