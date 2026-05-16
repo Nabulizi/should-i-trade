@@ -382,28 +382,32 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
         points.append({"icon": "⚠️", "text": "SPY below 200d — bear-market rules apply. Quick in, quick out."})
 
     # Execution rule — the single most important output
-    if total >= 80 and vix < 20 and (fomc_days is None or fomc_days > 7):
-        rule = "Full size on A/B+ setups. Add on intraday pullbacks to 20d. No breakouts at the highs."
-    elif total >= 65 and (fomc_days is None or fomc_days > 3):
-        rule = "Half size only. A+ setups with clean pullback entries. Stops at the breakout level."
-    elif total >= 50 and above_200:
-        rule = "Quarter size max. Tightest stops. Take profits at first resistance — no let-it-run."
+    if total >= 85 and vix < 20 and (fomc_days is None or fomc_days > 7):
+        rule = "FULL SIZE. Press the bid on A/B setups. Add on intraday pullbacks to 20d."
+    elif total >= 70 and (fomc_days is None or fomc_days > 7):
+        rule = "STANDARD SIZE. Run your normal game. A/B+ setups, stops below the entry base."
+    elif total >= 55 and (fomc_days is None or fomc_days > 3):
+        rule = "HALF SIZE. A+ setups only. Clean pullback entries, stops at the breakout level."
+    elif total >= 40 and above_200:
+        rule = "MINIMAL. Quarter size max. Tightest stops, take profits at first resistance."
     elif fomc_days is not None and fomc_days <= 3:
-        rule = "Flat into FOMC. Any new positions must close before 2:00 ET Wednesday."
+        rule = "FLAT into FOMC. Any new positions must close before 2:00 ET on decision day."
     else:
-        rule = "Stand aside. No new longs. Watch levels — patience is a position."
+        rule = "STAND ASIDE. No new longs. Cash is a position — wait for conditions to clear."
 
     points.append({"icon": "⚡", "text": f"EXECUTION: {rule}"})
 
     # Final line
-    if total >= 75:
-        verdict = "Good tape. Don't overthink it."
-    elif total >= 60:
+    if total >= 85:
+        verdict = "Strong tape. Don't overthink it — press size."
+    elif total >= 70:
+        verdict = "Good tape. Run your process, don't force it."
+    elif total >= 55:
         verdict = "Be patient. One A+ trade beats five B trades."
-    elif total >= 45:
-        verdict = "Skeptical participation only."
+    elif total >= 40:
+        verdict = "Skeptical participation only. Protect your capital."
     else:
-        verdict = "Cash is a position. Preserve capital."
+        verdict = "Cash is a position. Sit on hands."
 
     return {
         "persona": "The Desk Head",

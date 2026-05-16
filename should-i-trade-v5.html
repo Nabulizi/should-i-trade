@@ -617,18 +617,20 @@ function renderHero(d) {
   const col = d.decision_color;
   const s   = d.total_score;
   $('decision-badge').textContent = d.decision;
-  $('decision-badge').className = 'decision-badge ' + (col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : 'c-red');
+  const badgeCls = col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : col === 'orange' ? 'c-orange' : 'c-red';
+  $('decision-badge').className = 'decision-badge ' + badgeCls;
   $('pos-text').textContent = d.position_size;
   $('pos-text').style.color = scoreColor(s);
 
   // ── Decision context: regime, posture, confidence ──────
   const regime  = d.pillars?.trend?.details?.regime || null;
-  const posture = s >= 80 ? 'Aggressive entries, press risk'
-                : s >= 70 ? 'Selective swing entries'
-                : s >= 60 ? 'Reduce size, be selective'
-                :           'Preserve capital, wait';
-  const confLevel = s >= 75 ? 4 : s >= 60 ? 3 : s >= 45 ? 2 : 1;
-  const confColor = s >= 75 ? 'var(--green)' : s >= 60 ? 'var(--yellow)' : 'var(--orange)';
+  const posture = s >= 85 ? 'Full size — press the bid on A/B setups'
+                : s >= 70 ? 'Standard size — run your normal game'
+                : s >= 55 ? 'Half size — A+ setups only, tight stops'
+                : s >= 40 ? 'Minimal — very selective or sit out'
+                :           'Preserve capital — no new longs';
+  const confLevel = s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
+  const confColor = s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
   const confSegs  = [1,2,3,4,5].map(i =>
     `<div class="conf-seg" style="background:${i <= confLevel ? confColor : 'var(--border)'}"></div>`
   ).join('');
@@ -923,10 +925,11 @@ function applyCustomWeights(data) {
     p.momentum.score   * w.momentum   / 100 +
     p.macro.score      * w.macro      / 100
   );
+  const decision    = total >= 85 ? 'STRONG YES' : total >= 70 ? 'YES' : total >= 55 ? 'CAUTION' : total >= 40 ? 'NO' : 'STRONG NO';
+  const dec_color   = total >= 70 ? 'green' : total >= 55 ? 'yellow' : total >= 40 ? 'orange' : 'red';
+  const position    = total >= 85 ? 'FULL SIZE' : total >= 70 ? 'STANDARD SIZE' : total >= 55 ? 'HALF SIZE' : total >= 40 ? 'MINIMAL' : 'PRESERVE CAPITAL';
   return { ...data, total_score: total,
-    decision: total >= 80 ? 'YES' : total >= 60 ? 'CAUTION' : 'NO',
-    decision_color: total >= 80 ? 'green' : total >= 60 ? 'yellow' : 'red',
-    position_size: total >= 80 ? 'FULL SIZE' : total >= 60 ? 'HALF SIZE' : 'PRESERVE CAPITAL',
+    decision, decision_color: dec_color, position_size: position,
     _weights: w };
 }
 

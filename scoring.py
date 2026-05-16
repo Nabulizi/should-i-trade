@@ -1104,17 +1104,19 @@ def compute_dashboard() -> dict:
             total = 39
         override_reasons.append(f"⛔ VIX {vix_level:.0f} ≥ 40 — extreme fear, hard NO regardless of other signals")
     elif vix_level >= 35:
-        if total > 55:
-            total = 55
-        override_reasons.append(f"⚠ VIX {vix_level:.0f} ≥ 35 — high fear, score capped at CAUTION")
+        if total > 54:
+            total = 54
+        override_reasons.append(f"⚠ VIX {vix_level:.0f} ≥ 35 — high fear, score capped at NO")
 
-    if not spy_above_200 and total > 55:
-        total = 55
-        override_reasons.append("⚠ SPY below 200d MA — bear market regime, score capped at CAUTION")
+    if not spy_above_200 and total > 54:
+        total = 54
+        override_reasons.append("⚠ SPY below 200d MA — bear market regime, score capped at NO")
 
-    if   total >= 80: decision, dc, pos = "YES",     "green",  "FULL SIZE"
-    elif total >= 60: decision, dc, pos = "CAUTION", "yellow", "HALF SIZE"
-    else:             decision, dc, pos = "NO",      "red",    "PRESERVE CAPITAL"
+    if   total >= 85: decision, dc, pos = "STRONG YES", "green",  "FULL SIZE"
+    elif total >= 70: decision, dc, pos = "YES",        "green",  "STANDARD SIZE"
+    elif total >= 55: decision, dc, pos = "CAUTION",    "yellow", "HALF SIZE"
+    elif total >= 40: decision, dc, pos = "NO",         "orange", "MINIMAL"
+    else:             decision, dc, pos = "STRONG NO",  "red",    "PRESERVE CAPITAL"
 
     conflicts = detect_conflicts(
         {"trend": tr, "volatility": vol, "momentum": mom, "macro": mac},
