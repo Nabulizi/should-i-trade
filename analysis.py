@@ -180,13 +180,18 @@ def persona_macro(d: dict) -> dict:
     elif dxy_label == "Strengthening":
         points.append({"icon": "⚠️", "text": "Dollar drifting higher — mild headwind, worth monitoring but not a veto."})
 
-    # BTC as liquidity proxy
+    # BTC as liquidity proxy — all five possible btc_trend values handled
+    btc_high_str = f" ({btc_from_high:+.1f}% from high)" if btc_from_high is not None else ""
     if btc_trend == "Full Bull":
-        points.append({"icon": "✅", "text": f"BTC in full bull ({btc_from_high:+.1f}% from high) — liquidity is flowing, risk appetite intact."})
-    elif btc_trend == "Bear":
-        points.append({"icon": "🔴", "text": f"BTC trending down ({btc_from_high:+.1f}% from high) — liquidity tightening at the margin; watch for risk-off spillover."})
+        points.append({"icon": "✅", "text": f"BTC full bull{btc_high_str} — liquidity is flowing, risk appetite intact."})
     elif btc_trend == "Recovering":
-        points.append({"icon": "⚠️", "text": "BTC recovering but below 200d — liquidity repairing, not yet restored. Don't lean on it."})
+        points.append({"icon": "⚠️", "text": f"BTC recovering but below 200d{btc_high_str} — liquidity repairing, not yet restored."})
+    elif btc_trend == "Mixed":
+        points.append({"icon": "⚠️", "text": f"BTC mixed structure{btc_high_str} — above 20/50d but not 200d. Liquidity is tentative; don't read it as a tailwind."})
+    elif btc_trend == "Early Bounce":
+        points.append({"icon": "⚠️", "text": f"BTC early bounce only{btc_high_str} — above 20d but not 50d or 200d. No sustained liquidity signal yet."})
+    elif btc_trend == "Bear":
+        points.append({"icon": "🔴", "text": f"BTC bear{btc_high_str} — liquidity tightening at the margin; watch for risk-off spillover."})
 
     # FOMC proximity
     if fomc_days is not None:
@@ -308,9 +313,13 @@ def persona_risk(d: dict) -> dict:
     elif 45 <= flow_score <= 65:
         points.append({"icon": "✅", "text": f"Flow Sentiment {flow_score}/100 — healthy middle ground, no extremes to fade."})
 
-    # VIX trending signal
+    # VIX trend — all four values: Spiking / Rising / Calming / Falling
     if vix_trend == "Spiking":
-        points.append({"icon": "🔴", "text": "VIX spiking intraday — something is breaking. Reduce exposure first, ask questions later."})
+        points.append({"icon": "🔴", "text": "VIX spiking — something is breaking. Reduce exposure first, ask questions later."})
+    elif vix_trend == "Rising":
+        points.append({"icon": "⚠️", "text": "VIX rising — uncertainty building. Hold off on new entries until vol stabilises."})
+    elif vix_trend == "Calming" and vix and vix < 20:
+        points.append({"icon": "✅", "text": "VIX calming from an already moderate level — improving conditions for swing setups."})
     elif vix_trend == "Falling" and vix and vix < 20:
         points.append({"icon": "✅", "text": "VIX falling into a calm tape — green light for trend continuation."})
 
