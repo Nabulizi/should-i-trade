@@ -426,7 +426,7 @@
 
         <div class="sparkline-wrap">
           <div class="sparkline-label">
-            <span>Score history</span>
+            <span>Score history <span id="spark-paused" style="display:none;color:var(--red);margin-left:6px;">⏸ paused — bad data</span></span>
             <span id="spark-range">—</span>
           </div>
           <svg class="sparkline" id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none"></svg>
@@ -577,7 +577,10 @@ function renderHeader(d) {
     const missing = quality.critical_missing?.length
       ? ` Critical missing: ${quality.critical_missing.join(', ')}.`
       : '';
-    $('coverage-warn').innerHTML = `⚠ ${esc(quality.message || 'Market data unavailable.')} ${esc(cov.fetched ?? 0)}/${esc(cov.requested ?? 0)} symbols fetched.${esc(missing)}`;
+    const histMissing = quality.critical_history_missing?.length
+      ? ` Insufficient history: ${quality.critical_history_missing.map(h => `${h.symbol} (${h.found}/${h.required} bars)`).join(', ')}.`
+      : '';
+    $('coverage-warn').innerHTML = `⚠ ${esc(quality.message || 'Market data unavailable.')} ${esc(cov.fetched ?? 0)}/${esc(cov.requested ?? 0)} symbols fetched.${esc(missing)}${esc(histMissing)}`;
   } else if (cov.failed && cov.failed.length) {
     $('coverage-warn').style.display = 'flex';
     $('coverage-warn').innerHTML = `⚠ Partial data: ${cov.fetched}/${cov.requested} symbols fetched. Missing: ${cov.failed.slice(0, 8).join(', ')}${cov.failed.length > 8 ? '…' : ''}`;
@@ -630,11 +633,21 @@ function buildRadarChart(pillars) {
 function renderHero(d) {
   const col = d.decision_color;
   const s   = d.total_score;
-  $('decision-badge').textContent = d.decision;
-  const badgeCls = col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : col === 'orange' ? 'c-orange' : 'c-red';
-  $('decision-badge').className = 'decision-badge ' + badgeCls;
-  $('pos-text').textContent = d.position_size;
-  $('pos-text').style.color = scoreColor(s);
+  const invalidData = d.data_quality?.valid === false;
+
+  // Badge: show DATA UNAVAILABLE and grey out everything when feeds are broken
+  if (invalidData) {
+    $('decision-badge').textContent = 'DATA UNAVAILABLE';
+    $('decision-badge').className = 'decision-badge c-muted';
+    $('pos-text').textContent = '—';
+    $('pos-text').style.color = 'var(--muted)';
+  } else {
+    $('decision-badge').textContent = d.decision;
+    const badgeCls = col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : col === 'orange' ? 'c-orange' : 'c-red';
+    $('decision-badge').className = 'decision-badge ' + badgeCls;
+    $('pos-text').textContent = d.position_size;
+    $('pos-text').style.color = scoreColor(s);
+  }
 
   // ── Decision context: regime, posture, confidence ──────
   const regime  = d.pillars?.trend?.details?.regime || null;
@@ -1273,6 +1286,9 @@ async function load(isManual = false) {
       renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
       renderExecution(data);
       renderWeights(data);
+      // Show/hide sparkline paused indicator based on data quality
+      const paused = $('spark-paused');
+      if (paused) paused.style.display = raw.data_quality?.valid === false ? 'inline' : 'none';
       if (isFirst) {
         $('loading').style.display = 'none';
         $('content').style.display = 'block';
