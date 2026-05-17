@@ -164,9 +164,10 @@
   .watch-stat .lbl { color: var(--muted); font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
   .watch-selected-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: var(--muted); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
   .watch-filter-list { max-height: 260px; overflow-y: auto; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
-  .watch-row { display: grid; grid-template-columns: 72px 66px 44px 1fr 36px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .watch-row { display: grid; grid-template-columns: 68px 52px 52px 44px 1fr 36px; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
   .watch-row:last-child { border-bottom: none; }
   .watch-sym { font-weight: 800; font-size: 10px; }
+  .watch-price { font-size: 9px; color: var(--muted2); text-align: right; }
   .watch-chg { font-size: 9px; font-weight: 700; text-align: right; }
   .watch-chg.up { color: var(--green); }
   .watch-chg.dn { color: var(--red); }
@@ -687,7 +688,6 @@ function renderHero(d) {
 
   // ── Decision context: regime, posture, confidence ──────
   const regime  = d.pillars?.trend?.details?.regime || null;
-  const invalidData = d.data_quality?.valid === false;
   const posture = invalidData ? 'No trade — live market data is unavailable'
                 : s >= 85 ? 'Full size — press the bid on A/B setups'
                 : s >= 70 ? 'Standard size — run your normal game'
@@ -989,10 +989,12 @@ function renderWatchRows(rows, emptyText, limit = null) {
     const chg = r.change_pct;
     const chgCls = chg == null ? 'flat' : chg > 0 ? 'up' : chg < 0 ? 'dn' : 'flat';
     const chgTxt = chg == null ? '—' : (chg > 0 ? '+' : '') + chg.toFixed(2) + '%';
+    const priceTxt = r.price != null ? '$' + r.price.toLocaleString('en-US', {maximumFractionDigits: 2}) : '—';
     const why = esc(r.why || r.label || '');
     return `<div class="watch-row">
       <div class="watch-sym">${esc(r.symbol)}</div>
       <div class="watch-state ${esc(r.entry_color || 'gray')}">${esc(r.entry_state || 'Watch')}</div>
+      <div class="watch-price">${priceTxt}</div>
       <div class="watch-chg ${chgCls}">${chgTxt}</div>
       <div class="watch-note" title="${why}">${why}</div>
       <div class="watch-score" style="color:${watchColor(r.score)}">${r.score}</div>

@@ -134,15 +134,25 @@ def get_cached_watchlist_health() -> dict:
                 and now - _WATCHLIST_CACHE["ts"] < _WATCHLIST_TTL):
             return _WATCHLIST_CACHE["data"]
 
-    # Get regime context from dashboard cache to gate pullback signals
-    spy_above_200 = True
+    # Get regime context to gate pullback signals.
+    # If dashboard cache is cold (direct /api/watchlist-health call before any
+    # /api/dashboard call), fetch dashboard first so the regime flag is real.
+    with _DASHBOARD_LOCK:
+        dash = _DASHBOARD_CACHE.get("data")
+    if not dash:
+        try:
+            dash = get_cached_dashboard()
+        except Exception:
+            dash = {}
     try:
-        dash = _DASHBOARD_CACHE.get("data") or {}
         spy_above_200 = dash.get("pillars", {}).get("trend", {}).get("details", {}).get("above_200", True)
+        regime_known  = bool(dash)
     except Exception:
-        pass
+        spy_above_200 = True
+        regime_known  = False
 
     data = compute_watchlist_health(spy_above_200=spy_above_200)
+    data["regime_known"] = regime_known
     with _WATCHLIST_LOCK:
         _WATCHLIST_CACHE["data"] = data
         _WATCHLIST_CACHE["ts"] = time.time()

@@ -185,6 +185,11 @@ def _why_text(bucket: str, above20: bool, above50: bool, above200: bool,
 
 def _classify(symbol: str, tv_symbol: str, asset_type: str,
               q: dict | None, closes: list[float]) -> dict[str, Any]:
+    if asset_type not in DISPLAY_ASSET_TYPES:
+        return {"tv_symbol": tv_symbol, "symbol": symbol, "asset_type": asset_type,
+                "bucket": "unavailable", "label": "Not Scored", "entry_state": "N/A",
+                "entry_color": "gray", "why": f"{asset_type} not scored with equity logic",
+                "score": 0, "price": None, "change_pct": None}
     price = q.get("price") if q else (closes[-1] if closes else None)
     change_pct = q.get("changePct") if q else None
     clean_closes = [c for c in closes if c is not None]
