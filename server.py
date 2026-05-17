@@ -75,10 +75,15 @@ def get_cached_dashboard() -> dict:
         data = compute_dashboard()
 
         # Score delta vs. last recorded snapshot (before we append the new one)
-        with _HISTORY_LOCK:
-            prev_total = _HISTORY[-1]["total"] if _HISTORY else None
-        data["score_delta"] = (data["total_score"] - prev_total
-                               if prev_total is not None else None)
+        # Score delta vs. last recorded snapshot (before we append the new one).
+        # Invalid feed states should not display fake score collapses.
+        if data.get("data_quality", {}).get("valid", True):
+            with _HISTORY_LOCK:
+                prev_total = _HISTORY[-1]["total"] if _HISTORY else None
+            data["score_delta"] = (data["total_score"] - prev_total
+                                   if prev_total is not None else None)
+        else:
+            data["score_delta"] = None
 
         with _DASHBOARD_LOCK:
             _DASHBOARD_CACHE["data"] = data

@@ -931,11 +931,22 @@ function loadWeights() {
 }
 function saveWeightsLS(w) { localStorage.setItem('pillarWeights', JSON.stringify(w)); }
 
-function decisionForScore(total) {
+const FALLBACK_DECISION_BANDS = [
+  { min: 85, decision: 'STRONG YES', color: 'green', position: 'FULL SIZE' },
+  { min: 70, decision: 'YES', color: 'green', position: 'STANDARD SIZE' },
+  { min: 55, decision: 'CAUTION', color: 'yellow', position: 'HALF SIZE' },
+  { min: 40, decision: 'NO', color: 'orange', position: 'MINIMAL' },
+  { min: 0, decision: 'STRONG NO', color: 'red', position: 'PRESERVE CAPITAL' }
+];
+
+function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
+  const activeBands = Array.isArray(bands) && bands.length ? bands : FALLBACK_DECISION_BANDS;
+  const orderedBands = [...activeBands].sort((a, b) => b.min - a.min);
+  const band = orderedBands.find(b => total >= b.min) || orderedBands[orderedBands.length - 1];
   return {
-    decision: total >= 85 ? 'STRONG YES' : total >= 70 ? 'YES' : total >= 55 ? 'CAUTION' : total >= 40 ? 'NO' : 'STRONG NO',
-    decision_color: total >= 70 ? 'green' : total >= 55 ? 'yellow' : total >= 40 ? 'orange' : 'red',
-    position_size: total >= 85 ? 'FULL SIZE' : total >= 70 ? 'STANDARD SIZE' : total >= 55 ? 'HALF SIZE' : total >= 40 ? 'MINIMAL' : 'PRESERVE CAPITAL'
+    decision: band.decision,
+    decision_color: band.color,
+    position_size: band.position
   };
 }
 
@@ -958,7 +969,7 @@ function applyCustomWeights(data) {
     total = Math.min(total, data.safety_max_score);
   }
 
-  const verdict = decisionForScore(total);
+  const verdict = decisionForScore(total, data.decision_bands);
   return { ...data, total_score: total, ...verdict, _weights: w };
 }
 

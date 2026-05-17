@@ -52,27 +52,65 @@ CORE_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^VIX9D", "^SKEW",
 
 MIN_DATA_COVERAGE = 0.80
 CRITICAL_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^TNX", "DX-Y.NYB", "HYG", "IWM"]
+CRITICAL_HISTORY_REQUIREMENTS = {
+    "SPY": 150,       # 200d MA with local 75% minimum
+    "QQQ": 150,
+    "RSP": 150,
+    "^VIX": 20,      # percentile/regime context
+    "^TNX": 20,      # 20d yield direction
+    "DX-Y.NYB": 20,  # 20d dollar direction
+    "HYG": 38,       # 50d credit health with local 75% minimum
+}
+MIN_SECTOR_HISTORY_SYMBOLS = 8
+MIN_SECTOR_HISTORY_POINTS = 64
+DECISION_BANDS = [
+    {"min": 85, "decision": "STRONG YES", "color": "green",  "position": "FULL SIZE"},
+    {"min": 70, "decision": "YES",        "color": "green",  "position": "STANDARD SIZE"},
+    {"min": 55, "decision": "CAUTION",    "color": "yellow", "position": "HALF SIZE"},
+    {"min": 40, "decision": "NO",         "color": "orange", "position": "MINIMAL"},
+    {"min": 0,  "decision": "STRONG NO",  "color": "red",    "position": "PRESERVE CAPITAL"},
+]
 
 
 def decision_for_score(total: int) -> tuple[str, str, str]:
-    if total >= 85: return "STRONG YES", "green",  "FULL SIZE"
-    if total >= 70: return "YES",        "green",  "STANDARD SIZE"
-    if total >= 55: return "CAUTION",    "yellow", "HALF SIZE"
-    if total >= 40: return "NO",         "orange", "MINIMAL"
+    for band in DECISION_BANDS:
+        if total >= band["min"]:
+            return band["decision"], band["color"], band["position"]
     return "STRONG NO", "red", "PRESERVE CAPITAL"
 
 
-def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[str]) -> dict:
+def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[str],
+                       histories: dict | None = None,
+                       sector_symbols: list[str] | None = None) -> dict:
     coverage = fetched / requested if requested else 0.0
     critical_missing = [s for s in CRITICAL_SYMBOLS if not quotes.get(s)]
-    valid = coverage >= MIN_DATA_COVERAGE and not critical_missing
+    histories = histories or {}
+    critical_history_missing = [
+        {"symbol": s, "required": n, "found": len(histories.get(s, []) or [])}
+        for s, n in CRITICAL_HISTORY_REQUIREMENTS.items()
+        if len(histories.get(s, []) or []) < n
+    ]
+    sector_symbols = sector_symbols or SECTOR_SYMBOLS
+    sector_history_valid = sum(
+        1 for s in sector_symbols
+        if len(histories.get(s, []) or []) >= MIN_SECTOR_HISTORY_POINTS
+    )
+    sector_history_ok = sector_history_valid >= MIN_SECTOR_HISTORY_SYMBOLS
+    valid = (coverage >= MIN_DATA_COVERAGE and not critical_missing and
+             not critical_history_missing and sector_history_ok)
 
     if valid:
-        message = f"Live data OK: {fetched}/{requested} symbols fetched."
+        message = f"Live data OK: {fetched}/{requested} quotes and core histories fetched."
     elif fetched == 0:
         message = "No live market data fetched. Decision disabled until the data feed recovers."
     elif critical_missing:
-        message = "Critical market inputs missing. Decision disabled until core symbols recover."
+        message = "Critical quote inputs missing. Decision disabled until core symbols recover."
+    elif critical_history_missing:
+        missing = ", ".join(x["symbol"] for x in critical_history_missing[:4])
+        tail = "..." if len(critical_history_missing) > 4 else ""
+        message = f"Critical history inputs missing ({missing}{tail}). Decision disabled."
+    elif not sector_history_ok:
+        message = "Sector history coverage too low. Decision disabled until breadth context recovers."
     else:
         message = "Too many market symbols failed. Decision disabled until coverage improves."
 
@@ -82,6 +120,11 @@ def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[
         "min_coverage_pct": int(MIN_DATA_COVERAGE * 100),
         "critical_symbols": CRITICAL_SYMBOLS,
         "critical_missing": critical_missing,
+        "critical_history_requirements": CRITICAL_HISTORY_REQUIREMENTS,
+        "critical_history_missing": critical_history_missing,
+        "sector_history_valid": sector_history_valid,
+        "sector_history_required": MIN_SECTOR_HISTORY_SYMBOLS,
+        "sector_history_min_points": MIN_SECTOR_HISTORY_POINTS,
         "message": message,
     }
 
@@ -1173,7 +1216,8 @@ def compute_dashboard() -> dict:
     requested = len(all_symbols)
     fetched = sum(1 for q in quotes.values() if q)
     failed = [s for s, q in quotes.items() if not q]
-    data_quality = build_data_quality(quotes, requested, fetched, failed)
+    data_quality = build_data_quality(
+        quotes, requested, fetched, failed, histories, SECTOR_SYMBOLS)
 
     # Score each pillar (with graceful fallback per pillar)
     vol  = _safe_pillar(score_volatility, quotes, histories.get("^VIX", []), name="Volatility")
@@ -1201,22 +1245,23 @@ def compute_dashboard() -> dict:
     vix_level    = vol["details"].get("vix_level") or 0
     spy_above_200 = tr["details"].get("above_200", True)
 
-    if vix_level >= 40:
-        safety_max_score = 39 if safety_max_score is None else min(safety_max_score, 39)
-        if total > 39:
-            total = 39
-        override_reasons.append(f"VIX {vix_level:.0f} >= 40 - extreme fear, hard NO regardless of other signals")
-    elif vix_level >= 35:
-        safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
-        if total > 54:
-            total = 54
-        override_reasons.append(f"VIX {vix_level:.0f} >= 35 - high fear, score capped at NO")
+    if data_quality["valid"]:
+        if vix_level >= 40:
+            safety_max_score = 39 if safety_max_score is None else min(safety_max_score, 39)
+            if total > 39:
+                total = 39
+            override_reasons.append(f"VIX {vix_level:.0f} >= 40 - extreme fear, hard NO regardless of other signals")
+        elif vix_level >= 35:
+            safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
+            if total > 54:
+                total = 54
+            override_reasons.append(f"VIX {vix_level:.0f} >= 35 - high fear, score capped at NO")
 
-    if not spy_above_200:
-        safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
-        if total > 54:
-            total = 54
-        override_reasons.append("SPY below 200d MA - bear market regime, score capped at NO")
+        if not spy_above_200:
+            safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
+            if total > 54:
+                total = 54
+            override_reasons.append("SPY below 200d MA - bear market regime, score capped at NO")
 
     if not data_quality["valid"]:
         total = 0
@@ -1277,4 +1322,5 @@ def compute_dashboard() -> dict:
         "timestamp": time.strftime("%H:%M:%S UTC", time.gmtime()),
         "data_coverage": {"requested": requested, "fetched": fetched, "failed": failed},
         "data_quality": data_quality,
+        "decision_bands": DECISION_BANDS,
     }
