@@ -84,27 +84,29 @@ def get_cached_dashboard() -> dict:
             _DASHBOARD_CACHE["data"] = data
             _DASHBOARD_CACHE["ts"] = time.time()
 
-    # Record in history
-    now_ts = time.time()
-    snapshot = {
-        "ts": time.strftime("%H:%M", time.gmtime()),
-        "total": data["total_score"],
-        "v": data["pillars"]["volatility"]["score"],
-        "tr": data["pillars"]["trend"]["score"],
-        "br": data["pillars"]["breadth"]["score"],
-        "mo": data["pillars"]["momentum"]["score"],
-        "ma": data["pillars"]["macro"]["score"],
-    }
-    history_copy = None
-    with _HISTORY_LOCK:
-        # Record if score changed or ≥5 min have elapsed since last entry
-        if not _HISTORY or _HISTORY[-1]["total"] != snapshot["total"] \
-                or now_ts - _HISTORY_META["last_ts"] > 300:
-            _HISTORY.append(snapshot)
-            _HISTORY_META["last_ts"] = now_ts
-            history_copy = list(_HISTORY)    # copy while lock is held
-    if history_copy is not None:
-        _save_history(history_copy)          # I/O outside the lock — no deadlock
+    # Record in history only when live data is trustworthy. Missing feeds should
+    # not create fake score drops that pollute the sparkline.
+    if data.get("data_quality", {}).get("valid", True):
+        now_ts = time.time()
+        snapshot = {
+            "ts": time.strftime("%H:%M", time.gmtime()),
+            "total": data["total_score"],
+            "v": data["pillars"]["volatility"]["score"],
+            "tr": data["pillars"]["trend"]["score"],
+            "br": data["pillars"]["breadth"]["score"],
+            "mo": data["pillars"]["momentum"]["score"],
+            "ma": data["pillars"]["macro"]["score"],
+        }
+        history_copy = None
+        with _HISTORY_LOCK:
+            # Record if score changed or >=5 min have elapsed since last entry
+            if not _HISTORY or _HISTORY[-1]["total"] != snapshot["total"] \
+                    or now_ts - _HISTORY_META["last_ts"] > 300:
+                _HISTORY.append(snapshot)
+                _HISTORY_META["last_ts"] = now_ts
+                history_copy = list(_HISTORY)    # copy while lock is held
+        if history_copy is not None:
+            _save_history(history_copy)          # I/O outside the lock - no deadlock
 
     return data
 

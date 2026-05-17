@@ -50,6 +50,42 @@ CORE_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^VIX9D", "^SKEW",
                 "TLT", "^TNX", "^IRX", "DX-Y.NYB", "TQQQ", "SQQQ", "UVXY", "HYG", "GLD"]
 
 
+MIN_DATA_COVERAGE = 0.80
+CRITICAL_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^TNX", "DX-Y.NYB", "HYG", "IWM"]
+
+
+def decision_for_score(total: int) -> tuple[str, str, str]:
+    if total >= 85: return "STRONG YES", "green",  "FULL SIZE"
+    if total >= 70: return "YES",        "green",  "STANDARD SIZE"
+    if total >= 55: return "CAUTION",    "yellow", "HALF SIZE"
+    if total >= 40: return "NO",         "orange", "MINIMAL"
+    return "STRONG NO", "red", "PRESERVE CAPITAL"
+
+
+def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[str]) -> dict:
+    coverage = fetched / requested if requested else 0.0
+    critical_missing = [s for s in CRITICAL_SYMBOLS if not quotes.get(s)]
+    valid = coverage >= MIN_DATA_COVERAGE and not critical_missing
+
+    if valid:
+        message = f"Live data OK: {fetched}/{requested} symbols fetched."
+    elif fetched == 0:
+        message = "No live market data fetched. Decision disabled until the data feed recovers."
+    elif critical_missing:
+        message = "Critical market inputs missing. Decision disabled until core symbols recover."
+    else:
+        message = "Too many market symbols failed. Decision disabled until coverage improves."
+
+    return {
+        "valid": valid,
+        "coverage_pct": round(coverage * 100, 1),
+        "min_coverage_pct": int(MIN_DATA_COVERAGE * 100),
+        "critical_symbols": CRITICAL_SYMBOLS,
+        "critical_missing": critical_missing,
+        "message": message,
+    }
+
+
 # ─── math primitives ───────────────────────────────────────────────────────
 def simple_ma(closes: list[float], n: int) -> float | None:
     sl = [c for c in closes[-n:] if c is not None]
@@ -1132,6 +1168,13 @@ def compute_dashboard() -> dict:
     earnings = earnings_season()
     econ_events = econ_proximity()
 
+    # Data coverage is computed before scoring so failed feeds cannot become
+    # a confident trade decision. Pillars still render for debugging.
+    requested = len(all_symbols)
+    fetched = sum(1 for q in quotes.values() if q)
+    failed = [s for s, q in quotes.items() if not q]
+    data_quality = build_data_quality(quotes, requested, fetched, failed)
+
     # Score each pillar (with graceful fallback per pillar)
     vol  = _safe_pillar(score_volatility, quotes, histories.get("^VIX", []), name="Volatility")
     tr   = _safe_pillar(score_trend, quotes, histories.get("SPY", []), histories.get("QQQ", []), spy_ohlcv, name="Trend")
@@ -1149,30 +1192,39 @@ def compute_dashboard() -> dict:
                 mom["score"]  * PILLAR_WEIGHTS["momentum"] +
                 mac["score"]  * PILLAR_WEIGHTS["macro"])
 
+    raw_total = total
+
     # ── Hard regime overrides ──────────────────────────────────────────────
     # Certain conditions should cap the decision regardless of the weighted total.
     override_reasons = []
+    safety_max_score = None
     vix_level    = vol["details"].get("vix_level") or 0
     spy_above_200 = tr["details"].get("above_200", True)
 
     if vix_level >= 40:
+        safety_max_score = 39 if safety_max_score is None else min(safety_max_score, 39)
         if total > 39:
             total = 39
-        override_reasons.append(f"⛔ VIX {vix_level:.0f} ≥ 40 — extreme fear, hard NO regardless of other signals")
+        override_reasons.append(f"VIX {vix_level:.0f} >= 40 - extreme fear, hard NO regardless of other signals")
     elif vix_level >= 35:
+        safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
         if total > 54:
             total = 54
-        override_reasons.append(f"⚠ VIX {vix_level:.0f} ≥ 35 — high fear, score capped at NO")
+        override_reasons.append(f"VIX {vix_level:.0f} >= 35 - high fear, score capped at NO")
 
-    if not spy_above_200 and total > 54:
-        total = 54
-        override_reasons.append("⚠ SPY below 200d MA — bear market regime, score capped at NO")
+    if not spy_above_200:
+        safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
+        if total > 54:
+            total = 54
+        override_reasons.append("SPY below 200d MA - bear market regime, score capped at NO")
 
-    if   total >= 85: decision, dc, pos = "STRONG YES", "green",  "FULL SIZE"
-    elif total >= 70: decision, dc, pos = "YES",        "green",  "STANDARD SIZE"
-    elif total >= 55: decision, dc, pos = "CAUTION",    "yellow", "HALF SIZE"
-    elif total >= 40: decision, dc, pos = "NO",         "orange", "MINIMAL"
-    else:             decision, dc, pos = "STRONG NO",  "red",    "PRESERVE CAPITAL"
+    if not data_quality["valid"]:
+        total = 0
+        safety_max_score = 0
+        decision, dc, pos = "DATA UNAVAILABLE", "red", "NO TRADE"
+        override_reasons.insert(0, data_quality["message"])
+    else:
+        decision, dc, pos = decision_for_score(total)
 
     conflicts = detect_conflicts(
         {"trend": tr, "volatility": vol, "breadth": br, "momentum": mom, "macro": mac},
@@ -1197,13 +1249,10 @@ def compute_dashboard() -> dict:
             ticker.append({"symbol": s, "price": round(q.get("price") or 0, 2),
                             "change_pct": round(pct(q), 2), "up": pct(q) >= 0})
 
-    # Data coverage for UI honesty
-    requested = len(all_symbols)
-    fetched = sum(1 for q in quotes.values() if q)
-    failed = [s for s, q in quotes.items() if not q]
-
     return {
         "total_score": total,
+        "raw_total_score": raw_total,
+        "safety_max_score": safety_max_score,
         "decision": decision, "decision_color": dc, "position_size": pos,
         "market_state": mstate,
         "fomc": fomc,
@@ -1227,4 +1276,5 @@ def compute_dashboard() -> dict:
         "fear_greed_crypto": fng_crypto,
         "timestamp": time.strftime("%H:%M:%S UTC", time.gmtime()),
         "data_coverage": {"requested": requested, "fetched": fetched, "failed": failed},
+        "data_quality": data_quality,
     }

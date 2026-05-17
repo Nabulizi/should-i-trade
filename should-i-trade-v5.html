@@ -571,7 +571,14 @@ function renderHeader(d) {
 
   // Coverage warning
   const cov = d.data_coverage || {};
-  if (cov.failed && cov.failed.length) {
+  const quality = d.data_quality || {};
+  if (quality.valid === false) {
+    $('coverage-warn').style.display = 'flex';
+    const missing = quality.critical_missing?.length
+      ? ` Critical missing: ${quality.critical_missing.join(', ')}.`
+      : '';
+    $('coverage-warn').innerHTML = `⚠ ${esc(quality.message || 'Market data unavailable.')} ${esc(cov.fetched ?? 0)}/${esc(cov.requested ?? 0)} symbols fetched.${esc(missing)}`;
+  } else if (cov.failed && cov.failed.length) {
     $('coverage-warn').style.display = 'flex';
     $('coverage-warn').innerHTML = `⚠ Partial data: ${cov.fetched}/${cov.requested} symbols fetched. Missing: ${cov.failed.slice(0, 8).join(', ')}${cov.failed.length > 8 ? '…' : ''}`;
   } else {
@@ -631,13 +638,15 @@ function renderHero(d) {
 
   // ── Decision context: regime, posture, confidence ──────
   const regime  = d.pillars?.trend?.details?.regime || null;
-  const posture = s >= 85 ? 'Full size — press the bid on A/B setups'
+  const invalidData = d.data_quality?.valid === false;
+  const posture = invalidData ? 'No trade — live market data is unavailable'
+                : s >= 85 ? 'Full size — press the bid on A/B setups'
                 : s >= 70 ? 'Standard size — run your normal game'
                 : s >= 55 ? 'Half size — A+ setups only, tight stops'
                 : s >= 40 ? 'Minimal — very selective or sit out'
                 :           'Preserve capital — no new longs';
-  const confLevel = s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
-  const confColor = s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
+  const confLevel = invalidData ? 0 : s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
+  const confColor = invalidData ? 'var(--red)' : s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
   const confSegs  = [1,2,3,4,5].map(i =>
     `<div class="conf-seg" style="background:${i <= confLevel ? confColor : 'var(--border)'}"></div>`
   ).join('');
@@ -922,22 +931,35 @@ function loadWeights() {
 }
 function saveWeightsLS(w) { localStorage.setItem('pillarWeights', JSON.stringify(w)); }
 
+function decisionForScore(total) {
+  return {
+    decision: total >= 85 ? 'STRONG YES' : total >= 70 ? 'YES' : total >= 55 ? 'CAUTION' : total >= 40 ? 'NO' : 'STRONG NO',
+    decision_color: total >= 70 ? 'green' : total >= 55 ? 'yellow' : total >= 40 ? 'orange' : 'red',
+    position_size: total >= 85 ? 'FULL SIZE' : total >= 70 ? 'STANDARD SIZE' : total >= 55 ? 'HALF SIZE' : total >= 40 ? 'MINIMAL' : 'PRESERVE CAPITAL'
+  };
+}
+
 function applyCustomWeights(data) {
   const w = loadWeights();
+  if (data.data_quality?.valid === false) {
+    return { ...data, _weights: w };
+  }
+
   const p = data.pillars;
-  const total = Math.round(
+  let total = Math.round(
     p.volatility.score * w.volatility / 100 +
     p.trend.score      * w.trend      / 100 +
     p.breadth.score    * w.breadth    / 100 +
     p.momentum.score   * w.momentum   / 100 +
     p.macro.score      * w.macro      / 100
   );
-  const decision    = total >= 85 ? 'STRONG YES' : total >= 70 ? 'YES' : total >= 55 ? 'CAUTION' : total >= 40 ? 'NO' : 'STRONG NO';
-  const dec_color   = total >= 70 ? 'green' : total >= 55 ? 'yellow' : total >= 40 ? 'orange' : 'red';
-  const position    = total >= 85 ? 'FULL SIZE' : total >= 70 ? 'STANDARD SIZE' : total >= 55 ? 'HALF SIZE' : total >= 40 ? 'MINIMAL' : 'PRESERVE CAPITAL';
-  return { ...data, total_score: total,
-    decision, decision_color: dec_color, position_size: position,
-    _weights: w };
+
+  if (data.safety_max_score !== null && data.safety_max_score !== undefined) {
+    total = Math.min(total, data.safety_max_score);
+  }
+
+  const verdict = decisionForScore(total);
+  return { ...data, total_score: total, ...verdict, _weights: w };
 }
 
 /* ── SETTINGS DRAWER ───────────────────────────────────── */
