@@ -651,7 +651,6 @@ function renderHero(d) {
 
   // ── Decision context: regime, posture, confidence ──────
   const regime  = d.pillars?.trend?.details?.regime || null;
-  const invalidData = d.data_quality?.valid === false;
   const posture = invalidData ? 'No trade — live market data is unavailable'
                 : s >= 85 ? 'Full size — press the bid on A/B setups'
                 : s >= 70 ? 'Standard size — run your normal game'
