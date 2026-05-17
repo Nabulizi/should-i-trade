@@ -79,7 +79,6 @@ def get_cached_dashboard() -> dict:
 
         data = compute_dashboard()
 
-        # Score delta vs. last recorded snapshot (before we append the new one)
         # Score delta vs. last recorded snapshot (before we append the new one).
         # Invalid feed states should not display fake score collapses.
         if data.get("data_quality", {}).get("valid", True):
