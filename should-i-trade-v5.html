@@ -164,9 +164,13 @@
   .watch-stat .lbl { color: var(--muted); font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
   .watch-selected-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: var(--muted); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
   .watch-filter-list { max-height: 260px; overflow-y: auto; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
-  .watch-row { display: grid; grid-template-columns: 72px 66px 1fr 48px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .watch-row { display: grid; grid-template-columns: 72px 66px 44px 1fr 36px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
   .watch-row:last-child { border-bottom: none; }
   .watch-sym { font-weight: 800; font-size: 10px; }
+  .watch-chg { font-size: 9px; font-weight: 700; text-align: right; }
+  .watch-chg.up { color: var(--green); }
+  .watch-chg.dn { color: var(--red); }
+  .watch-chg.flat { color: var(--muted); }
   .watch-note { color: var(--muted2); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .watch-state { font-size: 8px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; border-radius: 2px; padding: 2px 5px; text-align: center; border: 1px solid var(--border2); }
   .watch-state.green { color: var(--green); border-color: rgba(0,230,118,0.35); background: rgba(0,230,118,0.08); }
@@ -982,11 +986,15 @@ function renderWatchRows(rows, emptyText, limit = null) {
   }
   const shown = limit ? rows.slice(0, limit) : rows;
   return shown.map(r => {
-    const note = esc(r.why || r.label || '');
+    const chg = r.change_pct;
+    const chgCls = chg == null ? 'flat' : chg > 0 ? 'up' : chg < 0 ? 'dn' : 'flat';
+    const chgTxt = chg == null ? '—' : (chg > 0 ? '+' : '') + chg.toFixed(2) + '%';
+    const why = esc(r.why || r.label || '');
     return `<div class="watch-row">
       <div class="watch-sym">${esc(r.symbol)}</div>
       <div class="watch-state ${esc(r.entry_color || 'gray')}">${esc(r.entry_state || 'Watch')}</div>
-      <div class="watch-note" title="${esc(r.tv_symbol)}">${note}</div>
+      <div class="watch-chg ${chgCls}">${chgTxt}</div>
+      <div class="watch-note" title="${why}">${why}</div>
       <div class="watch-score" style="color:${watchColor(r.score)}">${r.score}</div>
     </div>`;
   }).join('');
@@ -1005,18 +1013,20 @@ function renderWatchlistHealth(w, selectedView = _watchlistView) {
   const skipped = (w.skipped || []).length;
   const views = w.watch_views || {};
   const viewLabels = {
-    a_plus: 'Strong Trend',
-    pullback: 'Pullback',
-    extended: 'Extended',
-    broken: 'Broken',
-    neutral: 'Neutral',
+    a_plus:      'Strong Trend',
+    pullback:    'Pullback',
+    bear_regime: 'Wait (Bear)',
+    extended:    'Extended',
+    broken:      'Broken',
+    neutral:     'Neutral',
     unavailable: 'No Data',
   };
   const stats = [
-    ['a_plus', 'Strong Trend', counts.a_plus || 0, 'var(--green)'],
-    ['pullback', 'Pullback', counts.pullback || 0, 'var(--yellow)'],
-    ['extended', 'Extended', counts.extended || 0, 'var(--orange)'],
-    ['broken', 'Broken', counts.broken || 0, 'var(--red)'],
+    ['a_plus',   'Strong Trend', counts.a_plus   || 0, 'var(--green)'],
+    ['pullback',  'Pullback',    counts.pullback  || 0, 'var(--yellow)'],
+    ...(counts.bear_regime ? [['bear_regime', 'Wait (Bear)', counts.bear_regime, 'var(--red)']] : []),
+    ['extended',  'Extended',   counts.extended  || 0, 'var(--orange)'],
+    ['broken',    'Broken',     counts.broken    || 0, 'var(--red)'],
   ];
   if (counts.neutral) stats.push(['neutral', 'Neutral', counts.neutral, 'var(--muted2)']);
   if (counts.unavailable) stats.push(['unavailable', 'No Data', counts.unavailable, 'var(--muted)']);

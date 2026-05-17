@@ -134,6 +134,8 @@ def _entry_state(bucket: str, ret_1m: float | None) -> tuple[str, str]:
         if ret_1m is not None and ret_1m > 0:
             return "Ready", "green"
         return "Watch", "yellow"
+    if bucket == "bear_regime":
+        return "No Regime", "red"
     if bucket == "a_plus":
         return "Watch", "yellow"
     if bucket == "extended":
@@ -158,6 +160,8 @@ def _why_text(bucket: str, above20: bool, above50: bool, above200: bool,
         if dist_50 is not None and abs(dist_50) <= 4.0:
             near.append("50d")
         parts.append(f"near {'/'.join(near)}" if near else "pulling into support")
+    elif bucket == "bear_regime":
+        return "pullback in bear market — SPY below 200d, wait for regime to clear"
     elif bucket == "extended":
         parts.append(f"{_fmt_pct(dist_20)} vs 20d" if dist_20 is not None else "extended from support")
     elif bucket == "broken":
@@ -255,7 +259,8 @@ def _classify(symbol: str, tv_symbol: str, asset_type: str,
     }
 
 
-def compute_watchlist_health(path: str = DEFAULT_WATCHLIST) -> dict[str, Any]:
+def compute_watchlist_health(path: str = DEFAULT_WATCHLIST,
+                             spy_above_200: bool = True) -> dict[str, Any]:
     tokens = _tokens_from_file(path)
     mapped: list[tuple[str, str, str]] = []
     skipped = []
@@ -281,10 +286,17 @@ def compute_watchlist_health(path: str = DEFAULT_WATCHLIST) -> dict[str, Any]:
 
     for tv, sym, atype in scan_targets:
         key = (tv, sym, atype)
-        rows.append(_classify(sym, tv, atype, quotes.get(key), histories.get(key, [])))
+        row = _classify(sym, tv, atype, quotes.get(key), histories.get(key, []))
+        # Downgrade pullbacks in bear-market regime — they're falling knives, not entries
+        if row["bucket"] == "pullback" and not spy_above_200:
+            row["bucket"] = "bear_regime"
+            row["label"] = "Wait for Regime"
+            row["entry_state"], row["entry_color"] = "No Regime", "red"
+            row["why"] = _why_text("bear_regime", False, False, False, row.get("rsi14"), row.get("ret_1m"), row.get("dist_20"), row.get("dist_50"))
+        rows.append(row)
 
     rows.sort(key=lambda r: (r["score"], r.get("ret_1m") or -999), reverse=True)
-    counts = {k: 0 for k in ("a_plus", "pullback", "extended", "broken", "neutral", "unavailable")}
+    counts = {k: 0 for k in ("a_plus", "pullback", "bear_regime", "extended", "broken", "neutral", "unavailable")}
     asset_counts: dict[str, int] = {}
     for _, _, asset_type in mapped:
         asset_counts[asset_type] = asset_counts.get(asset_type, 0) + 1
@@ -292,11 +304,12 @@ def compute_watchlist_health(path: str = DEFAULT_WATCHLIST) -> dict[str, Any]:
         counts[row["bucket"]] = counts.get(row["bucket"], 0) + 1
 
     watch_views = {
-        "a_plus": [r for r in rows if r["bucket"] == "a_plus"],
-        "pullback": [r for r in rows if r["bucket"] == "pullback"],
-        "extended": [r for r in rows if r["bucket"] == "extended"],
-        "broken": [r for r in rows if r["bucket"] == "broken"],
-        "neutral": [r for r in rows if r["bucket"] == "neutral"],
+        "a_plus":      [r for r in rows if r["bucket"] == "a_plus"],
+        "pullback":    [r for r in rows if r["bucket"] == "pullback"],
+        "bear_regime": [r for r in rows if r["bucket"] == "bear_regime"],
+        "extended":    [r for r in rows if r["bucket"] == "extended"],
+        "broken":      [r for r in rows if r["bucket"] == "broken"],
+        "neutral":     [r for r in rows if r["bucket"] == "neutral"],
         "unavailable": [r for r in rows if r["bucket"] == "unavailable"],
     }
     return {

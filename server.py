@@ -35,7 +35,7 @@ _DASHBOARD_TTL = 60   # seconds
 _DASHBOARD_LOCK = threading.Lock()
 _COMPUTE_LOCK   = threading.Lock()   # serialises computation; prevents thundering herd
 
-_WATCHLIST_CACHE = {"ts": 0.0, "data": None}
+_WATCHLIST_CACHE = {"ts": 0.0, "data": None, "mtime": 0.0}
 _WATCHLIST_TTL = 300  # seconds
 _WATCHLIST_LOCK = threading.Lock()
 
@@ -121,15 +121,32 @@ def get_cached_dashboard() -> dict:
 
 
 def get_cached_watchlist_health() -> dict:
+    from watchlist import DEFAULT_WATCHLIST
+    try:
+        current_mtime = os.path.getmtime(DEFAULT_WATCHLIST)
+    except OSError:
+        current_mtime = 0.0
+
     with _WATCHLIST_LOCK:
         now = time.time()
-        if _WATCHLIST_CACHE["data"] and now - _WATCHLIST_CACHE["ts"] < _WATCHLIST_TTL:
+        file_unchanged = current_mtime == _WATCHLIST_CACHE["mtime"]
+        if (_WATCHLIST_CACHE["data"] and file_unchanged
+                and now - _WATCHLIST_CACHE["ts"] < _WATCHLIST_TTL):
             return _WATCHLIST_CACHE["data"]
 
-    data = compute_watchlist_health()
+    # Get regime context from dashboard cache to gate pullback signals
+    spy_above_200 = True
+    try:
+        dash = _DASHBOARD_CACHE.get("data") or {}
+        spy_above_200 = dash.get("pillars", {}).get("trend", {}).get("details", {}).get("above_200", True)
+    except Exception:
+        pass
+
+    data = compute_watchlist_health(spy_above_200=spy_above_200)
     with _WATCHLIST_LOCK:
         _WATCHLIST_CACHE["data"] = data
         _WATCHLIST_CACHE["ts"] = time.time()
+        _WATCHLIST_CACHE["mtime"] = current_mtime
     return data
 
 
