@@ -2,11 +2,14 @@
 data.py — Market data fetchers with fallbacks.
 
 Sources (in order of preference per symbol):
-  Equity/ETF/Index:  Yahoo Finance v8  →  Stooq CSV
-  Bitcoin:           Yahoo Finance    →  CoinGecko  →  Binance public
+  ^VIX:              CBOE official CSV            →  Yahoo  →  Stooq
+  ^TNX:              US Treasury official CSV      →  Yahoo  →  Stooq
+  Equity/ETF/Index:  Yahoo Finance v8              →  Stooq CSV
+  Bitcoin:           Yahoo Finance  →  CoinGecko   →  Binance public
 
-All functions return plain dicts or lists; no external dependencies.
-Thread-safe cache. Parallel fetch helpers for dashboard use.
+^VIX and ^TNX history comes from their canonical publishers (CBOE and
+US Treasury). Quotes remain Yahoo → Stooq for intraday freshness.
+No API key required for any source. Thread-safe cache.
 """
 
 from __future__ import annotations
@@ -168,6 +171,63 @@ def stooq_quote(symbol: str) -> dict | None:
     }
 
 
+# ─── Official primary sources (CBOE + US Treasury) ─────────────────────────
+# Both are canonical publishers of the data, free, no API key, no UA blocking.
+# Used for history only — quotes stay Yahoo→Stooq for intraday freshness.
+
+def cboe_vix_history(limit: int = 300) -> list[float]:
+    """CBOE official VIX daily closes (oldest-first). Returns [] on failure."""
+    url = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv"
+    try:
+        body = fetch_url(url, cache_secs=3600)
+        reader = csv.DictReader(io.StringIO(body))
+        closes = []
+        for row in reader:
+            v = row.get("CLOSE", "").strip()
+            if v:
+                try:
+                    closes.append(float(v))
+                except ValueError:
+                    pass
+        return closes[-limit:] if closes else []
+    except Exception:
+        return []
+
+
+def treasury_10y_history(limit: int = 300) -> list[float]:
+    """US Treasury 10-Year yield daily (current + prior year). Returns [] on failure.
+    Treasury CSV is newest-first; this reverses each batch before combining."""
+    year = datetime.utcnow().year
+    all_closes: list[float] = []
+    for y in (year - 1, year):
+        url = (
+            f"https://home.treasury.gov/resource-center/data-chart-center/"
+            f"interest-rates/daily-treasury-rates.csv/{y}/all"
+            f"?type=daily_treasury_yield_curve&field_tdr_date_value={y}&page&_format=csv"
+        )
+        try:
+            body = fetch_url(url, cache_secs=3600)
+            reader = csv.DictReader(io.StringIO(body))
+            batch = []
+            for row in reader:
+                v = row.get("10 Yr", "").strip()
+                if v:
+                    try:
+                        batch.append(float(v))
+                    except ValueError:
+                        pass
+            all_closes.extend(reversed(batch))  # newest-first → oldest-first
+        except Exception:
+            pass
+    return all_closes[-limit:] if all_closes else []
+
+
+_OFFICIAL_SOURCES: dict[str, callable] = {
+    "^VIX": cboe_vix_history,
+    "^TNX": treasury_10y_history,
+}
+
+
 # ─── unified getters (with fallback) ────────────────────────────────────────
 def get_quote(symbol: str) -> dict | None:
     q = yf_quote(symbol)
@@ -177,6 +237,12 @@ def get_quote(symbol: str) -> dict | None:
 
 
 def get_history(symbol: str, days: int = 220) -> list[float]:
+    # Use canonical publishers for VIX and 10Y yield — more reliable than Yahoo.
+    # Falls back to Yahoo then Stooq if the official source fails.
+    if symbol in _OFFICIAL_SOURCES:
+        h = _OFFICIAL_SOURCES[symbol](limit=max(days + 80, 300))
+        if len(h) >= 20:
+            return h
     h = yf_history(symbol, days)
     if len(h) >= 20:
         return h
