@@ -153,6 +153,21 @@
 
   /* sparkline */
   .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
+
+  /* watchlist health */
+  .watch-card { display: flex; flex-direction: column; gap: 10px; }
+  .watch-meta { color: var(--muted); font-size: 9px; font-weight: 400; letter-spacing: 0.5px; text-transform: uppercase; }
+  .watch-summary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .watch-stat { border: 1px solid var(--border); border-radius: 4px; padding: 8px; min-width: 0; }
+  .watch-stat .num { font-size: 18px; font-weight: 800; line-height: 1.1; }
+  .watch-stat .lbl { color: var(--muted); font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
+  .watch-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .watch-list-title { color: var(--muted); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .watch-row { display: grid; grid-template-columns: 72px 1fr 48px; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .watch-row:last-child { border-bottom: none; }
+  .watch-sym { font-weight: 800; font-size: 10px; }
+  .watch-note { color: var(--muted2); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .watch-score { font-weight: 800; text-align: right; font-size: 11px; }
   .sparkline-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; }
   .sparkline { width: 100%; height: 60px; }
   .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
@@ -306,6 +321,8 @@
     .main { padding: 10px; }
     .pillars-mini { gap: 10px; flex-wrap: wrap; justify-content: center; }
     .pillar-mini .pm-bar { width: 48px; }
+    .watch-summary { grid-template-columns: repeat(2, 1fr); }
+    .watch-cols { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -439,6 +456,14 @@
             <div class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)"><div class="spark-leg-dot" style="background:#7c4dff"></div>Macro</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- WATCHLIST HEALTH -->
+    <div class="card watch-card">
+      <div class="card-title">🎯 Watchlist Health <span class="watch-meta" id="watchlist-meta">TradingView export</span></div>
+      <div id="watchlist-health">
+        <div style="color:var(--muted);font-size:10px;">Loading watchlist…</div>
       </div>
     </div>
 
@@ -936,6 +961,77 @@ function renderExecution(d) {
   }).join('');
 }
 
+/* ── WATCHLIST HEALTH ─────────────────────────────────── */
+function watchColor(score) {
+  return score >= 75 ? 'var(--green)' : score >= 60 ? 'var(--yellow)' : score >= 45 ? 'var(--orange)' : 'var(--red)';
+}
+
+function renderWatchRows(rows, emptyText) {
+  if (!rows || !rows.length) {
+    return `<div style="color:var(--muted);font-size:10px;">${esc(emptyText)}</div>`;
+  }
+  return rows.slice(0, 5).map(r => {
+    const move = r.change_pct === null || r.change_pct === undefined ? '—' : chgStr(r.change_pct);
+    const note = `${esc(r.label)} · ${move}${r.ret_1m !== null && r.ret_1m !== undefined ? ` · 1M ${chgStr(r.ret_1m)}` : ''}`;
+    return `<div class="watch-row">
+      <div class="watch-sym">${esc(r.symbol)}</div>
+      <div class="watch-note" title="${esc(r.tv_symbol)}">${note}</div>
+      <div class="watch-score" style="color:${watchColor(r.score)}">${r.score}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderWatchlistHealth(w) {
+  const el = $('watchlist-health');
+  const counts = w.counts || {};
+  $('watchlist-meta').textContent = `${w.name || 'Watchlist'} · ${w.scanned || 0}/${w.total || 0} scanned`;
+  const skipped = (w.skipped || []).length;
+  const stats = [
+    ['Scanned', w.scanned || 0, 'var(--text)'],
+    ['A+ Trend', counts.a_plus || 0, 'var(--green)'],
+    ['Pullback', counts.pullback || 0, 'var(--yellow)'],
+    ['Extended', counts.extended || 0, 'var(--orange)'],
+    ['Broken', counts.broken || 0, 'var(--red)'],
+    ['Skipped', skipped, 'var(--muted)'],
+  ];
+
+  el.innerHTML = `
+    <div class="watch-summary">
+      ${stats.map(([label, num, color]) => `<div class="watch-stat">
+        <div class="num" style="color:${color}">${num}</div>
+        <div class="lbl">${label}</div>
+      </div>`).join('')}
+    </div>
+    <div class="watch-cols">
+      <div>
+        <div class="watch-list-title">Actionable Stalk List</div>
+        ${renderWatchRows(w.candidates || [], 'No A+ or pullback candidates right now')}
+      </div>
+      <div>
+        <div class="watch-list-title">Strongest Names</div>
+        ${renderWatchRows(w.top || [], 'No mapped symbols with data')}
+      </div>
+      <div>
+        <div class="watch-list-title">Weakest / Avoid</div>
+        ${renderWatchRows(w.weakest || [], 'No weak names detected')}
+      </div>
+    </div>
+    ${skipped ? `<div style="color:var(--muted);font-size:9px;line-height:1.5;">Skipped ${skipped} TradingView-only symbol(s): ${(w.skipped || []).slice(0, 4).map(s => esc(s.tv_symbol)).join(', ')}${skipped > 4 ? '…' : ''}</div>` : ''}
+  `;
+}
+
+async function loadWatchlistHealth() {
+  try {
+    const res = await fetch('/api/watchlist-health');
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderWatchlistHealth(data);
+  } catch(e) {
+    $('watchlist-health').innerHTML = `<div style="color:var(--red);font-size:10px;">Watchlist unavailable: ${esc(e.message)}</div>`;
+  }
+}
+
 /* ── CUSTOM WEIGHTS (localStorage) ────────────────────── */
 const DEFAULT_WEIGHTS = { volatility: 20, trend: 25, breadth: 20, momentum: 20, macro: 15 };
 function loadWeights() {
@@ -1297,6 +1393,7 @@ async function load(isManual = false) {
     });
 
     renderSparkline();
+    if (isManual || isFirst) loadWatchlistHealth();
     _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
 
     if (isManual || isFirst || !document.querySelector('.persona-card')) {

@@ -17,6 +17,7 @@ from urllib.parse import urlparse, parse_qs
 
 from scoring import compute_dashboard
 from analysis import roundtable
+from watchlist import compute_watchlist_health
 
 PORT = 8765
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,10 @@ _DASHBOARD_CACHE = {"ts": 0.0, "data": None}
 _DASHBOARD_TTL = 60   # seconds
 _DASHBOARD_LOCK = threading.Lock()
 _COMPUTE_LOCK   = threading.Lock()   # serialises computation; prevents thundering herd
+
+_WATCHLIST_CACHE = {"ts": 0.0, "data": None}
+_WATCHLIST_TTL = 300  # seconds
+_WATCHLIST_LOCK = threading.Lock()
 
 
 def _load_history() -> None:
@@ -116,6 +121,19 @@ def get_cached_dashboard() -> dict:
     return data
 
 
+def get_cached_watchlist_health() -> dict:
+    with _WATCHLIST_LOCK:
+        now = time.time()
+        if _WATCHLIST_CACHE["data"] and now - _WATCHLIST_CACHE["ts"] < _WATCHLIST_TTL:
+            return _WATCHLIST_CACHE["data"]
+
+    data = compute_watchlist_health()
+    with _WATCHLIST_LOCK:
+        _WATCHLIST_CACHE["data"] = data
+        _WATCHLIST_CACHE["ts"] = time.time()
+    return data
+
+
 # ─── HTTP handler ──────────────────────────────────────────────────────────
 class Handler(BaseHTTPRequestHandler):
 
@@ -185,6 +203,14 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = get_cached_dashboard()
                 self._json(roundtable(data))
+            except Exception as e:
+                self._json({"error": str(e)}, 500)
+            return
+
+        # ── TradingView watchlist health ───────────────────────────────────
+        if path == "/api/watchlist-health":
+            try:
+                self._json(get_cached_watchlist_health())
             except Exception as e:
                 self._json({"error": str(e)}, 500)
             return
