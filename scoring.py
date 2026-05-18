@@ -107,6 +107,15 @@ def clamp(v, lo=0, hi=100):
     return max(lo, min(hi, int(v)))
 
 
+_SOURCE_NAMES = {"yahoo": "Yahoo", "stooq": "Stooq",
+                 "coingecko": "CoinGecko", "binance": "Binance"}
+
+def _src_label(q: dict | None) -> str:
+    if not q:
+        return "Yahoo"
+    return _SOURCE_NAMES.get((q.get("source") or "yahoo").lower(), "Yahoo")
+
+
 def pct(q, key="changePct"):
     return (q.get(key) or 0) if q else 0
 
@@ -1225,6 +1234,12 @@ def compute_dashboard() -> dict:
         "ticker": ticker,
         "fear_greed_stock":  fng_stock,
         "fear_greed_crypto": fng_crypto,
-        "timestamp": time.strftime("%H:%M:%S UTC", time.gmtime()),
+        "timestamp": mstate["et_time"],   # "HH:MM ET" — already computed above
+        "data_sources": {
+            "vix": "CBOE",                # history from cdn.cboe.com
+            "tnx": "US Treasury",         # history from home.treasury.gov
+            "spy": _src_label(quotes.get("SPY")),
+            "btc": _src_label(btc_q),
+        },
         "data_coverage": {"requested": requested, "fetched": fetched, "failed": failed},
     }
