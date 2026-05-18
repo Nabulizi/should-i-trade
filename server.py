@@ -17,6 +17,7 @@ from urllib.parse import urlparse, parse_qs
 
 from scoring import compute_dashboard
 from analysis import roundtable
+from watchlist import compute_watchlist_health
 
 PORT = 8765
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,10 @@ _DASHBOARD_CACHE = {"ts": 0.0, "data": None}
 _DASHBOARD_TTL = 60   # seconds
 _DASHBOARD_LOCK = threading.Lock()
 _COMPUTE_LOCK   = threading.Lock()   # serialises computation; prevents thundering herd
+
+_WATCHLIST_CACHE = {"ts": 0.0, "data": None, "mtime": 0.0}
+_WATCHLIST_TTL = 300  # seconds
+_WATCHLIST_LOCK = threading.Lock()
 
 
 def _load_history() -> None:
@@ -74,7 +79,6 @@ def get_cached_dashboard() -> dict:
 
         data = compute_dashboard()
 
-        # Score delta vs. last recorded snapshot (before we append the new one)
         # Score delta vs. last recorded snapshot (before we append the new one).
         # Invalid feed states should not display fake score collapses.
         if data.get("data_quality", {}).get("valid", True):
@@ -113,6 +117,46 @@ def get_cached_dashboard() -> dict:
         if history_copy is not None:
             _save_history(history_copy)          # I/O outside the lock - no deadlock
 
+    return data
+
+
+def get_cached_watchlist_health() -> dict:
+    from watchlist import DEFAULT_WATCHLIST
+    try:
+        current_mtime = os.path.getmtime(DEFAULT_WATCHLIST)
+    except OSError:
+        current_mtime = 0.0
+
+    with _WATCHLIST_LOCK:
+        now = time.time()
+        file_unchanged = current_mtime == _WATCHLIST_CACHE["mtime"]
+        if (_WATCHLIST_CACHE["data"] and file_unchanged
+                and now - _WATCHLIST_CACHE["ts"] < _WATCHLIST_TTL):
+            return _WATCHLIST_CACHE["data"]
+
+    # Get regime context to gate pullback signals.
+    # If dashboard cache is cold (direct /api/watchlist-health call before any
+    # /api/dashboard call), fetch dashboard first so the regime flag is real.
+    with _DASHBOARD_LOCK:
+        dash = _DASHBOARD_CACHE.get("data")
+    if not dash:
+        try:
+            dash = get_cached_dashboard()
+        except Exception:
+            dash = {}
+    try:
+        spy_above_200 = dash.get("pillars", {}).get("trend", {}).get("details", {}).get("above_200", True)
+        regime_known  = bool(dash)
+    except Exception:
+        spy_above_200 = True
+        regime_known  = False
+
+    data = compute_watchlist_health(spy_above_200=spy_above_200)
+    data["regime_known"] = regime_known
+    with _WATCHLIST_LOCK:
+        _WATCHLIST_CACHE["data"] = data
+        _WATCHLIST_CACHE["ts"] = time.time()
+        _WATCHLIST_CACHE["mtime"] = current_mtime
     return data
 
 
@@ -185,6 +229,14 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = get_cached_dashboard()
                 self._json(roundtable(data))
+            except Exception as e:
+                self._json({"error": str(e)}, 500)
+            return
+
+        # ── TradingView watchlist health ───────────────────────────────────
+        if path == "/api/watchlist-health":
+            try:
+                self._json(get_cached_watchlist_health())
             except Exception as e:
                 self._json({"error": str(e)}, 500)
             return

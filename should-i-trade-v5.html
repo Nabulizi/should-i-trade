@@ -154,6 +154,33 @@
 
   /* sparkline */
   .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
+
+  /* watchlist health */
+  .watch-card { display: flex; flex-direction: column; gap: 10px; }
+  .watch-meta { color: var(--muted); font-size: 9px; font-weight: 400; letter-spacing: 0.5px; text-transform: uppercase; }
+  .watch-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 8px; }
+  .watch-stat { border: 1px solid var(--border); border-radius: 4px; padding: 8px; min-width: 0; background: transparent; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
+  .watch-stat:hover, .watch-stat.active { border-color: var(--accent); background: rgba(0,176,255,0.06); }
+  .watch-stat .num { font-size: 18px; font-weight: 800; line-height: 1.1; }
+  .watch-stat .lbl { color: var(--muted); font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
+  .watch-selected-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: var(--muted); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .watch-filter-list { max-height: 260px; overflow-y: auto; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .watch-row { display: grid; grid-template-columns: 68px 52px 52px 44px 1fr 36px; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .watch-row:last-child { border-bottom: none; }
+  .watch-sym { font-weight: 800; font-size: 10px; }
+  .watch-price { font-size: 9px; color: var(--muted2); text-align: right; }
+  .watch-chg { font-size: 9px; font-weight: 700; text-align: right; }
+  .watch-chg.up { color: var(--green); }
+  .watch-chg.dn { color: var(--red); }
+  .watch-chg.flat { color: var(--muted); }
+  .watch-note { color: var(--muted2); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .watch-state { font-size: 8px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; border-radius: 2px; padding: 2px 5px; text-align: center; border: 1px solid var(--border2); }
+  .watch-state.green { color: var(--green); border-color: rgba(0,230,118,0.35); background: rgba(0,230,118,0.08); }
+  .watch-state.yellow { color: var(--yellow); border-color: rgba(255,215,64,0.35); background: rgba(255,215,64,0.08); }
+  .watch-state.orange { color: var(--orange); border-color: rgba(255,145,0,0.35); background: rgba(255,145,0,0.08); }
+  .watch-state.red { color: var(--red); border-color: rgba(255,23,68,0.35); background: rgba(255,23,68,0.08); }
+  .watch-state.gray { color: var(--muted); border-color: var(--border2); background: rgba(90,112,128,0.08); }
+  .watch-score { font-weight: 800; text-align: right; font-size: 11px; }
   .sparkline-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; }
   .sparkline { width: 100%; height: 60px; }
   .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
@@ -307,6 +334,8 @@
     .main { padding: 10px; }
     .pillars-mini { gap: 10px; flex-wrap: wrap; justify-content: center; }
     .pillar-mini .pm-bar { width: 48px; }
+    .watch-summary { grid-template-columns: repeat(2, 1fr); }
+    .watch-cols { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -440,6 +469,14 @@
             <div class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)"><div class="spark-leg-dot" style="background:#7c4dff"></div>Macro</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- WATCHLIST HEALTH -->
+    <div class="card watch-card">
+      <div class="card-title">🎯 Watchlist Health <span class="watch-meta" id="watchlist-meta">TradingView export</span></div>
+      <div id="watchlist-health">
+        <div style="color:var(--muted);font-size:10px;">Loading watchlist…</div>
       </div>
     </div>
 
@@ -938,6 +975,101 @@ function renderExecution(d) {
   }).join('');
 }
 
+/* ── WATCHLIST HEALTH ─────────────────────────────────── */
+let _watchlistData = null;
+let _watchlistView = 'a_plus';
+
+function watchColor(score) {
+  return score >= 75 ? 'var(--green)' : score >= 60 ? 'var(--yellow)' : score >= 45 ? 'var(--orange)' : 'var(--red)';
+}
+
+function renderWatchRows(rows, emptyText, limit = null) {
+  if (!rows || !rows.length) {
+    return `<div style="color:var(--muted);font-size:10px;">${esc(emptyText)}</div>`;
+  }
+  const shown = limit ? rows.slice(0, limit) : rows;
+  return shown.map(r => {
+    const chg = r.change_pct;
+    const chgCls = chg == null ? 'flat' : chg > 0 ? 'up' : chg < 0 ? 'dn' : 'flat';
+    const chgTxt = chg == null ? '—' : (chg > 0 ? '+' : '') + chg.toFixed(2) + '%';
+    const priceTxt = r.price != null ? '$' + r.price.toLocaleString('en-US', {maximumFractionDigits: 2}) : '—';
+    const why = esc(r.why || r.label || '');
+    return `<div class="watch-row">
+      <div class="watch-sym">${esc(r.symbol)}</div>
+      <div class="watch-state ${esc(r.entry_color || 'gray')}">${esc(r.entry_state || 'Watch')}</div>
+      <div class="watch-price">${priceTxt}</div>
+      <div class="watch-chg ${chgCls}">${chgTxt}</div>
+      <div class="watch-note" title="${why}">${why}</div>
+      <div class="watch-score" style="color:${watchColor(r.score)}">${r.score}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectWatchlistView(view) {
+  _watchlistView = view;
+  if (_watchlistData) renderWatchlistHealth(_watchlistData);
+}
+
+function renderWatchlistHealth(w, selectedView = _watchlistView) {
+  _watchlistData = w;
+  const el = $('watchlist-health');
+  const counts = w.tradable_counts || w.counts || {};
+  $('watchlist-meta').textContent = `${w.name || 'Watchlist'} · ${w.scanned || 0} stock/ETF scanned`;
+  const skipped = (w.skipped || []).length;
+  const views = w.watch_views || {};
+  const viewLabels = {
+    a_plus:      'Strong Trend',
+    pullback:    'Pullback',
+    bear_regime: 'Wait (Bear)',
+    extended:    'Extended',
+    broken:      'Broken',
+    neutral:     'Neutral',
+    unavailable: 'No Data',
+  };
+  const stats = [
+    ['a_plus',   'Strong Trend', counts.a_plus   || 0, 'var(--green)'],
+    ['pullback',  'Pullback',    counts.pullback  || 0, 'var(--yellow)'],
+    ...(counts.bear_regime ? [['bear_regime', 'Wait (Bear)', counts.bear_regime, 'var(--red)']] : []),
+    ['extended',  'Extended',   counts.extended  || 0, 'var(--orange)'],
+    ['broken',    'Broken',     counts.broken    || 0, 'var(--red)'],
+  ];
+  if (counts.neutral) stats.push(['neutral', 'Neutral', counts.neutral, 'var(--muted2)']);
+  if (counts.unavailable) stats.push(['unavailable', 'No Data', counts.unavailable, 'var(--muted)']);
+  const selectedRows = views[selectedView] || views.a_plus || [];
+  const selectedLabel = viewLabels[selectedView] || 'A+ Trend';
+
+  el.innerHTML = `
+    <div class="watch-summary">
+      ${stats.map(([key, label, num, color]) => `<button class="watch-stat ${selectedView === key ? 'active' : ''}" onclick="selectWatchlistView('${key}')">
+        <div class="num" style="color:${color}">${num}</div>
+        <div class="lbl">${label}</div>
+      </button>`).join('')}
+    </div>
+    <div>
+      <div class="watch-selected-head">
+        <span>${esc(selectedLabel)}</span>
+        <span>${selectedRows.length} symbol${selectedRows.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="watch-filter-list">
+        ${renderWatchRows(selectedRows, 'No symbols in this bucket')}
+      </div>
+    </div>
+    ${skipped ? `<div style="color:var(--muted);font-size:9px;line-height:1.5;">Skipped ${skipped} TradingView-only symbol(s): ${(w.skipped || []).slice(0, 4).map(s => esc(s.tv_symbol)).join(', ')}${skipped > 4 ? '…' : ''}</div>` : ''}
+  `;
+}
+
+async function loadWatchlistHealth() {
+  try {
+    const res = await fetch('/api/watchlist-health');
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderWatchlistHealth(data);
+  } catch(e) {
+    $('watchlist-health').innerHTML = `<div style="color:var(--red);font-size:10px;">Watchlist unavailable: ${esc(e.message)}</div>`;
+  }
+}
+
 /* ── CUSTOM WEIGHTS (localStorage) ────────────────────── */
 const DEFAULT_WEIGHTS = { volatility: 20, trend: 25, breadth: 20, momentum: 20, macro: 15 };
 function loadWeights() {
@@ -1299,6 +1431,7 @@ async function load(isManual = false) {
     });
 
     renderSparkline();
+    if (isManual || isFirst) loadWatchlistHealth();
     _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
 
     if (isManual || isFirst || !document.querySelector('.persona-card')) {

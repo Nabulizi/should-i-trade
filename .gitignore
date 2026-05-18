@@ -21,6 +21,10 @@ __pycache__/
 *.log
 nohup.out
 
+# Local TradingView exports
+watchlists/*.txt
+!watchlists/Watchlist_Nur.txt
+
 # Virtual environments
 venv/
 .venv/
