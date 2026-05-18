@@ -108,6 +108,7 @@
   .metric-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; min-height: 16px; }
   .metric-key { color: var(--muted); font-size: 10px; }
   .metric-val { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .src-badge { font-size: 8px; font-weight: 400; color: var(--muted2); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; letter-spacing: 0.2px; white-space: nowrap; }
   .tag { font-size: 9px; padding: 1px 6px; border-radius: 2px; font-weight: 700; letter-spacing: 0.5px; }
   .tag.green  { background: rgba(0,230,118,0.15);  color: var(--green); }
   .tag.yellow { background: rgba(255,215,64,0.15); color: var(--yellow); }
@@ -548,7 +549,7 @@ function renderHeader(d) {
     $('fomc-badge').innerHTML = `${fomc.label || '—'} <span class="date">${fomc.date_pretty || ''}</span>`;
   }
 
-  $('data-ts').textContent = d.timestamp ? `data: ${d.timestamp}` : '';
+  $('data-ts').textContent = d.timestamp ? `updated ${d.timestamp}` : '';
 
   // Econ events row — includes earnings season flag
   const events = d.econ_events || [];
@@ -684,21 +685,23 @@ function tag(label, color) {
   if (!label) return '';
   return `<span class="tag ${tagColor(color)}">${label}</span>`;
 }
-function mrow(key, val, tagLabel, tagCol) {
+function mrow(key, val, tagLabel, tagCol, src) {
+  const srcHtml = src ? ` <span class="src-badge">${esc(src)}</span>` : '';
   return `<div class="metric-row">
     <span class="metric-key">${key}</span>
-    <span class="metric-val">${val ?? ''} ${tag(tagLabel, tagCol)}</span>
+    <span class="metric-val">${val ?? ''} ${tag(tagLabel, tagCol)}${srcHtml}</span>
   </div>`;
 }
 
 function renderPillars(d) {
+  const ds = d.data_sources || {};
   const defs = [
     {
       key: 'volatility', icon: '⚡', label: 'VOLATILITY',
       primary(p) {
         const v = p.details;
         return [
-          mrow('VIX Level',     v.vix_level ?? '—', v.vix_label, v.vix_color),
+          mrow('VIX Level',     v.vix_level ?? '—', v.vix_label, v.vix_color, ds.vix),
           mrow('VIX Trend',     chgStr(v.vix_change_pct ?? 0), v.vix_trend, v.vix_trend_color),
           mrow('VIX 1Y %ile',   (v.vix_pctile ?? 0) + 'th', null),
           mrow('VIX3M',         v.vix3m_value ? `${v.vix3m_value}` : '—', v.vix_term_label, v.vix_term_color),
@@ -808,7 +811,7 @@ function renderPillars(d) {
         const v = p.details;
         const sf = d.fear_greed_stock || {}, cf = d.fear_greed_crypto || {};
         return [
-          mrow('10Y Yield',    v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color),
+          mrow('10Y Yield',    v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color, ds.tnx),
           mrow('Yield Curve', v.curve_spread != null ? `${v.curve_spread > 0 ? '+' : ''}${v.curve_spread}%` : '—', v.curve_label, v.curve_color),
           mrow('DXY',         v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
           mrow('HYG Credit',  v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color),
@@ -825,7 +828,7 @@ function renderPillars(d) {
           mrow('DXY MA20',    v.dxy_ma20 ?? '—', null),
           mrow('TLT',         v.tlt_value ? `$${v.tlt_value}` : '—', chgStr(v.tlt_change_pct ?? 0), v.tlt_change_pct >= 0 ? 'green' : 'red'),
           mrow('GLD (Gold)',  v.gld_price ? `$${v.gld_price}` : '—', v.gld_label, v.gld_color),
-          mrow('BTC',         v.btc_price ? `$${Number(v.btc_price).toLocaleString()}` : '—', v.btc_label, v.btc_color),
+          mrow('BTC',         v.btc_price ? `$${Number(v.btc_price).toLocaleString()}` : '—', v.btc_label, v.btc_color, ds.btc),
           mrow('BTC Trend',   v.btc_trend ?? '—', v.btc_from_high != null ? `${v.btc_from_high}% from high` : null, v.btc_trend_color),
           `<div class="pillar-sep"></div>`,
           mrow('FOMC',        v.fomc_date ?? '—', v.fomc_label, v.fomc_color),
