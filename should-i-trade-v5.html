@@ -503,24 +503,24 @@
     <div class="settings-section">
       <div class="settings-section-title">Pillar Weights (must sum to 100)</div>
       <div class="weight-slider-row">
-        <div class="weight-slider-label"><span>Volatility</span><span id="wlbl-v">20%</span></div>
-        <input type="range" min="5" max="50" step="5" value="20" id="ws-v" oninput="onWeightChange()">
+        <div class="weight-slider-label"><span>Volatility</span><span id="wlbl-v">15%</span></div>
+        <input type="range" min="5" max="50" step="5" value="15" id="ws-v" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
-        <div class="weight-slider-label"><span>Trend</span><span id="wlbl-tr">25%</span></div>
-        <input type="range" min="5" max="50" step="5" value="25" id="ws-tr" oninput="onWeightChange()">
+        <div class="weight-slider-label"><span>Trend</span><span id="wlbl-tr">30%</span></div>
+        <input type="range" min="5" max="50" step="5" value="30" id="ws-tr" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
-        <div class="weight-slider-label"><span>Breadth</span><span id="wlbl-br">20%</span></div>
-        <input type="range" min="5" max="50" step="5" value="20" id="ws-br" oninput="onWeightChange()">
+        <div class="weight-slider-label"><span>Breadth</span><span id="wlbl-br">25%</span></div>
+        <input type="range" min="5" max="50" step="5" value="25" id="ws-br" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
         <div class="weight-slider-label"><span>Momentum</span><span id="wlbl-mo">20%</span></div>
         <input type="range" min="5" max="50" step="5" value="20" id="ws-mo" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
-        <div class="weight-slider-label"><span>Macro</span><span id="wlbl-ma">15%</span></div>
-        <input type="range" min="5" max="50" step="5" value="15" id="ws-ma" oninput="onWeightChange()">
+        <div class="weight-slider-label"><span>Macro</span><span id="wlbl-ma">10%</span></div>
+        <input type="range" min="5" max="50" step="5" value="10" id="ws-ma" oninput="onWeightChange()">
       </div>
       <div id="weight-sum-warn" style="font-size:9px;color:var(--red);display:none;margin-top:6px;">⚠ Weights must sum to 100</div>
       <div class="settings-footer">
@@ -1071,7 +1071,7 @@ async function loadWatchlistHealth() {
 }
 
 /* ── CUSTOM WEIGHTS (localStorage) ────────────────────── */
-const DEFAULT_WEIGHTS = { volatility: 20, trend: 25, breadth: 20, momentum: 20, macro: 15 };
+const DEFAULT_WEIGHTS = { volatility: 15, trend: 30, breadth: 25, momentum: 20, macro: 10 };
 function loadWeights() {
   try { return JSON.parse(localStorage.getItem('pillarWeights')) || DEFAULT_WEIGHTS; }
   catch { return { ...DEFAULT_WEIGHTS }; }

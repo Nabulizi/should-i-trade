@@ -21,11 +21,11 @@ from data import (
 
 # ─── configuration ─────────────────────────────────────────────────────────
 PILLAR_WEIGHTS = {
-    "volatility": 0.20,
-    "trend":      0.25,
-    "breadth":    0.20,
+    "volatility": 0.15,
+    "trend":      0.30,
+    "breadth":    0.25,
     "momentum":   0.20,
-    "macro":      0.15,
+    "macro":      0.10,
 }
 
 SECTOR_SYMBOLS = ["XLY", "XLC", "XLF", "XLK", "XLE", "XLI",
@@ -1319,11 +1319,11 @@ def compute_dashboard() -> dict:
         "conflicts": conflicts,
         "override_reasons": override_reasons,
         "pillars": {
-            "volatility": {"score": vol["score"],  "weight": 20, "details": vol["details"],  "reasons": vol["reasons"]},
-            "trend":      {"score": tr["score"],   "weight": 25, "details": tr["details"],   "reasons": tr["reasons"]},
-            "breadth":    {"score": br["score"],   "weight": 20, "details": br["details"],   "reasons": br["reasons"]},
-            "momentum":   {"score": mom["score"],  "weight": 20, "details": mom["details"],  "reasons": mom["reasons"]},
-            "macro":      {"score": mac["score"],  "weight": 15, "details": mac["details"],  "reasons": mac["reasons"]},
+            "volatility": {"score": vol["score"],  "weight": int(PILLAR_WEIGHTS["volatility"] * 100), "details": vol["details"],  "reasons": vol["reasons"]},
+            "trend":      {"score": tr["score"],   "weight": int(PILLAR_WEIGHTS["trend"]      * 100), "details": tr["details"],   "reasons": tr["reasons"]},
+            "breadth":    {"score": br["score"],   "weight": int(PILLAR_WEIGHTS["breadth"]    * 100), "details": br["details"],   "reasons": br["reasons"]},
+            "momentum":   {"score": mom["score"],  "weight": int(PILLAR_WEIGHTS["momentum"]   * 100), "details": mom["details"],  "reasons": mom["reasons"]},
+            "macro":      {"score": mac["score"],  "weight": int(PILLAR_WEIGHTS["macro"]      * 100), "details": mac["details"],  "reasons": mac["reasons"]},
         },
         "ticker": ticker,
         "fear_greed_stock":  fng_stock,
