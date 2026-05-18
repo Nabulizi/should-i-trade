@@ -16,16 +16,16 @@ from data import (
     get_quote, get_history, get_ohlcv,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
-    opex_proximity, seasonality, earnings_season,
+    opex_proximity, seasonality, earnings_season, fetch_futures_tape,
 )
 
 # ─── configuration ─────────────────────────────────────────────────────────
 PILLAR_WEIGHTS = {
-    "volatility": 0.20,
-    "trend":      0.25,
-    "breadth":    0.20,
+    "volatility": 0.15,
+    "trend":      0.30,
+    "breadth":    0.25,
     "momentum":   0.20,
-    "macro":      0.15,
+    "macro":      0.10,
 }
 
 SECTOR_SYMBOLS = ["XLY", "XLC", "XLF", "XLK", "XLE", "XLI",
@@ -1202,6 +1202,7 @@ def compute_dashboard() -> dict:
         btc_h_f     = ex.submit(btc_history)
         fng_s_f     = ex.submit(fetch_fear_greed_stock)
         fng_c_f     = ex.submit(fetch_fear_greed_crypto)
+        fut_tape_f  = ex.submit(fetch_futures_tape)
 
     quotes     = {q_futs[f]:  f.result() for f in q_futs}
     histories  = {h_futs[f]:  f.result() for f in h_futs}
@@ -1210,6 +1211,7 @@ def compute_dashboard() -> dict:
     btc_closes = btc_h_f.result()
     fng_stock  = fng_s_f.result()
     fng_crypto = fng_c_f.result()
+    futures_tape = fut_tape_f.result()
 
     sector_histories = {s: histories.get(s, []) for s in SECTOR_SYMBOLS}
 
@@ -1319,13 +1321,14 @@ def compute_dashboard() -> dict:
         "conflicts": conflicts,
         "override_reasons": override_reasons,
         "pillars": {
-            "volatility": {"score": vol["score"],  "weight": 20, "details": vol["details"],  "reasons": vol["reasons"]},
-            "trend":      {"score": tr["score"],   "weight": 25, "details": tr["details"],   "reasons": tr["reasons"]},
-            "breadth":    {"score": br["score"],   "weight": 20, "details": br["details"],   "reasons": br["reasons"]},
-            "momentum":   {"score": mom["score"],  "weight": 20, "details": mom["details"],  "reasons": mom["reasons"]},
-            "macro":      {"score": mac["score"],  "weight": 15, "details": mac["details"],  "reasons": mac["reasons"]},
+            "volatility": {"score": vol["score"],  "weight": int(PILLAR_WEIGHTS["volatility"] * 100), "details": vol["details"],  "reasons": vol["reasons"]},
+            "trend":      {"score": tr["score"],   "weight": int(PILLAR_WEIGHTS["trend"]      * 100), "details": tr["details"],   "reasons": tr["reasons"]},
+            "breadth":    {"score": br["score"],   "weight": int(PILLAR_WEIGHTS["breadth"]    * 100), "details": br["details"],   "reasons": br["reasons"]},
+            "momentum":   {"score": mom["score"],  "weight": int(PILLAR_WEIGHTS["momentum"]   * 100), "details": mom["details"],  "reasons": mom["reasons"]},
+            "macro":      {"score": mac["score"],  "weight": int(PILLAR_WEIGHTS["macro"]      * 100), "details": mac["details"],  "reasons": mac["reasons"]},
         },
         "ticker": ticker,
+        "futures_tape": futures_tape,
         "fear_greed_stock":  fng_stock,
         "fear_greed_crypto": fng_crypto,
         "timestamp": mstate["et_time"],   # "HH:MM ET" — already computed above
