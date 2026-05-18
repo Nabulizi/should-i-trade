@@ -130,6 +130,32 @@
   .card-subtitle { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin: 10px 0 6px 0; padding-top: 8px; border-top: 1px solid var(--border); }
   .card-subtitle:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 
+  /* futures tape */
+  .futures-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; display: grid; grid-template-columns: 168px minmax(320px,1fr) minmax(240px,0.9fr); gap: 12px; align-items: center; }
+  .futures-kicker { color: var(--muted); font-size: 9px; letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 6px; }
+  .futures-tone-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .futures-tone { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: 0.4px; }
+  .futures-tone.green { color: var(--green); }
+  .futures-tone.yellow { color: var(--yellow); }
+  .futures-tone.orange { color: var(--orange); }
+  .futures-tone.red { color: var(--red); }
+  .futures-tone.gray { color: var(--muted); }
+  .futures-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 12px currentColor; }
+  .futures-avg { color: var(--muted2); border: 1px solid var(--border2); border-radius: 3px; padding: 2px 6px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+  .futures-grid { display: grid; grid-template-columns: repeat(4, minmax(78px,1fr)); gap: 8px; }
+  .future-chip { border: 1px solid var(--border); border-radius: 4px; padding: 7px 8px; min-width: 0; background: rgba(255,255,255,0.015); }
+  .future-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .future-sym { font-size: 10px; font-weight: 800; }
+  .future-px { color: var(--muted2); font-size: 9px; white-space: nowrap; }
+  .future-name { color: var(--muted); font-size: 8px; letter-spacing: 0.5px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .future-chg { font-size: 11px; font-weight: 800; text-align: right; }
+  .future-chg.up { color: var(--green); }
+  .future-chg.dn { color: var(--red); }
+  .future-chg.flat { color: var(--muted); }
+  .futures-read { color: var(--muted2); font-size: 10px; line-height: 1.55; }
+  .futures-meta { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 8px; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 5px; flex-wrap: wrap; }
+  .futures-meta span { border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+
   /* sector bars */
   .sector-row { display: flex; align-items: center; margin-bottom: 4px; gap: 8px; }
   .sector-name { width: 90px; color: var(--muted); font-size: 10px; }
@@ -311,6 +337,7 @@
   @media (max-width: 1200px) {
     .pillars-row { grid-template-columns: repeat(3, 1fr); }
     .roundtable-grid { grid-template-columns: repeat(3, 1fr); }
+    .futures-card { grid-template-columns: 1fr; }
     /* hero uses clamp() — no fixed override needed */
   }
   @media (max-width: 900px) {
@@ -336,6 +363,7 @@
     .pillar-mini .pm-bar { width: 48px; }
     .watch-summary { grid-template-columns: repeat(2, 1fr); }
     .watch-cols { grid-template-columns: 1fr; }
+    .futures-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
 </style>
 </head>
@@ -415,6 +443,21 @@
     </div>
 
     <!-- 5 PILLAR CARDS -->
+    <div class="futures-card" id="futures-card">
+      <div>
+        <div class="futures-kicker">Overnight / Futures</div>
+        <div class="futures-tone-row">
+          <div class="futures-tone gray" id="futures-tone"><span class="futures-dot"></span><span>Loading</span></div>
+          <div class="futures-avg" id="futures-avg">—</div>
+        </div>
+      </div>
+      <div class="futures-grid" id="futures-items"></div>
+      <div class="futures-read" id="futures-read">
+        Futures context loading.
+        <span class="futures-meta"><span>Context only</span></span>
+      </div>
+    </div>
+
     <div class="pillars-row" id="pillars-row"></div>
 
     <!-- OVERRIDE BANNER + CONFLICTS -->
@@ -569,6 +612,51 @@ function renderTicker(items) {
       <span class="px">${t.price}</span>
       <span class="chg"> ${chgStr(t.change_pct)}</span>
     </span>`).join('');
+}
+
+/* ── FUTURES TAPE ─────────────────────────────────────── */
+function fmtFuturePrice(v) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString(undefined, {
+    maximumFractionDigits: Number(v) >= 1000 ? 0 : 2
+  });
+}
+
+function renderFuturesTape(tape) {
+  const toneEl = $('futures-tone');
+  const avgEl = $('futures-avg');
+  const itemsEl = $('futures-items');
+  const readEl = $('futures-read');
+  if (!toneEl || !avgEl || !itemsEl || !readEl) return;
+
+  const color = tagColor(tape?.tone_color || 'gray');
+  const tone = tape?.tone || 'Unavailable';
+  const weighted = tape?.weighted_change_pct;
+  toneEl.className = `futures-tone ${color}`;
+  toneEl.innerHTML = `<span class="futures-dot"></span><span>${esc(tone)}</span>`;
+  avgEl.textContent = weighted == null ? 'No read' : `${chgStr(weighted)} weighted`;
+
+  const items = tape?.items || [];
+  itemsEl.innerHTML = items.length ? items.map(item => {
+    const chg = item.change_pct;
+    const chgCls = chg == null ? 'flat' : chg > 0 ? 'up' : chg < 0 ? 'dn' : 'flat';
+    const chgText = chg == null ? '—' : chgStr(chg);
+    const title = `${item.name || item.symbol || ''} · ${item.source || tape?.source || 'source unavailable'}`;
+    return `<div class="future-chip" title="${esc(title)}">
+      <div class="future-top">
+        <span class="future-sym">${esc(item.symbol || '—')}</span>
+        <span class="future-px">${fmtFuturePrice(item.price)}</span>
+      </div>
+      <div class="future-top">
+        <span class="future-name">${esc(item.name || '')}</span>
+        <span class="future-chg ${chgCls}">${chgText}</span>
+      </div>
+    </div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:10px;">Futures unavailable</div>';
+
+  const source = tape?.source || 'Futures';
+  readEl.innerHTML = `${esc(tape?.read || 'Futures tape unavailable. Use the cash session for confirmation.')}
+    <span class="futures-meta"><span>${esc(source)}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
 /* ── HEADER BADGES ──────────────────────────────────────── */
@@ -1414,6 +1502,7 @@ async function load(isManual = false) {
       renderTicker(raw.ticker || []);
       renderHeader(raw);
       renderHero(data);
+      renderFuturesTape(raw.futures_tape);
       renderPillars(raw);
       renderConflicts(raw);
       renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);

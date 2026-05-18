@@ -16,7 +16,7 @@ from data import (
     get_quote, get_history, get_ohlcv,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
-    opex_proximity, seasonality, earnings_season,
+    opex_proximity, seasonality, earnings_season, fetch_futures_tape,
 )
 
 # ─── configuration ─────────────────────────────────────────────────────────
@@ -1202,6 +1202,7 @@ def compute_dashboard() -> dict:
         btc_h_f     = ex.submit(btc_history)
         fng_s_f     = ex.submit(fetch_fear_greed_stock)
         fng_c_f     = ex.submit(fetch_fear_greed_crypto)
+        fut_tape_f  = ex.submit(fetch_futures_tape)
 
     quotes     = {q_futs[f]:  f.result() for f in q_futs}
     histories  = {h_futs[f]:  f.result() for f in h_futs}
@@ -1210,6 +1211,7 @@ def compute_dashboard() -> dict:
     btc_closes = btc_h_f.result()
     fng_stock  = fng_s_f.result()
     fng_crypto = fng_c_f.result()
+    futures_tape = fut_tape_f.result()
 
     sector_histories = {s: histories.get(s, []) for s in SECTOR_SYMBOLS}
 
@@ -1326,6 +1328,7 @@ def compute_dashboard() -> dict:
             "macro":      {"score": mac["score"],  "weight": int(PILLAR_WEIGHTS["macro"]      * 100), "details": mac["details"],  "reasons": mac["reasons"]},
         },
         "ticker": ticker,
+        "futures_tape": futures_tape,
         "fear_greed_stock":  fng_stock,
         "fear_greed_crypto": fng_crypto,
         "timestamp": mstate["et_time"],   # "HH:MM ET" — already computed above

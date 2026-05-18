@@ -249,6 +249,97 @@ def get_history(symbol: str, days: int = 220) -> list[float]:
     return stooq_history(symbol) or h
 
 
+# ─── equity index futures tape ─────────────────────────────────────────────
+FUTURES_CONTRACTS = [
+    {"symbol": "ES=F",  "label": "ES",  "name": "S&P 500",   "weight": 0.38},
+    {"symbol": "NQ=F",  "label": "NQ",  "name": "Nasdaq 100", "weight": 0.34},
+    {"symbol": "RTY=F", "label": "RTY", "name": "Russell",   "weight": 0.16},
+    {"symbol": "YM=F",  "label": "YM",  "name": "Dow",       "weight": 0.12},
+]
+
+
+def _futures_item(contract: dict, q: dict | None) -> dict:
+    return {
+        "symbol": contract["label"],
+        "name": contract["name"],
+        "price": round(q.get("price"), 2) if q and q.get("price") is not None else None,
+        "change_pct": round(q.get("changePct"), 2) if q and q.get("changePct") is not None else None,
+        "source": q.get("source") if q else None,
+        "available": bool(q and q.get("price") is not None and q.get("changePct") is not None),
+    }
+
+
+def fetch_futures_tape() -> dict:
+    """Near-live equity-index futures context. Informational only; not scored."""
+    quotes = fetch_quotes_parallel([c["symbol"] for c in FUTURES_CONTRACTS], max_workers=4)
+    items = [_futures_item(c, quotes.get(c["symbol"])) for c in FUTURES_CONTRACTS]
+    valid = [item for item in items if item["available"]]
+    valid_labels = {item["symbol"] for item in valid}
+
+    if len(valid) < 2:
+        return {
+            "valid": False,
+            "tone": "Unavailable",
+            "tone_color": "gray",
+            "read": "Futures tape unavailable. Use cash-market breadth and daily trend context.",
+            "items": items,
+            "source": "Yahoo futures",
+            "context_only": True,
+        }
+
+    weighted = 0.0
+    weights = 0.0
+    for contract, item in zip(FUTURES_CONTRACTS, items):
+        if item["available"]:
+            weighted += item["change_pct"] * contract["weight"]
+            weights += contract["weight"]
+    avg = weighted / weights if weights else 0.0
+
+    up = sum(1 for item in valid if item["change_pct"] > 0.10)
+    down = sum(1 for item in valid if item["change_pct"] < -0.10)
+    es = next((i for i in items if i["symbol"] == "ES"), {})
+    nq = next((i for i in items if i["symbol"] == "NQ"), {})
+    rty = next((i for i in items if i["symbol"] == "RTY"), {})
+
+    if avg >= 0.65 and up >= 3:
+        tone, color = "Risk-On", "green"
+    elif avg >= 0.20:
+        tone, color = "Mild Risk-On", "green"
+    elif avg <= -0.65 and down >= 3:
+        tone, color = "Risk-Off", "red"
+    elif avg <= -0.20:
+        tone, color = "Mild Risk-Off", "orange"
+    else:
+        tone, color = "Mixed", "yellow"
+
+    flags: list[str] = []
+    if {"ES", "NQ"} <= valid_labels and es.get("change_pct", 0) > 0.15 and nq.get("change_pct", 0) > 0.15:
+        if rty.get("available") and rty.get("change_pct", 0) < -0.10:
+            flags.append("Mega-cap bid, small caps lagging")
+    if any(abs(item["change_pct"]) >= 1.0 for item in valid):
+        flags.append("Gap risk elevated")
+
+    if tone in {"Risk-On", "Mild Risk-On"}:
+        read = "Futures lean positive. Still wait for cash breadth before chasing the open."
+    elif tone in {"Risk-Off", "Mild Risk-Off"}:
+        read = "Futures lean defensive. Be patient with longs until the cash session confirms buyers."
+    else:
+        read = "Futures are mixed. Let the first cash-market range and breadth confirm direction."
+    if flags:
+        read = f"{read} {'; '.join(flags)}."
+
+    return {
+        "valid": True,
+        "tone": tone,
+        "tone_color": color,
+        "weighted_change_pct": round(avg, 2),
+        "read": read,
+        "items": items,
+        "source": "Yahoo futures",
+        "context_only": True,
+    }
+
+
 # ─── bitcoin (special cascade) ──────────────────────────────────────────────
 def btc_quote() -> dict | None:
     # 1. Yahoo
