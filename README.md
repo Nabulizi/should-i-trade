@@ -20,12 +20,15 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 |---|---|
 | **Market Quality Score** | 0–100 composite score across 5 weighted pillars |
 | **5-Pillar Breakdown** | Volatility · Trend · Breadth · Momentum · Macro |
-| **Decision Badge** | GO / CAUTION / WAIT — clear session recommendation |
+| **Decision Badge** | STRONG YES / YES / CAUTION / NO / WAIT — clear session recommendation |
 | **Trading Desk Roundtable** | 5 rule-based AI personas (Technician, Macro, Risk, Quant, Desk Head) |
 | **Score Sparkline** | 12-hour rolling history chart with persistent storage |
-| **Economic Calendar** | FOMC & key econ event proximity alerts |
+| **Economic Calendar** | FOMC & key econ event proximity alerts (through Dec 2027) |
 | **Sector Heatmap** | All 11 SPDR sectors + 9 industry subsector ETFs |
 | **Market Conditions** | SPY, QQQ, VIX, VIX3M, HYG, GLD, DXY, TLT, 10Y yield, BTC |
+| **Watchlist Health** | Scores your personal watchlist symbols (TradingView format supported) |
+| **Health & Metrics** | `/health` and `/metrics` endpoints for monitoring |
+| **Rate Limiting** | 30 req/min per IP — protects against runaway polling |
 | **Responsive UI** | Works on laptop screens down to ~600px wide |
 | **Zero API keys** | Yahoo Finance → Stooq → CoinGecko → Binance (all free) |
 
@@ -34,7 +37,7 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 ## Quick Start
 
 ### Requirements
-- Python 3.9+
+- **Python 3.10+** (uses union type hints `X | Y` and `match` statements)
 - No third-party packages (standard library only)
 
 ### Run
@@ -54,12 +57,17 @@ Then open **http://localhost:8765** in your browser. The first load takes ~7–8
 
 ```
 should-i-trade/
-├── server.py              # HTTP server, request routing, caching, history persistence
+├── server.py              # HTTP server, routing, caching, history persistence
 ├── scoring.py             # 5-pillar scoring engine (0–100 per pillar, weighted composite)
 ├── data.py                # Market data fetchers (Yahoo Finance + fallbacks)
 ├── analysis.py            # Rule-based multi-persona trading desk roundtable
+├── watchlist.py           # Watchlist symbol health scorer
+├── config.py              # ← All user-tunable settings (port, TTLs, weights)
+├── models.py              # TypedDict schemas (Quote, PillarResult, DashboardResult)
 ├── should-i-trade-v5.html # Single-page dashboard UI (vanilla JS, no frameworks)
 ├── requirements.txt       # Notes only — no pip packages required
+├── test_fixes.py          # Infrastructure regression tests (48 assertions)
+├── test_scoring.py        # Scoring pillar unit tests (75 assertions)
 └── history.json           # Auto-generated at runtime; score history for sparkline
 ```
 
@@ -71,7 +79,7 @@ should-i-trade/
 Browser ──GET /──────────────────► server.py
                                        │
                           ┌────────────▼────────────┐
-                          │   _DASHBOARD_CACHE (60s) │
+                          │  _DASHBOARD_CACHE (60s)  │
                           └────────────┬────────────┘
                                        │ cache miss
                           ┌────────────▼────────────┐
@@ -102,19 +110,91 @@ Data flows: `data.py` fetches from Yahoo Finance (primary), falling back to Stoo
 
 | Pillar | Weight | What it measures |
 |---|---|---|
-| **Trend** | 25% | SPY MA stack (20/50/200), RSI, ATH distance, regime |
-| **Breadth** | 20% | Sector & industry advance/decline ratio, RSP vs SPY |
-| **Volatility** | 20% | VIX level, VIX term structure (VIX vs VIX3M), regime percentile |
-| **Momentum** | 20% | TQQQ/SQQQ ratio, leveraged ETF signals, QQQ relative strength |
-| **Macro** | 15% | HYG credit, 10Y yield, DXY, GLD, BTC risk-on/off signals |
+| **Trend** | 30% | SPY MA stack (20/50/200), RSI, MACD, ATR, volume confirmation |
+| **Breadth** | 25% | Sector & industry advance/decline, RSP vs SPY, % sectors above 200d |
+| **Momentum** | 20% | RSP/SPY relative strength, IWM leadership, sector RS rotation |
+| **Volatility** | 15% | VIX level/trend/percentile, VIX term structure, VIX9D, SKEW, flow |
+| **Macro** | 10% | 10Y yield, DXY, yield curve, HYG credit, BTC, GLD, FOMC proximity |
+
+> Weights are defined in `config.py` and can be adjusted without touching logic files.
 
 ### Decision Thresholds
 
-| Score | Decision | Meaning |
+| Score | Decision | Recommended Size |
 |---|---|---|
-| ≥ 65 | **GO** 🟢 | Market conditions support active trading |
-| 45–64 | **CAUTION** 🟡 | Trade small, be selective |
-| < 45 | **WAIT** 🔴 | Stay flat or reduce exposure |
+| ≥ 85 | **STRONG YES** 🟢 | Full size |
+| 70–84 | **YES** 🟢 | Standard size |
+| 55–69 | **CAUTION** 🟡 | Half size |
+| 40–54 | **NO** 🟠 | Minimal |
+| < 40 | **WAIT** 🔴 | Stay flat |
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `GET /` | — | Serves `should-i-trade-v5.html` |
+| `GET /api/dashboard` | — | Full scoring payload (JSON, cached 60s) |
+| `GET /api/watchlist-health` | — | Watchlist symbol scores (cached 5min) |
+| `GET /api/history-scores` | — | Rolling 12-hour score history |
+| `GET /api/analysis` | — | Trading desk roundtable result |
+| `GET /health` | — | Server uptime, cache state, history count |
+| `GET /metrics` | — | Request/hit/miss/error counters |
+
+### `/health` example response
+```json
+{
+  "status": "ok",
+  "uptime_seconds": 3721,
+  "cache_age_seconds": 14,
+  "cache_fresh": true,
+  "history_count": 48
+}
+```
+
+### `/metrics` example response
+```json
+{
+  "requests": 412,
+  "cache_hits": 398,
+  "cache_misses": 14,
+  "errors": 0,
+  "dashboard_ttl_seconds": 60,
+  "uptime_seconds": 3721
+}
+```
+
+### Rate Limiting
+All `/api/*` endpoints are rate-limited to **30 requests per minute per IP**.  
+Exceeding the limit returns `HTTP 429 Too Many Requests`.  
+Limits are configurable in `config.py` (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW`).
+
+---
+
+## Configuration
+
+All user-tunable settings live in **`config.py`** — edit that file instead of touching logic code:
+
+```python
+# config.py
+
+PORT           = 8765   # listening port
+DASHBOARD_TTL  = 60     # seconds between full market-data refreshes
+WATCHLIST_TTL  = 300    # seconds between watchlist recomputes
+HISTORY_MAXLEN = 144    # max sparkline snapshots (~12 h at 5-min intervals)
+
+RATE_LIMIT_MAX    = 30  # max API requests per IP per window
+RATE_LIMIT_WINDOW = 60  # window in seconds
+
+PILLAR_WEIGHTS = {      # must sum to 1.0
+    "volatility": 0.15,
+    "trend":      0.30,
+    "breadth":    0.25,
+    "momentum":   0.20,
+    "macro":      0.10,
+}
+```
 
 ---
 
@@ -127,28 +207,23 @@ All sources are free and require no authentication:
 - **CoinGecko API** — BTC price fallback
 - **Binance public API** — BTC price secondary fallback
 
+### Economic Calendar
+
+Key US economic release dates (NFP, CPI, PPI, GDP) and FOMC meeting dates are stored in `data.py`.  
+Current coverage: **through December 2027**.  
+The server logs a `WARNING` automatically when coverage drops below 30 days — check logs if you see stale econ/FOMC data.  
+Update `_ECON_CALENDAR` and `_FOMC_2026_2027` in `data.py` annually.
+
 ---
 
-## Configuration
+## Running Tests
 
-Key constants are near the top of each file:
-
-**`server.py`**
-```python
-PORT = 8765           # Change listening port
-_DASHBOARD_TTL = 60   # Cache TTL in seconds (refresh rate)
+```bash
+python3 test_fixes.py    # 48 infrastructure + security regression tests
+python3 test_scoring.py  # 75 scoring pillar unit tests (fully offline)
 ```
 
-**`scoring.py`**
-```python
-PILLAR_WEIGHTS = {    # Adjust pillar weights (must sum to 1.0)
-    "volatility": 0.20,
-    "trend":      0.25,
-    "breadth":    0.20,
-    "momentum":   0.20,
-    "macro":      0.15,
-}
-```
+CI runs both suites automatically on every push via GitHub Actions (Python 3.10, 3.11, 3.12).
 
 ---
 
@@ -157,6 +232,7 @@ PILLAR_WEIGHTS = {    # Adjust pillar weights (must sum to 1.0)
 - `history.json` is auto-created at runtime and excluded from version control (see `.gitignore`). It stores up to 144 snapshots (~12 hours at 5-minute intervals) for the sparkline chart.
 - The server uses a `ThreadingHTTPServer` so parallel browser tabs don't each trigger separate full data fetches — the 60-second cache handles that.
 - The roundtable analysis is fully rule-based (deterministic) — no LLM or external AI API is used.
+- Path traversal is blocked at the file-serving layer: requests for any file outside the project directory return `403 Forbidden`.
 
 ---
 

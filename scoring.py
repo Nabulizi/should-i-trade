@@ -18,15 +18,10 @@ from data import (
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
     opex_proximity, seasonality, earnings_season, fetch_futures_tape,
 )
+from config import PILLAR_WEIGHTS
+from models import PillarResult, DashboardResult
 
 # ─── configuration ─────────────────────────────────────────────────────────
-PILLAR_WEIGHTS = {
-    "volatility": 0.15,
-    "trend":      0.30,
-    "breadth":    0.25,
-    "momentum":   0.20,
-    "macro":      0.10,
-}
 
 SECTOR_SYMBOLS = ["XLY", "XLC", "XLF", "XLK", "XLE", "XLI",
                   "XLV", "XLU", "XLP", "XLRE", "XLB"]
@@ -358,7 +353,7 @@ def classify_market_character(closes: list[float], highs: list[float], lows: lis
 
 
 # ─── pillar 1 — volatility ─────────────────────────────────────────────────
-def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
+def score_volatility(quotes: dict, vix_closes: list[float]) -> PillarResult:
     vix_q = quotes.get("^VIX")
     tqqq_q, sqqq_q, uvxy_q = quotes.get("TQQQ"), quotes.get("SQQQ"), quotes.get("UVXY")
     vix_val = price(vix_q)
@@ -514,7 +509,7 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
 
 # ─── pillar 2 — trend ──────────────────────────────────────────────────────
 def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
-                spy_ohlcv: dict | None = None) -> dict:
+                spy_ohlcv: dict | None = None) -> PillarResult:
     spy_q, qqq_q = quotes.get("SPY"), quotes.get("QQQ")
     spy_px, qqq_px = price(spy_q), price(qqq_q)
     spy_mas = compute_mas(spy_closes) if spy_closes else {}
@@ -656,7 +651,7 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
 
 # ─── pillar 3 — breadth ────────────────────────────────────────────────────
 def score_breadth(quotes: dict, rsp_closes: list[float],
-                  sector_histories: dict | None = None) -> dict:
+                  sector_histories: dict | None = None) -> PillarResult:
     rsp_q, spy_q = quotes.get("RSP"), quotes.get("SPY")
     rsp_px = price(rsp_q)
     rsp_mas = compute_mas(rsp_closes) if rsp_closes else {}
@@ -755,7 +750,7 @@ def score_breadth(quotes: dict, rsp_closes: list[float],
 
 
 # ─── pillar 4 — momentum ───────────────────────────────────────────────────
-def score_momentum(quotes: dict, sector_histories: dict | None = None) -> dict:
+def score_momentum(quotes: dict, sector_histories: dict | None = None) -> PillarResult:
     spy_q, rsp_q = quotes.get("SPY"), quotes.get("RSP")
     rsp_chg, spy_chg = pct(rsp_q), pct(spy_q)
     rsp_vs_spy = round(rsp_chg - spy_chg, 2)
@@ -863,7 +858,7 @@ def score_momentum(quotes: dict, sector_histories: dict | None = None) -> dict:
 def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
                 btc_q: dict | None, btc_closes: list[float], fomc: dict,
                 hyg_closes: list[float] | None = None,
-                opex: dict | None = None, season: dict | None = None) -> dict:
+                opex: dict | None = None, season: dict | None = None) -> PillarResult:
     tnx_q, dxy_q, tlt_q = quotes.get("^TNX"), quotes.get("DX-Y.NYB"), quotes.get("TLT")
     tnx_val, dxy_px = price(tnx_q), price(dxy_q)
     tnx_chg, dxy_chg, tlt_chg = pct(tnx_q), pct(dxy_q), pct(tlt_q)
@@ -1231,7 +1226,7 @@ def _safe_pillar(fn, *args, name: str = "?") -> dict:
         }
 
 
-def compute_dashboard() -> dict:
+def compute_dashboard() -> DashboardResult:
     """Fetch everything in one parallel batch then score all 5 pillars."""
     all_symbols   = CORE_SYMBOLS + SECTOR_SYMBOLS + INDUSTRY_SYMBOLS
     # Core history + sector histories (220d for 200d MA + RS in one fetch)

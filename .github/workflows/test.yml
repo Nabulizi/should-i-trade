@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Verify syntax (all Python files)
-        run: python -m py_compile server.py data.py scoring.py analysis.py watchlist.py
+        run: python -m py_compile server.py data.py scoring.py analysis.py watchlist.py config.py models.py
 
       - name: Run infrastructure regression suite (test_fixes.py)
         run: python test_fixes.py
