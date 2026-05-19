@@ -170,6 +170,7 @@ def get_cached_dashboard() -> dict:
         # Notify SSE clients that fresh data is available.
         _sse_broadcast("dashboard", {
             "score": data.get("total_score"),
+            "previous_score": prev_total,
             "decision": data.get("decision"),
             "ts": data.get("ts"),
         })

@@ -418,6 +418,9 @@
     <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)" aria-label="Copy snapshot to clipboard">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       </button>
+      <button class="btn" id="alert-btn" onclick="toggleAlerts()" title="Score zone change notifications" aria-label="Toggle score alerts" style="opacity:0.45">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
       <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       </button>
@@ -1604,6 +1607,9 @@ async function load(isManual = false) {
     if (isManual || isFirst) loadWatchlistHealth();
     _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
 
+    // Fire alert if score zone changed since last load
+    _maybeAlert(raw.total_score, raw.decision);
+
     if (isManual || isFirst || !document.querySelector('.persona-card')) {
       setTimeout(() => runRoundtable(true), 400);
     }
@@ -1635,6 +1641,62 @@ function tickCountdown() {
 }
 setInterval(tickCountdown, 1000);
 
+/* ── SCORE ZONE ALERTS ─────────────────────────────────────── */
+// Maps a score to one of 5 named zones. Fires a desktop notification only
+// when the zone changes (not on every score tick), to avoid alert fatigue.
+let _alertsEnabled = false;
+let _lastAlertZone = null;
+
+function _scoreZone(score) {
+  if (score === null || score === undefined) return null;
+  if (score >= 85) return 'STRONG YES';
+  if (score >= 70) return 'YES';
+  if (score >= 55) return 'CAUTION';
+  if (score >= 40) return 'NO';
+  return 'STRONG NO';
+}
+
+function _updateAlertBtn() {
+  const btn = $('alert-btn');
+  if (!btn) return;
+  btn.style.opacity = _alertsEnabled ? '1' : '0.45';
+  btn.title = _alertsEnabled ? 'Alerts ON — click to disable' : 'Score zone change notifications (click to enable)';
+}
+
+async function toggleAlerts() {
+  if (!('Notification' in window)) {
+    alert('Desktop notifications are not supported in this browser.');
+    return;
+  }
+  if (!_alertsEnabled) {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      alert('Notification permission denied. Enable it in browser settings.');
+      return;
+    }
+    _alertsEnabled = true;
+  } else {
+    _alertsEnabled = false;
+  }
+  _updateAlertBtn();
+}
+
+function _maybeAlert(score, decision) {
+  if (!_alertsEnabled) return;
+  const zone = _scoreZone(score);
+  if (!zone || zone === _lastAlertZone) return;
+  const prev = _lastAlertZone;
+  _lastAlertZone = zone;
+  if (prev === null) return;   // suppress on first load — no "change" yet
+  const emoji = zone === 'STRONG YES' ? '🟢' : zone === 'YES' ? '🟩' :
+                zone === 'CAUTION'    ? '🟡' : zone === 'NO'  ? '🟠' : '🔴';
+  new Notification(`Should I Trade? → ${zone}`, {
+    body: `Score ${score} • ${decision || zone}\nWas: ${prev}`,
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">${emoji}</text></svg>',
+    tag:  'sit-score-alert',  // collapses duplicate rapid flips
+  });
+}
+
 /* ── SERVER-SENT EVENTS ────────────────────────────────── */
 // The server pushes a "dashboard" event immediately after each cache refresh.
 // On receiving it we reload (unless a manual refresh is already in flight).
@@ -1646,7 +1708,14 @@ function connectSSE() {
   if (!window.EventSource) return;   // browser doesn't support SSE
   _sseSource = new EventSource('/api/stream');
 
-  _sseSource.addEventListener('dashboard', () => {
+  _sseSource.addEventListener('dashboard', (e) => {
+    try {
+      const msg = JSON.parse(e.data || '{}');
+      // Eagerly update our zone baseline from server-known previous score
+      if (_lastAlertZone === null && msg.previous_score != null) {
+        _lastAlertZone = _scoreZone(msg.previous_score);
+      }
+    } catch(_) {}
     // Only trigger if not already mid-refresh and countdown isn't imminent (< 3s)
     const left = _nextRefreshAt ? Math.max(0, _nextRefreshAt - Date.now()) : Infinity;
     if (left > 3000) load(false);
