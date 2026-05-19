@@ -18,6 +18,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as
 from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
 
+from config import CB_FAILURE_THRESHOLD, CB_RESET_SECS
+
 logger = logging.getLogger(__name__)
 
 # Maximum seconds to wait for all parallel fetch futures before giving up.
@@ -29,10 +31,8 @@ _CACHE_LOCK = threading.Lock()
 _UA = "Mozilla/5.0 (compatible; ShouldITrade/5.0)"
 
 # ─── circuit breaker ──────────────────────────────────────────────────────
-# Per-symbol failure tracking. Opens after _CB_THRESHOLD consecutive failures
-# and half-opens after _CB_RESET_SECS to allow a single probe.
-_CB_THRESHOLD = 3          # consecutive failures before opening
-_CB_RESET_SECS = 60        # seconds in OPEN state before trying again
+# Per-symbol failure tracking. Opens after CB_FAILURE_THRESHOLD consecutive
+# failures and half-opens after CB_RESET_SECS to allow a single probe.
 _CB: dict[str, dict] = {}  # {symbol: {"failures": int, "opened_at": float|None}}
 _CB_LOCK = threading.Lock()
 
@@ -44,7 +44,7 @@ def _cb_allow(symbol: str) -> bool:
         if not state or state["opened_at"] is None:
             return True  # CLOSED
         # OPEN — check whether reset period has elapsed
-        if time.time() - state["opened_at"] >= _CB_RESET_SECS:
+        if time.time() - state["opened_at"] >= CB_RESET_SECS:
             # Transition to HALF-OPEN: clear opened_at so next failure re-opens
             state["opened_at"] = None
             return True
@@ -60,7 +60,7 @@ def _cb_failure(symbol: str) -> None:
     with _CB_LOCK:
         state = _CB.setdefault(symbol, {"failures": 0, "opened_at": None})
         state["failures"] += 1
-        if state["failures"] >= _CB_THRESHOLD and state["opened_at"] is None:
+        if state["failures"] >= CB_FAILURE_THRESHOLD and state["opened_at"] is None:
             state["opened_at"] = time.time()
             logger.warning("Circuit breaker OPENED for %s after %d failures",
                            symbol, state["failures"])
