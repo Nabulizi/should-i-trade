@@ -13,10 +13,15 @@ No API key required for any source. Thread-safe cache.
 """
 
 from __future__ import annotations
-import csv, io, json, threading, time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import csv, io, json, logging, threading, time
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
+
+# Maximum seconds to wait for all parallel fetch futures before giving up.
+_PARALLEL_TIMEOUT = 30
 
 # ─── cache ────────────────────────────────────────────────────────────────
 _CACHE: dict[str, tuple[float, str]] = {}
@@ -452,8 +457,19 @@ def fetch_quotes_parallel(symbols: list[str], max_workers: int = 8) -> dict[str,
     out: dict[str, dict | None] = {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futs = {ex.submit(get_quote, s): s for s in symbols}
-        for f in as_completed(futs):
-            out[futs[f]] = f.result()
+        try:
+            for f in as_completed(futs, timeout=_PARALLEL_TIMEOUT):
+                sym = futs[f]
+                try:
+                    out[sym] = f.result()
+                except Exception:
+                    logger.debug("Quote fetch failed for %s", sym, exc_info=True)
+                    out[sym] = None
+        except FutureTimeoutError:
+            logger.warning("fetch_quotes_parallel timed out after %ds; %d/%d symbols fetched.",
+                           _PARALLEL_TIMEOUT, len(out), len(symbols))
+            for sym in set(symbols) - set(out):
+                out[sym] = None
     return out
 
 
@@ -463,8 +479,19 @@ def fetch_histories_parallel(pairs: list[tuple[str, int]],
     out: dict[str, list[float]] = {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futs = {ex.submit(get_history, s, d): s for s, d in pairs}
-        for f in as_completed(futs):
-            out[futs[f]] = f.result()
+        try:
+            for f in as_completed(futs, timeout=_PARALLEL_TIMEOUT):
+                sym = futs[f]
+                try:
+                    out[sym] = f.result()
+                except Exception:
+                    logger.debug("History fetch failed for %s", sym, exc_info=True)
+                    out[sym] = []
+        except FutureTimeoutError:
+            logger.warning("fetch_histories_parallel timed out after %ds; %d/%d symbols fetched.",
+                           _PARALLEL_TIMEOUT, len(out), len(pairs))
+            for _, sym in ((s, s) for s, _ in pairs):
+                out.setdefault(sym, [])
     return out
 
 

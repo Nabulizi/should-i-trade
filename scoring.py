@@ -71,6 +71,53 @@ DECISION_BANDS = [
     {"min": 0,  "decision": "STRONG NO",  "color": "red",    "position": "PRESERVE CAPITAL"},
 ]
 
+# ─── scoring thresholds ────────────────────────────────────────────────────
+# Volatility pillar
+VIX_CALM        = 15    # VIX below this → low vol, bonus points
+VIX_MODERATE    = 19    # VIX below this → moderate vol
+VIX_ELEVATED    = 25    # VIX below this → elevated vol
+VIX_HIGH        = 30    # VIX below this → high vol; above → extreme
+VIX_TREND_BIG   = 3     # % change threshold for "falling fast" / "spiking" labels
+VIX_PCTILE_LOW  = 25    # 1Y percentile below this → calm zone bonus
+VIX_PCTILE_HIGH = 75    # 1Y percentile above this → fear zone penalty
+FLOW_NET_STRONG_BULL = 7   # TQQQ-SQQQ net % above this → Strong Risk-On
+FLOW_NET_BULL        = 4
+FLOW_NET_MILD_BULL   = 1
+FLOW_NET_MILD_BEAR   = -2
+FLOW_NET_BEAR        = -5
+UVXY_FEAR_THRESHOLD  = 5   # UVXY day % above/below this adjusts flow score
+VIX_TERM_BACKW  = 1.05  # VIX/VIX3M ratio above this → backwardation
+VIX_TERM_STEEP  = 0.90  # VIX/VIX3M ratio below this → steep contango
+VIX9D_FEAR      = 1.00  # VIX9D/VIX above this → near-term fear spike
+VIX9D_CALM      = 0.90  # VIX9D/VIX below this → calm, event risk low
+SKEW_EXTREME    = 150   # SKEW above → extreme tail-risk hedging
+SKEW_ELEVATED   = 140   # SKEW above → elevated tail-risk hedging
+SKEW_NORMAL     = 120   # SKEW above → normal; below → complacent
+
+# Trend pillar
+RSI_SEVERELY_OVERBOUGHT = 75
+RSI_OVERBOUGHT          = 70
+RSI_OVERSOLD            = 30
+RSI_SWEET_SPOT_LOW      = 45   # Ideal swing-entry RSI zone
+RSI_SWEET_SPOT_HIGH     = 60
+VOL_HIGH_RATIO          = 1.2  # Today's volume vs 20d avg → "high volume"
+VOL_LOW_RATIO           = 0.7  # Below this → "low conviction"
+CHAR_RSI_EXTENDED       = 72   # RSI above → market character = Extended
+CHAR_ATR_TRENDING       = 1.5  # ATR% above + BBW% above → Trending
+CHAR_ATR_CHOPPY         = 0.6  # ATR% below OR BBW% below → Choppy
+CHAR_BBW_TRENDING       = 8.0
+CHAR_BBW_CHOPPY         = 3.0
+
+# Breadth pillar
+BREADTH_ABOVE200_BULL   = 73   # % of sectors above 200d MA → broad bull
+BREADTH_ABOVE200_WEAK   = 36   # % below this → structural weakness
+
+# Watchlist scoring (in watchlist.py, duplicated here for reference)
+WL_MA20_NEAR_PCT  = 3.5  # within 3.5% of 20d MA → "near"
+WL_MA50_NEAR_PCT  = 4.0  # within 4.0% of 50d MA → "near"
+WL_EXTENDED_RSI   = 72   # RSI above → extended
+WL_EXTENDED_DIST  = 0.08 # price > MA20 * (1 + this) → extended
+
 
 def decision_for_score(total: int) -> tuple[str, str, str]:
     for band in DECISION_BANDS:
@@ -296,11 +343,11 @@ def classify_market_character(closes: list[float], highs: list[float], lows: lis
     rsi = wilder_rsi(closes, 14)
 
     if atr_pct is not None and bbw_pct is not None:
-        if rsi and rsi > 72:
+        if rsi and rsi > CHAR_RSI_EXTENDED:
             label, color = "Extended", "red"
-        elif atr_pct > 1.5 and bbw_pct > 8.0:
+        elif atr_pct > CHAR_ATR_TRENDING and bbw_pct > CHAR_BBW_TRENDING:
             label, color = "Trending", "green"
-        elif atr_pct < 0.6 or bbw_pct < 3.0:
+        elif atr_pct < CHAR_ATR_CHOPPY or bbw_pct < CHAR_BBW_CHOPPY:
             label, color = "Choppy", "orange"
         else:
             label, color = "Mixed", "yellow"
@@ -326,21 +373,21 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
         return {"score": 50, "details": details, "reasons": reasons}
 
     # VIX level
-    if   vix_val < 15: d, lbl, col = +25, "Low",      "yellow"
-    elif vix_val < 19: d, lbl, col = +35, "Moderate", "green"
-    elif vix_val < 25: d, lbl, col = +10, "Elevated", "orange"
-    elif vix_val < 30: d, lbl, col = -10, "High",     "red"
-    else:              d, lbl, col = -30, "Extreme",  "red"
+    if   vix_val < VIX_CALM:     d, lbl, col = +25, "Low",      "yellow"
+    elif vix_val < VIX_MODERATE: d, lbl, col = +35, "Moderate", "green"
+    elif vix_val < VIX_ELEVATED: d, lbl, col = +10, "Elevated", "orange"
+    elif vix_val < VIX_HIGH:     d, lbl, col = -10, "High",     "red"
+    else:                        d, lbl, col = -30, "Extreme",  "red"
     score += d
     reasons.append(f"{'+' if d>=0 else ''}{d} VIX {vix_val:.2f} → {lbl}")
     details.update(vix_level=round(vix_val, 2), vix_label=lbl, vix_color=col)
 
     # VIX trend
     vix_chg = pct(vix_q)
-    if   vix_chg < -3: d, lbl, col = +12, "Falling", "green"
-    elif vix_chg <  0: d, lbl, col = +5,  "Calming", "green"
-    elif vix_chg <  3: d, lbl, col = -5,  "Rising",  "orange"
-    else:              d, lbl, col = -15, "Spiking", "red"
+    if   vix_chg < -VIX_TREND_BIG: d, lbl, col = +12, "Falling", "green"
+    elif vix_chg <  0:              d, lbl, col = +5,  "Calming", "green"
+    elif vix_chg <  VIX_TREND_BIG: d, lbl, col = -5,  "Rising",  "orange"
+    else:                           d, lbl, col = -15, "Spiking", "red"
     score += d
     reasons.append(f"{'+' if d>=0 else ''}{d} VIX {lbl} ({vix_chg:+.2f}%)")
     details.update(vix_trend=lbl, vix_trend_color=col, vix_change_pct=round(vix_chg, 2))
@@ -349,8 +396,8 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
     vix_1y = [c for c in (vix_closes or []) if c is not None]
     if len(vix_1y) >= 20:
         vix_pct = round(len([c for c in vix_1y if c < vix_val]) / len(vix_1y) * 100)
-        if   vix_pct < 25: score += 5;  reasons.append(f"+5 VIX at {vix_pct}th %ile (calm zone)")
-        elif vix_pct > 75: score -= 10; reasons.append(f"-10 VIX at {vix_pct}th %ile (fear zone)")
+        if   vix_pct < VIX_PCTILE_LOW:  score += 5;  reasons.append(f"+5 VIX at {vix_pct}th %ile (calm zone)")
+        elif vix_pct > VIX_PCTILE_HIGH: score -= 10; reasons.append(f"-10 VIX at {vix_pct}th %ile (fear zone)")
         details["vix_pctile"] = vix_pct
     else:
         details["vix_pctile"] = None
@@ -362,15 +409,15 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
     uvxy = pct(uvxy_q)
     net = bull - bear
 
-    if   net > 7:  flow, flbl, fcol = 85, "Strong Risk-On",  "green"
-    elif net > 4:  flow, flbl, fcol = 70, "Risk-On",         "green"
-    elif net > 1:  flow, flbl, fcol = 55, "Tilting Bullish", "yellow"
-    elif net > -2: flow, flbl, fcol = 45, "Neutral",         "yellow"
-    elif net > -5: flow, flbl, fcol = 30, "Tilting Bearish", "orange"
-    else:          flow, flbl, fcol = 15, "Risk-Off",        "red"
+    if   net > FLOW_NET_STRONG_BULL: flow, flbl, fcol = 85, "Strong Risk-On",  "green"
+    elif net > FLOW_NET_BULL:        flow, flbl, fcol = 70, "Risk-On",         "green"
+    elif net > FLOW_NET_MILD_BULL:   flow, flbl, fcol = 55, "Tilting Bullish", "yellow"
+    elif net > FLOW_NET_MILD_BEAR:   flow, flbl, fcol = 45, "Neutral",         "yellow"
+    elif net > FLOW_NET_BEAR:        flow, flbl, fcol = 30, "Tilting Bearish", "orange"
+    else:                            flow, flbl, fcol = 15, "Risk-Off",        "red"
 
-    if uvxy > 5:  flow -= 10
-    if uvxy < -5: flow += 8
+    if uvxy > UVXY_FEAR_THRESHOLD:  flow -= 10
+    if uvxy < -UVXY_FEAR_THRESHOLD: flow += 8
     flow = clamp(flow)
 
     if   flow >= 70: d = +8
@@ -394,11 +441,11 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
     if vix_val and vix3m_val and vix3m_val > 0:
         ratio = round(vix_val / vix3m_val, 3)
         vix_vs_vix3m = ratio
-        if ratio > 1.05:
+        if ratio > VIX_TERM_BACKW:
             d, vix_term_label, vix_term_color = -10, "Backwardation", "red"
             score += d
             reasons.append(f"{d} VIX/VIX3M {ratio:.2f}x — fear spike, backwardation")
-        elif ratio < 0.90:
+        elif ratio < VIX_TERM_STEEP:
             d, vix_term_label, vix_term_color = +8, "Steep Contango", "green"
             score += d
             reasons.append(f"+{d} VIX/VIX3M {ratio:.2f}x — calm, fear priced further out")
@@ -419,11 +466,11 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
     vix9d_ratio, vix9d_label, vix9d_color = None, "N/A", "gray"
     if vix_val and vix9d_val and vix_val > 0:
         vix9d_ratio = round(vix9d_val / vix_val, 3)
-        if vix9d_ratio > 1.0:
+        if vix9d_ratio > VIX9D_FEAR:
             d, vix9d_label, vix9d_color = -12, "Fear Spike", "red"
             score += d
             reasons.append(f"{d} VIX9D/VIX {vix9d_ratio:.2f}x — near-term fear elevated")
-        elif vix9d_ratio < 0.90:
+        elif vix9d_ratio < VIX9D_CALM:
             d, vix9d_label, vix9d_color = +6, "Calm", "green"
             score += d
             reasons.append(f"+{d} VIX9D/VIX {vix9d_ratio:.2f}x — near-term calm, event risk low")
@@ -442,15 +489,15 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> dict:
     skew_val = price(skew_q)
     skew_label, skew_color = "N/A", "gray"
     if skew_val:
-        if skew_val >= 150:
+        if skew_val >= SKEW_EXTREME:
             d, skew_label, skew_color = -15, "Extreme Tail Risk", "red"
             score += d
             reasons.append(f"{d} SKEW {skew_val:.0f} — extreme crash insurance demand")
-        elif skew_val >= 140:
+        elif skew_val >= SKEW_ELEVATED:
             d, skew_label, skew_color = -8, "Elevated", "orange"
             score += d
             reasons.append(f"{d} SKEW {skew_val:.0f} — elevated tail risk hedging")
-        elif skew_val >= 120:
+        elif skew_val >= SKEW_NORMAL:
             skew_label, skew_color = "Normal", "yellow"
             reasons.append(f"+0 SKEW {skew_val:.0f} — normal tail risk appetite")
         else:
@@ -501,16 +548,16 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
 
     rsi = spy_mas.get("rsi14")
     if rsi is not None:
-        if rsi >= 75:
+        if rsi >= RSI_SEVERELY_OVERBOUGHT:
             score -= 15
             reasons.append(f"-15 RSI {rsi} — severely overbought, high mean-reversion risk, don't chase")
-        elif rsi >= 70:
+        elif rsi >= RSI_OVERBOUGHT:
             score -= 8
             reasons.append(f"-8 RSI {rsi} — overbought, wait for pullback to 20d before entry")
-        elif rsi <= 30:
+        elif rsi <= RSI_OVERSOLD:
             score += 5
             reasons.append(f"+5 RSI {rsi} — oversold, bounce candidate")
-        elif 45 <= rsi <= 60:
+        elif RSI_SWEET_SPOT_LOW <= rsi <= RSI_SWEET_SPOT_HIGH:
             score += 5
             reasons.append(f"+5 RSI {rsi} — sweet spot, ideal swing entry zone after pullback")
 
@@ -526,15 +573,15 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
             today_vol = vols[-1]
             vol_ratio = round(today_vol / avg_vol, 2)
             spy_chg_val = pct(spy_q)
-            if vol_ratio >= 1.2 and spy_chg_val > 0:
+            if vol_ratio >= VOL_HIGH_RATIO and spy_chg_val > 0:
                 d, vol_label, vol_color = +8, "High-Vol Rally", "green"
                 score += d
                 reasons.append(f"+{d} Volume {vol_ratio:.1f}x avg — confirming rally")
-            elif vol_ratio >= 1.2 and spy_chg_val < 0:
+            elif vol_ratio >= VOL_HIGH_RATIO and spy_chg_val < 0:
                 d, vol_label, vol_color = -8, "High-Vol Selloff", "red"
                 score += d
                 reasons.append(f"{d} Volume {vol_ratio:.1f}x avg — confirming selloff")
-            elif vol_ratio < 0.7:
+            elif vol_ratio < VOL_LOW_RATIO:
                 d, vol_label, vol_color = -3, "Low Volume", "orange"
                 score += d
                 reasons.append(f"{d} Volume {vol_ratio:.1f}x avg — low conviction")
@@ -671,10 +718,10 @@ def score_breadth(quotes: dict, rsp_closes: list[float],
                     n_above_200 += 1
     pct_above_200 = round(n_above_200 / n_sec_valid * 100) if n_sec_valid else None
     if pct_above_200 is not None:
-        if pct_above_200 >= 73:
+        if pct_above_200 >= BREADTH_ABOVE200_BULL:
             score += 10
             reasons.append(f"+10 {n_above_200}/{n_sec_valid} sectors above 200d MA — broad bull")
-        elif pct_above_200 <= 36:
+        elif pct_above_200 <= BREADTH_ABOVE200_WEAK:
             score -= 10
             reasons.append(f"-10 Only {n_above_200}/{n_sec_valid} sectors above 200d MA — structural weakness")
 

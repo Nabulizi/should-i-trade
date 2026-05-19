@@ -10,24 +10,29 @@ AI:   Local multi-persona trading desk roundtable (no API key)
 """
 
 from __future__ import annotations
-import json, os, threading, time, webbrowser
+import gzip, json, logging, os, shutil, tempfile, threading, time, webbrowser
 from collections import deque
-from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse
 
 from scoring import compute_dashboard
 from analysis import roundtable
 from watchlist import compute_watchlist_health
 
+# ─── logging ──────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
+
 PORT = 8765
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HTML_FILE = "should-i-trade-v5.html"
 HISTORY_FILE = os.path.join(SCRIPT_DIR, "history.json")
+_ALLOWED_ORIGIN = f"http://localhost:{PORT}"
+_SERVER_START = time.time()
 
 # In-memory score history for sparkline. Persisted to history.json on each update.
 _HISTORY: deque[dict] = deque(maxlen=144)   # ~12 hours at 5-min intervals
 _HISTORY_LOCK = threading.Lock()
-_HISTORY_META = {"last_ts": 0.0}            # tracks last-append time; avoids using wrong variable
+_HISTORY_META = {"last_ts": 0.0}            # tracks last-append time
 
 # Dashboard cache — avoid re-fetching on parallel tab requests
 _DASHBOARD_CACHE = {"ts": 0.0, "data": None}
@@ -39,6 +44,36 @@ _WATCHLIST_CACHE = {"ts": 0.0, "data": None, "mtime": 0.0}
 _WATCHLIST_TTL = 300  # seconds
 _WATCHLIST_LOCK = threading.Lock()
 
+# Request counters for /metrics endpoint
+_METRICS: dict[str, int] = {"requests": 0, "cache_hits": 0, "cache_misses": 0, "errors": 0}
+_METRICS_LOCK = threading.Lock()
+
+
+# ─── Rate Limiter ──────────────────────────────────────────────────────────
+class RateLimiter:
+    """Sliding-window per-IP rate limiter: max_requests per window_seconds."""
+
+    def __init__(self, max_requests: int = 30, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self._buckets: dict[str, list[float]] = {}
+        self._lock = threading.Lock()
+
+    def is_allowed(self, client_ip: str) -> bool:
+        now = time.time()
+        cutoff = now - self.window
+        with self._lock:
+            timestamps = [t for t in self._buckets.get(client_ip, []) if t > cutoff]
+            if len(timestamps) >= self.max_requests:
+                self._buckets[client_ip] = timestamps
+                return False
+            timestamps.append(now)
+            self._buckets[client_ip] = timestamps
+            return True
+
+
+_RATE_LIMITER = RateLimiter(max_requests=30, window_seconds=60)
+
 
 def _load_history() -> None:
     """Load persisted score history from disk into _HISTORY deque on startup."""
@@ -48,39 +83,59 @@ def _load_history() -> None:
         with _HISTORY_LOCK:
             for item in saved[-144:]:
                 _HISTORY.append(item)
-        print(f"  History: loaded {len(_HISTORY)} snapshot(s) from history.json")
-    except (FileNotFoundError, json.JSONDecodeError, KeyError):
-        pass  # fresh start is fine
+        logger.info("History: loaded %d snapshot(s) from history.json", len(_HISTORY))
+    except FileNotFoundError:
+        logger.info("No history.json found — starting fresh.")
+    except (json.JSONDecodeError, KeyError) as exc:
+        logger.warning("history.json corrupt (%s) — starting fresh.", exc)
 
 
 def _save_history(snapshot: list) -> None:
-    """Persist a pre-copied history list to disk. Must NOT hold _HISTORY_LOCK when calling."""
+    """Atomically persist history to disk. Must NOT hold _HISTORY_LOCK when calling."""
     try:
-        with open(HISTORY_FILE, "w") as f:
-            json.dump(snapshot, f)
+        dir_ = os.path.dirname(HISTORY_FILE)
+        fd, tmp_path = tempfile.mkstemp(dir=dir_, prefix=".history_tmp_", suffix=".json")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(snapshot, f)
+            shutil.move(tmp_path, HISTORY_FILE)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
     except Exception:
-        pass
+        logger.exception("Failed to save history.json")
 
 
 def get_cached_dashboard() -> dict:
-    # Fast path — cache hit, no blocking
+    with _METRICS_LOCK:
+        _METRICS["requests"] += 1
+
+    # Fast path — cache hit, no lock contention
     with _DASHBOARD_LOCK:
         now = time.time()
         if _DASHBOARD_CACHE["data"] and now - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
+            with _METRICS_LOCK:
+                _METRICS["cache_hits"] += 1
             return _DASHBOARD_CACHE["data"]
 
-    # Cache miss — only one thread computes; the rest queue here then get the
-    # fresh result from cache (double-checked locking pattern).
+    # Cache miss — only one thread computes; the rest queue then get the fresh result.
     with _COMPUTE_LOCK:
         with _DASHBOARD_LOCK:
             now = time.time()
             if _DASHBOARD_CACHE["data"] and now - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
+                with _METRICS_LOCK:
+                    _METRICS["cache_hits"] += 1
                 return _DASHBOARD_CACHE["data"]
+
+        with _METRICS_LOCK:
+            _METRICS["cache_misses"] += 1
 
         data = compute_dashboard()
 
-        # Score delta vs. last recorded snapshot (before we append the new one).
-        # Invalid feed states should not display fake score collapses.
+        # Score delta vs. last snapshot. Invalid feed states show None to avoid fake collapses.
         if data.get("data_quality", {}).get("valid", True):
             with _HISTORY_LOCK:
                 prev_total = _HISTORY[-1]["total"] if _HISTORY else None
@@ -93,14 +148,13 @@ def get_cached_dashboard() -> dict:
             _DASHBOARD_CACHE["data"] = data
             _DASHBOARD_CACHE["ts"] = time.time()
 
-    # Record in history only when live data is trustworthy. Missing feeds should
-    # not create fake score drops that pollute the sparkline.
+    # Record in history only when live data is trustworthy.
     if data.get("data_quality", {}).get("valid", True):
         now_ts = time.time()
         snapshot = {
-            "ts": time.strftime("%H:%M", time.gmtime()),
+            "ts":  time.strftime("%H:%M", time.gmtime()),
             "total": data["total_score"],
-            "v": data["pillars"]["volatility"]["score"],
+            "v":  data["pillars"]["volatility"]["score"],
             "tr": data["pillars"]["trend"]["score"],
             "br": data["pillars"]["breadth"]["score"],
             "mo": data["pillars"]["momentum"]["score"],
@@ -108,14 +162,13 @@ def get_cached_dashboard() -> dict:
         }
         history_copy = None
         with _HISTORY_LOCK:
-            # Record if score changed or >=5 min have elapsed since last entry
-            if not _HISTORY or _HISTORY[-1]["total"] != snapshot["total"] \
-                    or now_ts - _HISTORY_META["last_ts"] > 300:
+            if (not _HISTORY or _HISTORY[-1]["total"] != snapshot["total"]
+                    or now_ts - _HISTORY_META["last_ts"] > 300):
                 _HISTORY.append(snapshot)
                 _HISTORY_META["last_ts"] = now_ts
-                history_copy = list(_HISTORY)    # copy while lock is held
+                history_copy = list(_HISTORY)
         if history_copy is not None:
-            _save_history(history_copy)          # I/O outside the lock - no deadlock
+            _save_history(history_copy)
 
     return data
 
@@ -134,20 +187,20 @@ def get_cached_watchlist_health() -> dict:
                 and now - _WATCHLIST_CACHE["ts"] < _WATCHLIST_TTL):
             return _WATCHLIST_CACHE["data"]
 
-    # Get regime context to gate pullback signals.
-    # If dashboard cache is cold (direct /api/watchlist-health call before any
-    # /api/dashboard call), fetch dashboard first so the regime flag is real.
+    # Warm dashboard cache for regime context before scoring watchlist.
     with _DASHBOARD_LOCK:
         dash = _DASHBOARD_CACHE.get("data")
     if not dash:
         try:
             dash = get_cached_dashboard()
         except Exception:
+            logger.exception("Failed to warm dashboard for watchlist regime context.")
             dash = {}
     try:
         spy_above_200 = dash.get("pillars", {}).get("trend", {}).get("details", {}).get("above_200", True)
         regime_known  = bool(dash)
     except Exception:
+        logger.warning("Could not extract regime from dashboard; defaulting spy_above_200=True.")
         spy_above_200 = True
         regime_known  = False
 
@@ -172,20 +225,26 @@ class Handler(BaseHTTPRequestHandler):
         print(f"  {color}{code}\033[0m  {path}")
 
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Origin", _ALLOWED_ORIGIN)
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
-    def _json(self, obj, status=200):
+    def _json(self, obj, status: int = 200):
         body = json.dumps(obj).encode()
+        accept_enc = self.headers.get("Accept-Encoding", "")
+        use_gzip = "gzip" in accept_enc and len(body) > 1024
+        if use_gzip:
+            body = gzip.compress(body, compresslevel=6)
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        if use_gzip:
+            self.send_header("Content-Encoding", "gzip")
         self._cors()
         self.end_headers()
         self.wfile.write(body)
 
-    def _file(self, path, ctype="text/html; charset=utf-8"):
+    def _file(self, path: str, ctype: str = "text/html; charset=utf-8"):
         try:
             with open(path, "rb") as f:
                 body = f.read()
@@ -210,12 +269,23 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        # ── rate limit /api/* endpoints ────────────────────────────────────
+        if path.startswith("/api/"):
+            client_ip = self.client_address[0]
+            if not _RATE_LIMITER.is_allowed(client_ip):
+                logger.warning("Rate limit exceeded for %s", client_ip)
+                self._json({"error": "Rate limit exceeded. Max 30 requests/minute."}, 429)
+                return
+
         # ── dashboard ──────────────────────────────────────────────────────
         if path == "/api/dashboard":
             try:
                 self._json(get_cached_dashboard())
-            except Exception as e:
-                self._json({"error": str(e)}, 500)
+            except Exception:
+                logger.exception("Error serving /api/dashboard")
+                with _METRICS_LOCK:
+                    _METRICS["errors"] += 1
+                self._json({"error": "Internal server error"}, 500)
             return
 
         # ── score history (sparkline) ──────────────────────────────────────
@@ -229,16 +299,50 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 data = get_cached_dashboard()
                 self._json(roundtable(data))
-            except Exception as e:
-                self._json({"error": str(e)}, 500)
+            except Exception:
+                logger.exception("Error serving /api/analysis")
+                with _METRICS_LOCK:
+                    _METRICS["errors"] += 1
+                self._json({"error": "Internal server error"}, 500)
             return
 
         # ── TradingView watchlist health ───────────────────────────────────
         if path == "/api/watchlist-health":
             try:
                 self._json(get_cached_watchlist_health())
-            except Exception as e:
-                self._json({"error": str(e)}, 500)
+            except Exception:
+                logger.exception("Error serving /api/watchlist-health")
+                with _METRICS_LOCK:
+                    _METRICS["errors"] += 1
+                self._json({"error": "Internal server error"}, 500)
+            return
+
+        # ── health check ───────────────────────────────────────────────────
+        if path == "/health":
+            with _DASHBOARD_LOCK:
+                cache_age = (round(time.time() - _DASHBOARD_CACHE["ts"], 1)
+                             if _DASHBOARD_CACHE["ts"] else None)
+                cache_valid = _DASHBOARD_CACHE["data"] is not None
+            with _HISTORY_LOCK:
+                history_len = len(_HISTORY)
+            self._json({
+                "status": "ok",
+                "uptime_seconds": round(time.time() - _SERVER_START),
+                "dashboard_cache_age_seconds": cache_age,
+                "dashboard_cache_valid": cache_valid,
+                "dashboard_ttl_seconds": _DASHBOARD_TTL,
+                "history_snapshots": history_len,
+            })
+            return
+
+        # ── metrics ────────────────────────────────────────────────────────
+        if path == "/metrics":
+            with _METRICS_LOCK:
+                stats = dict(_METRICS)
+            self._json({
+                "uptime_seconds": round(time.time() - _SERVER_START),
+                **stats,
+            })
             return
 
         # ── html routes ────────────────────────────────────────────────────
@@ -246,8 +350,13 @@ class Handler(BaseHTTPRequestHandler):
             self._file(os.path.join(SCRIPT_DIR, HTML_FILE))
             return
 
-        # ── static files ───────────────────────────────────────────────────
-        static_path = os.path.join(SCRIPT_DIR, path.lstrip("/"))
+        # ── static files (path-traversal-safe) ────────────────────────────
+        joined = os.path.join(SCRIPT_DIR, path.lstrip("/"))
+        static_path = os.path.realpath(joined)
+        # Ensure resolved path stays inside SCRIPT_DIR
+        if not static_path.startswith(os.path.realpath(SCRIPT_DIR) + os.sep):
+            self._json({"error": "forbidden"}, 403)
+            return
         if os.path.isfile(static_path):
             ext = path.rsplit(".", 1)[-1]
             types = {"html": "text/html", "js": "application/javascript",
@@ -259,6 +368,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     html = os.path.join(SCRIPT_DIR, HTML_FILE)
     missing = "" if os.path.exists(html) else f"  ⚠  {HTML_FILE} not found in this folder!\n"
 
@@ -266,7 +381,8 @@ def main():
     print("  ║  Should I Trade?  ·  Market Quality v6       ║")
     print("  ║  5-Pillar Score + Desk Roundtable            ║")
     print("  ╚══════════════════════════════════════════════╝")
-    if missing: print(f"\n{missing}")
+    if missing:
+        print(f"\n{missing}")
     print(f"\n  URL:        http://localhost:{PORT}")
     print(f"  Data:       Yahoo → Stooq fallback (free, no key)")
     print(f"  AI:         Local 5-persona desk (no key)")
@@ -279,7 +395,6 @@ def main():
         daemon=True,
     ).start()
 
-    # ThreadingHTTPServer so a slow /api/dashboard doesn't block /api/history
     server = ThreadingHTTPServer(("", PORT), Handler)
     try:
         server.serve_forever()
