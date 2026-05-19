@@ -20,7 +20,7 @@ from analysis import roundtable
 from watchlist import compute_watchlist_health
 from config import (
     PORT, DASHBOARD_TTL, WATCHLIST_TTL, HISTORY_MAXLEN,
-    RATE_LIMIT_MAX, RATE_LIMIT_WINDOW,
+    RATE_LIMIT_MAX, RATE_LIMIT_WINDOW, SSE_KEEPALIVE_SECS,
 )
 
 # ─── logging ──────────────────────────────────────────────────────────────
@@ -334,7 +334,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
             while True:
                 try:
-                    payload = client_queue.get(timeout=30)
+                    payload = client_queue.get(timeout=SSE_KEEPALIVE_SECS)
                     self.wfile.write(payload.encode())
                     self.wfile.flush()
                 except queue.Empty:

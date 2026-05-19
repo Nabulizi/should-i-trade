@@ -8,7 +8,9 @@ score was built. This removes the "black box" problem.
 """
 
 from __future__ import annotations
-import sys, time
+import logging, time
+
+logger = logging.getLogger(__name__)
 from concurrent.futures import ThreadPoolExecutor as _TPE
 from typing import Any
 
@@ -1218,7 +1220,7 @@ def _safe_pillar(fn, *args, name: str = "?") -> dict:
     try:
         return fn(*args)
     except Exception as e:
-        print(f"[WARN] Pillar '{name}' raised: {e}", file=sys.stderr, flush=True)
+        logger.warning("Pillar '%s' raised: %s", name, e)
         return {
             "score": 50,
             "details": {},

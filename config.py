@@ -43,3 +43,16 @@ PILLAR_WEIGHTS: dict[str, float] = {
     "momentum":   0.20,
     "macro":      0.10,
 }
+
+# ── Circuit Breaker (data.py) ─────────────────────────────────────────────────
+
+CB_FAILURE_THRESHOLD: int = 3
+"""Consecutive fetch failures before a symbol's circuit opens."""
+
+CB_RESET_SECS: int = 60
+"""Seconds a circuit stays OPEN before transitioning to HALF-OPEN for a probe."""
+
+# ── SSE ───────────────────────────────────────────────────────────────────────
+
+SSE_KEEPALIVE_SECS: int = 30
+"""How often the SSE stream sends a keepalive comment to prevent proxy timeouts."""
