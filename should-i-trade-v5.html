@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Should I Trade? — Market Quality Terminal v5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:      #080c0f;
+    --bg:      #020617;
     --surface: #0e1419;
     --surface2:#131b22;
     --border:  #1a2530;
@@ -21,7 +25,7 @@
     --accent2: #7c4dff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'SF Mono', 'Fira Code', Menlo, monospace; font-size: 12px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Fira Code', 'SF Mono', Menlo, monospace; font-size: 12px; }
 
   /* ── TICKER ── */
   .ticker-wrap { background: #050810; border-bottom: 1px solid var(--border); overflow: hidden; white-space: nowrap; height: 28px; display: flex; align-items: center; }
@@ -365,6 +369,29 @@
     .watch-cols { grid-template-columns: 1fr; }
     .futures-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
+  /* ── FOCUS STYLES ── */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  /* ── BUTTON RESET for semantic toggle elements ── */
+  button.why-toggle, button.detail-toggle {
+    background: none;
+    border: none;
+    width: 100%;
+    font-family: inherit;
+  }
+
+  /* ── REDUCED MOTION ── */
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-inner { animation: none; }
+    .mkt-badge.open .dot,
+    #refresh-dot.active { animation: none; opacity: 1; }
+    .spinner { animation: none; border: 2px solid var(--accent); }
+    .score-circle .fill { transition: none; }
+    .pillar-bar-fill, .pm-fill, .weight-bar, .sector-bar { transition: none; }
+    .persona-card { transition: none; opacity: 1; transform: none; }
+    .settings-drawer { animation: none; }
+  }
+
 </style>
 </head>
 <body>
@@ -384,10 +411,16 @@
     <span class="ts" id="et-time">—</span>
     <span class="ts" id="data-ts">—</span>
     <span class="countdown" id="countdown">next refresh in —</span><span id="refresh-dot" title="Updating…"></span>
-    <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)">📋</button>
-    <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme">☀</button>
-    <button class="btn" onclick="toggleSettings()" title="Settings (S)">⚙</button>
-    <button class="btn" onclick="load(true)">↺ REFRESH</button>
+    <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)" aria-label="Copy snapshot to clipboard">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <button class="btn" onclick="toggleSettings()" title="Settings (S)" aria-label="Open settings">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="btn" onclick="load(true)" aria-label="Refresh data">↺ REFRESH</button>
   </div>
 </div>
 
@@ -436,7 +469,9 @@
 
       <div class="pos-card">
         <div class="pos-label">Position Size</div>
-        <div class="pos-icon">🛡</div>
+        <div class="pos-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
         <div class="pos-text" id="pos-text">—</div>
         <div class="pos-sub">Press risk</div>
       </div>
@@ -540,7 +575,7 @@
   <div class="settings-drawer">
     <div class="settings-title">
       <span>⚙ Settings</span>
-      <button class="btn" onclick="toggleSettings()" style="font-size:10px">✕</button>
+      <button class="btn" onclick="toggleSettings()" style="font-size:10px" aria-label="Close settings">✕</button>
     </div>
 
     <div class="settings-section">
@@ -998,11 +1033,11 @@ function renderPillars(d) {
         </div>
         <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
         ${def.primary(p)}
-        <div class="detail-toggle" onclick="toggleDetail(this)">▾ more</div>
+        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false">▾ more</button>
         <div class="detail-rows">
           ${def.detail(p)}
         </div>
-        <div class="why-toggle" onclick="toggleWhy(this)">▾ Why this score?</div>
+        <button class="why-toggle" onclick="toggleWhy(this)" aria-expanded="false">▾ Why this score?</button>
         <div class="why-body">${reasons || '<em>No reasons recorded</em>'}</div>
       </div>`;
   }).join('');
@@ -1011,12 +1046,14 @@ function renderPillars(d) {
 function toggleDetail(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
+  el.setAttribute('aria-expanded', open);
   el.innerHTML = (open ? '▴' : '▾') + ' more';
 }
 
 function toggleWhy(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
+  el.setAttribute('aria-expanded', open);
   el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
 }
 
