@@ -13,10 +13,15 @@ No API key required for any source. Thread-safe cache.
 """
 
 from __future__ import annotations
-import csv, io, json, threading, time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import csv, io, json, logging, threading, time
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
+
+# Maximum seconds to wait for all parallel fetch futures before giving up.
+_PARALLEL_TIMEOUT = 30
 
 # ─── cache ────────────────────────────────────────────────────────────────
 _CACHE: dict[str, tuple[float, str]] = {}
@@ -452,8 +457,19 @@ def fetch_quotes_parallel(symbols: list[str], max_workers: int = 8) -> dict[str,
     out: dict[str, dict | None] = {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futs = {ex.submit(get_quote, s): s for s in symbols}
-        for f in as_completed(futs):
-            out[futs[f]] = f.result()
+        try:
+            for f in as_completed(futs, timeout=_PARALLEL_TIMEOUT):
+                sym = futs[f]
+                try:
+                    out[sym] = f.result()
+                except Exception:
+                    logger.debug("Quote fetch failed for %s", sym, exc_info=True)
+                    out[sym] = None
+        except FutureTimeoutError:
+            logger.warning("fetch_quotes_parallel timed out after %ds; %d/%d symbols fetched.",
+                           _PARALLEL_TIMEOUT, len(out), len(symbols))
+            for sym in set(symbols) - set(out):
+                out[sym] = None
     return out
 
 
@@ -463,8 +479,19 @@ def fetch_histories_parallel(pairs: list[tuple[str, int]],
     out: dict[str, list[float]] = {}
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futs = {ex.submit(get_history, s, d): s for s, d in pairs}
-        for f in as_completed(futs):
-            out[futs[f]] = f.result()
+        try:
+            for f in as_completed(futs, timeout=_PARALLEL_TIMEOUT):
+                sym = futs[f]
+                try:
+                    out[sym] = f.result()
+                except Exception:
+                    logger.debug("History fetch failed for %s", sym, exc_info=True)
+                    out[sym] = []
+        except FutureTimeoutError:
+            logger.warning("fetch_histories_parallel timed out after %ds; %d/%d symbols fetched.",
+                           _PARALLEL_TIMEOUT, len(out), len(pairs))
+            for _, sym in ((s, s) for s, _ in pairs):
+                out.setdefault(sym, [])
     return out
 
 
@@ -562,12 +589,73 @@ _ECON_CALENDAR = [
     ("2026-06-10", "CPI",  "CPI"),
     ("2026-06-11", "PPI",  "PPI"),
     ("2026-06-25", "GDP",  "GDP (Rev)"),
+    # --- 2026 H2 ---
+    ("2026-07-02", "NFP",  "Jobs Report"),
+    ("2026-07-14", "CPI",  "CPI"),
+    ("2026-07-15", "PPI",  "PPI"),
+    ("2026-07-30", "GDP",  "GDP (Adv)"),
+    ("2026-08-07", "NFP",  "Jobs Report"),
+    ("2026-08-12", "CPI",  "CPI"),
+    ("2026-08-13", "PPI",  "PPI"),
+    ("2026-09-04", "NFP",  "Jobs Report"),
+    ("2026-09-10", "CPI",  "CPI"),
+    ("2026-09-11", "PPI",  "PPI"),
+    ("2026-09-24", "GDP",  "GDP (Rev)"),
+    ("2026-10-02", "NFP",  "Jobs Report"),
+    ("2026-10-14", "CPI",  "CPI"),
+    ("2026-10-13", "PPI",  "PPI"),
+    ("2026-10-29", "GDP",  "GDP (Adv)"),
+    ("2026-11-06", "NFP",  "Jobs Report"),
+    ("2026-11-12", "CPI",  "CPI"),
+    ("2026-11-13", "PPI",  "PPI"),
+    ("2026-12-04", "NFP",  "Jobs Report"),
+    ("2026-12-10", "CPI",  "CPI"),
+    ("2026-12-11", "PPI",  "PPI"),
+    ("2026-12-17", "GDP",  "GDP (Rev)"),
+    # --- 2027 ---
+    ("2027-01-08", "NFP",  "Jobs Report"),
+    ("2027-01-13", "CPI",  "CPI"),
+    ("2027-01-14", "PPI",  "PPI"),
+    ("2027-01-28", "GDP",  "GDP (Adv)"),
+    ("2027-02-05", "NFP",  "Jobs Report"),
+    ("2027-02-11", "CPI",  "CPI"),
+    ("2027-02-12", "PPI",  "PPI"),
+    ("2027-03-05", "NFP",  "Jobs Report"),
+    ("2027-03-11", "CPI",  "CPI"),
+    ("2027-03-12", "PPI",  "PPI"),
+    ("2027-03-25", "GDP",  "GDP (Rev)"),
+    ("2027-04-02", "NFP",  "Jobs Report"),
+    ("2027-04-09", "CPI",  "CPI"),
+    ("2027-04-08", "PPI",  "PPI"),
+    ("2027-04-29", "GDP",  "GDP (Adv)"),
+    ("2027-05-07", "NFP",  "Jobs Report"),
+    ("2027-05-13", "CPI",  "CPI"),
+    ("2027-05-14", "PPI",  "PPI"),
+    ("2027-06-04", "NFP",  "Jobs Report"),
+    ("2027-06-10", "CPI",  "CPI"),
+    ("2027-06-11", "PPI",  "PPI"),
+    ("2027-06-24", "GDP",  "GDP (Rev)"),
 ]
+
+# Last date in _ECON_CALENDAR — used to warn when coverage is running out.
+_ECON_CALENDAR_LAST = _ECON_CALENDAR[-1][0]
+_ECON_EXPIRY_WARN_DAYS = 30
 
 
 def econ_proximity() -> list[dict]:
     """Return the next 3 upcoming economic releases with days-until and risk color."""
     today = datetime.utcnow().date()
+
+    # Warn when fewer than _ECON_EXPIRY_WARN_DAYS of coverage remain.
+    last_date = datetime.strptime(_ECON_CALENDAR_LAST, "%Y-%m-%d").date()
+    if (last_date - today).days <= _ECON_EXPIRY_WARN_DAYS:
+        logger.warning(
+            "Economic calendar expires %s (%d days away). "
+            "Update _ECON_CALENDAR in data.py.",
+            _ECON_CALENDAR_LAST,
+            (last_date - today).days,
+        )
+
     upcoming = []
     for date_str, etype, name in _ECON_CALENDAR:
         d = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -727,18 +815,34 @@ def earnings_season() -> dict:
     return {"in_season": False, "label": "N/A", "color": "gray", "days_until": None}
 
 
-# 2026 FOMC meeting decision dates (day 2 of each meeting, when statement hits).
+# 2026–2027 FOMC meeting decision dates (day 2 of each meeting, when statement hits).
 # Source: federalreserve.gov  ·  Update annually when Fed publishes new schedule.
 _FOMC_2026_2027 = [
     "2026-01-28", "2026-03-18", "2026-04-29", "2026-06-17",
     "2026-07-29", "2026-09-16", "2026-10-28", "2026-12-09",
-    "2027-01-27",
+    "2027-01-27", "2027-03-17", "2027-04-28", "2027-06-16",
+    "2027-07-28", "2027-09-15", "2027-10-27", "2027-12-08",
 ]
+
+# Last FOMC date in list — used to warn when coverage is running out.
+_FOMC_LAST = _FOMC_2026_2027[-1]
+_FOMC_EXPIRY_WARN_DAYS = 30
 
 
 def fomc_proximity() -> dict:
     """Days until next FOMC decision + event-risk label."""
     today = datetime.utcnow().date()
+
+    # Warn when fewer than _FOMC_EXPIRY_WARN_DAYS of coverage remain.
+    last_date = datetime.strptime(_FOMC_LAST, "%Y-%m-%d").date()
+    if (last_date - today).days <= _FOMC_EXPIRY_WARN_DAYS:
+        logger.warning(
+            "FOMC calendar expires %s (%d days away). "
+            "Update _FOMC_2026_2027 in data.py.",
+            _FOMC_LAST,
+            (last_date - today).days,
+        )
+
     upcoming = [datetime.strptime(d, "%Y-%m-%d").date() for d in _FOMC_2026_2027]
     next_date = next((d for d in upcoming if d >= today), None)
     if not next_date:

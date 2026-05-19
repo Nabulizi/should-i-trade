@@ -7,11 +7,18 @@ the exported TradingView names are worth stalking in the current tape.
 
 from __future__ import annotations
 
-import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging, os, re
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 from typing import Any
 
 from data import get_quote, get_history
+
+logger = logging.getLogger(__name__)
+
+# Maximum characters in a raw TradingView token (e.g. "NASDAQ:AAPL").
+_MAX_TOKEN_LEN = 50
+# Allowed characters in a symbol after the optional exchange prefix.
+_SYMBOL_RE = re.compile(r'^[A-Z0-9.\-\^=]{1,20}$')
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WATCHLIST_DIR = os.path.join(SCRIPT_DIR, "watchlists")
@@ -66,16 +73,27 @@ def tradingview_to_yahoo(token: str) -> tuple[str | None, str | None]:
     token = token.strip().upper()
     if not token:
         return None, "empty symbol"
+    if len(token) > _MAX_TOKEN_LEN:
+        return None, f"token too long ({len(token)} chars)"
+
     if token in EXPLICIT_SYMBOL_MAP:
         return EXPLICIT_SYMBOL_MAP[token], None
     if ":" not in token:
+        if not _SYMBOL_RE.match(token):
+            return None, f"invalid characters in symbol: {token!r}"
         return token, None
 
-    prefix, symbol = token.split(":", 1)
+    parts = token.split(":", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return None, f"malformed exchange:symbol format: {token!r}"
+    prefix, symbol = parts
+
     if prefix in UNSUPPORTED_PREFIXES:
         return None, f"{prefix} is not available from Yahoo-style feeds"
 
     if prefix in {"NASDAQ", "NYSE", "AMEX", "CBOE"}:
+        if not _SYMBOL_RE.match(symbol):
+            return None, f"invalid characters in symbol: {symbol!r}"
         return symbol, None
 
     if prefix == "BINANCE":
@@ -283,11 +301,36 @@ def compute_watchlist_health(path: str = DEFAULT_WATCHLIST,
 
     scan_targets = [item for item in mapped if item[2] in DISPLAY_ASSET_TYPES]
     rows = []
+    _WATCHLIST_TIMEOUT = 45  # seconds
     with ThreadPoolExecutor(max_workers=12) as ex:
         quote_futs = {ex.submit(get_quote, sym): (tv, sym, atype) for tv, sym, atype in scan_targets}
-        hist_futs = {ex.submit(get_history, sym, 220): (tv, sym, atype) for tv, sym, atype in scan_targets}
-        quotes = {quote_futs[f]: f.result() for f in as_completed(quote_futs)}
-        histories = {hist_futs[f]: f.result() for f in as_completed(hist_futs)}
+        hist_futs  = {ex.submit(get_history, sym, 220): (tv, sym, atype) for tv, sym, atype in scan_targets}
+
+        quotes: dict = {}
+        try:
+            for f in as_completed(quote_futs, timeout=_WATCHLIST_TIMEOUT):
+                try:
+                    quotes[quote_futs[f]] = f.result()
+                except Exception:
+                    logger.debug("Quote failed for %s", quote_futs[f], exc_info=True)
+                    quotes[quote_futs[f]] = None
+        except FutureTimeoutError:
+            logger.warning("Watchlist quote fetches timed out; using partial results.")
+            for key in set(quote_futs.values()) - set(quotes):
+                quotes[key] = None
+
+        histories: dict = {}
+        try:
+            for f in as_completed(hist_futs, timeout=_WATCHLIST_TIMEOUT):
+                try:
+                    histories[hist_futs[f]] = f.result()
+                except Exception:
+                    logger.debug("History failed for %s", hist_futs[f], exc_info=True)
+                    histories[hist_futs[f]] = []
+        except FutureTimeoutError:
+            logger.warning("Watchlist history fetches timed out; using partial results.")
+            for key in set(hist_futs.values()) - set(histories):
+                histories[key] = []
 
     for tv, sym, atype in scan_targets:
         key = (tv, sym, atype)
