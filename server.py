@@ -18,11 +18,14 @@ from urllib.parse import urlparse
 from scoring import compute_dashboard
 from analysis import roundtable
 from watchlist import compute_watchlist_health
+from config import (
+    PORT, DASHBOARD_TTL, WATCHLIST_TTL, HISTORY_MAXLEN,
+    RATE_LIMIT_MAX, RATE_LIMIT_WINDOW,
+)
 
 # ─── logging ──────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
 
-PORT = 8765
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HTML_FILE = "should-i-trade-v5.html"
 HISTORY_FILE = os.path.join(SCRIPT_DIR, "history.json")
@@ -30,18 +33,18 @@ _ALLOWED_ORIGIN = f"http://localhost:{PORT}"
 _SERVER_START = time.time()
 
 # In-memory score history for sparkline. Persisted to history.json on each update.
-_HISTORY: deque[dict] = deque(maxlen=144)   # ~12 hours at 5-min intervals
+_HISTORY: deque[dict] = deque(maxlen=HISTORY_MAXLEN)
 _HISTORY_LOCK = threading.Lock()
 _HISTORY_META = {"last_ts": 0.0}            # tracks last-append time
 
 # Dashboard cache — avoid re-fetching on parallel tab requests
 _DASHBOARD_CACHE = {"ts": 0.0, "data": None}
-_DASHBOARD_TTL = 60   # seconds
+_DASHBOARD_TTL = DASHBOARD_TTL
 _DASHBOARD_LOCK = threading.Lock()
 _COMPUTE_LOCK   = threading.Lock()   # serialises computation; prevents thundering herd
 
 _WATCHLIST_CACHE = {"ts": 0.0, "data": None, "mtime": 0.0}
-_WATCHLIST_TTL = 300  # seconds
+_WATCHLIST_TTL = WATCHLIST_TTL
 _WATCHLIST_LOCK = threading.Lock()
 
 # Request counters for /metrics endpoint
@@ -72,7 +75,7 @@ class RateLimiter:
             return True
 
 
-_RATE_LIMITER = RateLimiter(max_requests=30, window_seconds=60)
+_RATE_LIMITER = RateLimiter(max_requests=RATE_LIMIT_MAX, window_seconds=RATE_LIMIT_WINDOW)
 
 
 def _load_history() -> None:

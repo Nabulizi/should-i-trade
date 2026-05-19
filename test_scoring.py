@@ -11,10 +11,10 @@ Run with:  python3 test_scoring.py
 from __future__ import annotations
 import os
 import sys
-import types
+import types as _stdlib_types
 
 # ── stub the data module so scoring.py imports cleanly without network calls ──
-_data_stub = types.ModuleType("data")
+_data_stub = _stdlib_types.ModuleType("data")
 for _fn in [
     "get_quote", "get_history", "get_ohlcv", "btc_quote", "btc_history",
     "market_state", "fomc_proximity", "econ_proximity",
