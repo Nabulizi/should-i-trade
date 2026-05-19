@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Should I Trade? — Market Quality Terminal v5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:      #080c0f;
+    --bg:      #020617;
     --surface: #0e1419;
     --surface2:#131b22;
     --border:  #1a2530;
@@ -21,7 +25,7 @@
     --accent2: #7c4dff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'SF Mono', 'Fira Code', Menlo, monospace; font-size: 12px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Fira Code', 'SF Mono', Menlo, monospace; font-size: 12px; }
 
   /* ── TICKER ── */
   .ticker-wrap { background: #050810; border-bottom: 1px solid var(--border); overflow: hidden; white-space: nowrap; height: 28px; display: flex; align-items: center; }
@@ -71,7 +75,8 @@
 
   /* ── HERO ── */
   .hero { display: grid; grid-template-columns: clamp(185px, 14vw, 225px) 1fr clamp(140px, 11vw, 170px); gap: 14px; align-items: stretch; }
-  .decision-card, .pos-card, .score-wrap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  .decision-card, .pos-card, .score-wrap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 0; overflow: hidden; }
+  .decision-card { justify-content: flex-start; padding-top: 16px; }
   .decision-label, .pos-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
   .decision-badge { font-size: clamp(18px, 2.3vw, 34px); font-weight: 800; letter-spacing: clamp(0px, 0.15vw, 2px); margin-bottom: 4px; overflow: hidden; white-space: nowrap; }
   .decision-sub { font-size: 9px; color: var(--muted); }
@@ -365,6 +370,32 @@
     .watch-cols { grid-template-columns: 1fr; }
     .futures-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
+  /* ── ICON LABEL HELPER ── */
+  .icon-label { display: inline-flex; align-items: center; gap: 5px; }
+
+  /* ── FOCUS STYLES ── */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  /* ── BUTTON RESET for semantic toggle elements ── */
+  button.why-toggle, button.detail-toggle {
+    background: none;
+    border: none;
+    width: 100%;
+    font-family: inherit;
+  }
+
+  /* ── REDUCED MOTION ── */
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-inner { animation: none; }
+    .mkt-badge.open .dot,
+    #refresh-dot.active { animation: none; opacity: 1; }
+    .spinner { animation: none; border: 2px solid var(--accent); }
+    .score-circle .fill { transition: none; }
+    .pillar-bar-fill, .pm-fill, .weight-bar, .sector-bar { transition: none; }
+    .persona-card { transition: none; opacity: 1; transform: none; }
+    .settings-drawer { animation: none; }
+  }
+
 </style>
 </head>
 <body>
@@ -375,7 +406,7 @@
 <!-- HEADER -->
 <div class="header">
   <div class="header-left">
-    <span class="logo">📊 SHOULD I TRADE?</span>
+    <span class="logo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>SHOULD I TRADE?</span>
     <span class="subtitle">Quality Terminal v6</span>
     <span class="mkt-badge" id="mkt-badge"><span class="dot"></span><span id="mkt-label">—</span></span>
     <span class="fomc-badge" id="fomc-badge">FOMC <span class="date" id="fomc-text">—</span></span>
@@ -384,16 +415,22 @@
     <span class="ts" id="et-time">—</span>
     <span class="ts" id="data-ts">—</span>
     <span class="countdown" id="countdown">next refresh in —</span><span id="refresh-dot" title="Updating…"></span>
-    <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)">📋</button>
-    <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme">☀</button>
-    <button class="btn" onclick="toggleSettings()" title="Settings (S)">⚙</button>
-    <button class="btn" onclick="load(true)">↺ REFRESH</button>
+    <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)" aria-label="Copy snapshot to clipboard">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <button class="btn" onclick="toggleSettings()" title="Settings (S)" aria-label="Open settings">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="btn" onclick="load(true)" aria-label="Refresh data">↺ REFRESH</button>
   </div>
 </div>
 
 <!-- ECON EVENTS ROW -->
 <div class="econ-row" id="econ-row" style="display:none">
-  <span class="econ-label">📅 Events</span>
+  <span class="econ-label"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:3px" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Events</span>
   <span id="econ-badges"></span>
 </div>
 
@@ -436,7 +473,9 @@
 
       <div class="pos-card">
         <div class="pos-label">Position Size</div>
-        <div class="pos-icon">🛡</div>
+        <div class="pos-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
         <div class="pos-text" id="pos-text">—</div>
         <div class="pos-sub">Press risk</div>
       </div>
@@ -470,7 +509,7 @@
     <div class="bottom-row">
       <!-- Sector + Industry Performance -->
       <div class="card">
-        <div class="card-title">📊 Breadth Under the Surface</div>
+        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Breadth Under the Surface</span></div>
         <div class="card-subtitle">11 SECTORS</div>
         <div id="sector-bars"></div>
         <div class="card-subtitle">INDUSTRY &amp; STYLE</div>
@@ -479,13 +518,13 @@
 
       <!-- Execution Window -->
       <div class="card">
-        <div class="card-title">⚡ Execution Window</div>
+        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Execution Window</span></div>
         <div id="exec-window"></div>
       </div>
 
       <!-- Scoring Weights + Sparkline -->
       <div class="card">
-        <div class="card-title">⚖ Scoring Weights <button class="btn" style="font-size:9px;padding:2px 6px" onclick="toggleSettings()">⚙ Edit</button></div>
+        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Scoring Weights</span> <button class="btn" style="font-size:9px;padding:2px 6px" onclick="toggleSettings()"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Edit</button></div>
         <div id="score-weights"></div>
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
           <span style="color:var(--muted);font-size:10px;">TOTAL SCORE</span>
@@ -517,7 +556,7 @@
 
     <!-- WATCHLIST HEALTH -->
     <div class="card watch-card">
-      <div class="card-title">🎯 Watchlist Health <span class="watch-meta" id="watchlist-meta">TradingView export</span></div>
+      <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Watchlist Health</span> <span class="watch-meta" id="watchlist-meta">TradingView export</span></div>
       <div id="watchlist-health">
         <div style="color:var(--muted);font-size:10px;">Loading watchlist…</div>
       </div>
@@ -526,7 +565,7 @@
     <!-- ROUNDTABLE -->
     <div class="roundtable-section">
       <div class="roundtable-head">
-        <span class="roundtable-title">🎙 Trading Desk Roundtable</span>
+        <span class="roundtable-title"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Trading Desk Roundtable</span>
         <button class="btn" id="rt-btn" onclick="runRoundtable()">▶ Generate Desk Read</button>
       </div>
       <div id="roundtable-grid" class="roundtable-grid"></div>
@@ -540,7 +579,7 @@
   <div class="settings-drawer">
     <div class="settings-title">
       <span>⚙ Settings</span>
-      <button class="btn" onclick="toggleSettings()" style="font-size:10px">✕</button>
+      <button class="btn" onclick="toggleSettings()" style="font-size:10px" aria-label="Close settings">✕</button>
     </div>
 
     <div class="settings-section">
@@ -843,7 +882,7 @@ function renderPillars(d) {
   const ds = d.data_sources || {};
   const defs = [
     {
-      key: 'volatility', icon: '⚡', label: 'VOLATILITY',
+      key: 'volatility', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'VOLATILITY',
       primary(p) {
         const v = p.details;
         return [
@@ -864,7 +903,7 @@ function renderPillars(d) {
       },
     },
     {
-      key: 'trend', icon: '📈', label: 'TREND',
+      key: 'trend', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>', label: 'TREND',
       primary(p) {
         const v = p.details;
         return [
@@ -889,7 +928,7 @@ function renderPillars(d) {
       },
     },
     {
-      key: 'breadth', icon: '📊', label: 'BREADTH',
+      key: 'breadth', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', label: 'BREADTH',
       primary(p) {
         const v = p.details;
         const spct = v.sectors_total ? Math.round(v.sectors_positive / v.sectors_total * 100) : 0;
@@ -913,7 +952,7 @@ function renderPillars(d) {
       },
     },
     {
-      key: 'momentum', icon: '🚀', label: 'MOMENTUM',
+      key: 'momentum', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', label: 'MOMENTUM',
       primary(p) {
         const v = p.details;
         const chips = (v.sector_rs && v.sector_rs.length)
@@ -952,7 +991,7 @@ function renderPillars(d) {
       },
     },
     {
-      key: 'macro', icon: '🌐', label: 'MACRO',
+      key: 'macro', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', label: 'MACRO',
       primary(p) {
         const v = p.details;
         const sf = d.fear_greed_stock || {}, cf = d.fear_greed_crypto || {};
@@ -993,16 +1032,16 @@ function renderPillars(d) {
     return `
       <div class="pillar-card">
         <div class="pillar-head">
-          <span class="pillar-name" style="color:${c}">${def.icon} ${def.label}</span>
+          <span class="pillar-name icon-label" style="color:${c}">${def.icon} ${def.label}</span>
           <span class="pillar-score-badge" style="color:${c}">${sc}</span>
         </div>
         <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
         ${def.primary(p)}
-        <div class="detail-toggle" onclick="toggleDetail(this)">▾ more</div>
+        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false">▾ more</button>
         <div class="detail-rows">
           ${def.detail(p)}
         </div>
-        <div class="why-toggle" onclick="toggleWhy(this)">▾ Why this score?</div>
+        <button class="why-toggle" onclick="toggleWhy(this)" aria-expanded="false">▾ Why this score?</button>
         <div class="why-body">${reasons || '<em>No reasons recorded</em>'}</div>
       </div>`;
   }).join('');
@@ -1011,12 +1050,14 @@ function renderPillars(d) {
 function toggleDetail(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
+  el.setAttribute('aria-expanded', open);
   el.innerHTML = (open ? '▴' : '▾') + ' more';
 }
 
 function toggleWhy(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
+  el.setAttribute('aria-expanded', open);
   el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
 }
 
@@ -1411,18 +1452,34 @@ async function runRoundtable(auto=false) {
 }
 
 function renderRoundtable(personas) {
+  const AVATAR_SVG = {
+    '📊': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="3" x2="8" y2="7"/><rect x="5" y="7" width="6" height="7"/><line x1="8" y1="14" x2="8" y2="19"/><line x1="16" y1="2" x2="16" y2="8"/><rect x="13" y="8" width="6" height="6"/><line x1="16" y1="14" x2="16" y2="21"/></svg>',
+    '🌐': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    '🛡':  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    '🔄': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    '🎯': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+  };
+  const POINT_SVG = {
+    '✅':  `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)"   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>`,
+    '⚠️': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)"  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    '🔴': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--red)"     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    '⚪':  `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--muted)"  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+    '🎯': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+    '⛔': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--red)"     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>`,
+    '⚡': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+  };
   $('roundtable-grid').innerHTML = personas.map((p, i) => {
     const stanceCol = p.stance_color || 'gray';
     const isHead = p.persona === 'The Desk Head';
     const bg = `rgba(${stanceCol === 'green' ? '0,230,118' : stanceCol === 'yellow' ? '255,215,64' : stanceCol === 'orange' ? '255,145,0' : stanceCol === 'red' ? '255,23,68' : '90,112,128'}, 0.15)`;
     const fg = `var(--${stanceCol === 'gray' ? 'muted' : stanceCol})`;
     const pts = (p.points || []).map(pt => `
-      <div class="persona-point"><span class="icon">${pt.icon}</span><span>${pt.text}</span></div>`).join('');
+      <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || pt.icon}</span><span>${pt.text}</span></div>`).join('');
     return `
       <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
         <div class="persona-header">
           <div class="persona-id">
-            <div class="persona-name">${p.avatar} ${p.persona}</div>
+            <div class="persona-name">${AVATAR_SVG[p.avatar] || p.avatar} ${p.persona}</div>
             <div class="persona-role">${p.role}</div>
           </div>
           <span class="persona-stance" style="background:${bg};color:${fg}">${p.stance}</span>
