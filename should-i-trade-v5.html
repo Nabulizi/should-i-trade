@@ -509,7 +509,7 @@
     <div class="bottom-row">
       <!-- Sector + Industry Performance -->
       <div class="card">
-        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Breadth Under the Surface</span></div>
+        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Breadth Under the Surface</span></div>
         <div class="card-subtitle">11 SECTORS</div>
         <div id="sector-bars"></div>
         <div class="card-subtitle">INDUSTRY &amp; STYLE</div>
@@ -518,7 +518,7 @@
 
       <!-- Execution Window -->
       <div class="card">
-        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Execution Window</span></div>
+        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Execution Window</span></div>
         <div id="exec-window"></div>
       </div>
 
@@ -556,7 +556,7 @@
 
     <!-- WATCHLIST HEALTH -->
     <div class="card watch-card">
-      <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>Watchlist Health</span> <span class="watch-meta" id="watchlist-meta">TradingView export</span></div>
+      <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Watchlist Health</span> <span class="watch-meta" id="watchlist-meta">TradingView export</span></div>
       <div id="watchlist-health">
         <div style="color:var(--muted);font-size:10px;">Loading watchlist…</div>
       </div>
@@ -882,7 +882,7 @@ function renderPillars(d) {
   const ds = d.data_sources || {};
   const defs = [
     {
-      key: 'volatility', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', label: 'VOLATILITY',
+      key: 'volatility', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', label: 'VOLATILITY',
       primary(p) {
         const v = p.details;
         return [
@@ -952,7 +952,7 @@ function renderPillars(d) {
       },
     },
     {
-      key: 'momentum', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>', label: 'MOMENTUM',
+      key: 'momentum', icon: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>', label: 'MOMENTUM',
       primary(p) {
         const v = p.details;
         const chips = (v.sector_rs && v.sector_rs.length)
@@ -1452,18 +1452,31 @@ async function runRoundtable(auto=false) {
 }
 
 function renderRoundtable(personas) {
+  const AVATAR_SVG = {
+    '📊': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="3" x2="8" y2="7"/><rect x="5" y="7" width="6" height="7"/><line x1="8" y1="14" x2="8" y2="19"/><line x1="16" y1="2" x2="16" y2="8"/><rect x="13" y="8" width="6" height="6"/><line x1="16" y1="14" x2="16" y2="21"/></svg>',
+    '🌐': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    '🛡':  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    '🔄': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    '🎯': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+  };
+  const POINT_SVG = {
+    '✅':  `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)"  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>`,
+    '⚠️': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    '🔴': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--red)"   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    '⚪':  `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+  };
   $('roundtable-grid').innerHTML = personas.map((p, i) => {
     const stanceCol = p.stance_color || 'gray';
     const isHead = p.persona === 'The Desk Head';
     const bg = `rgba(${stanceCol === 'green' ? '0,230,118' : stanceCol === 'yellow' ? '255,215,64' : stanceCol === 'orange' ? '255,145,0' : stanceCol === 'red' ? '255,23,68' : '90,112,128'}, 0.15)`;
     const fg = `var(--${stanceCol === 'gray' ? 'muted' : stanceCol})`;
     const pts = (p.points || []).map(pt => `
-      <div class="persona-point"><span class="icon">${pt.icon}</span><span>${pt.text}</span></div>`).join('');
+      <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || pt.icon}</span><span>${pt.text}</span></div>`).join('');
     return `
       <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
         <div class="persona-header">
           <div class="persona-id">
-            <div class="persona-name">${p.avatar} ${p.persona}</div>
+            <div class="persona-name">${AVATAR_SVG[p.avatar] || p.avatar} ${p.persona}</div>
             <div class="persona-role">${p.role}</div>
           </div>
           <span class="persona-stance" style="background:${bg};color:${fg}">${p.stance}</span>
