@@ -556,7 +556,9 @@
 
     <!-- WATCHLIST HEALTH -->
     <div class="card watch-card">
-      <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Watchlist Health</span> <span class="watch-meta" id="watchlist-meta">TradingView export</span></div>
+      <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Watchlist Health</span> <span class="watch-meta" id="watchlist-meta">TradingView export</span>
+        <select id="watchlist-select" style="margin-left:8px;font-size:10px;background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer;" aria-label="Select watchlist file" onchange="onWatchlistChange()"></select>
+      </div>
       <div id="watchlist-health">
         <div style="color:var(--muted);font-size:10px;">Loading watchlist…</div>
       </div>
@@ -1189,7 +1191,10 @@ function renderWatchlistHealth(w, selectedView = _watchlistView) {
 
 async function loadWatchlistHealth() {
   try {
-    const res = await fetch('/api/watchlist-health');
+    const sel = $('watchlist-select');
+    const file = sel ? sel.value : '';
+    const url = '/api/watchlist-health' + (file ? `?file=${encodeURIComponent(file)}` : '');
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -1198,6 +1203,25 @@ async function loadWatchlistHealth() {
     $('watchlist-health').innerHTML = `<div style="color:var(--red);font-size:10px;">Watchlist unavailable: ${esc(e.message)}</div>`;
   }
 }
+
+async function initWatchlistDropdown() {
+  try {
+    const res = await fetch('/api/watchlists');
+    if (!res.ok) return;
+    const { files, default: def } = await res.json();
+    const sel = $('watchlist-select');
+    if (!sel || !files || files.length <= 1) {
+      // Hide dropdown when only one file (or none)
+      if (sel) sel.style.display = 'none';
+      return;
+    }
+    sel.innerHTML = files.map(f =>
+      `<option value="${esc(f)}"${f === def ? ' selected' : ''}>${esc(f.replace(/\.txt$/i, ''))}</option>`
+    ).join('');
+  } catch(e) { /* dropdown stays hidden */ }
+}
+
+function onWatchlistChange() { loadWatchlistHealth(); }
 
 /* ── CUSTOM WEIGHTS (localStorage) ────────────────────── */
 const DEFAULT_WEIGHTS = { volatility: 15, trend: 30, breadth: 25, momentum: 20, macro: 10 };
@@ -1611,8 +1635,38 @@ function tickCountdown() {
 }
 setInterval(tickCountdown, 1000);
 
+/* ── SERVER-SENT EVENTS ────────────────────────────────── */
+// The server pushes a "dashboard" event immediately after each cache refresh.
+// On receiving it we reload (unless a manual refresh is already in flight).
+// Falls back gracefully to the tickCountdown polling if SSE closes or is unsupported.
+let _sseSource = null;
+let _sseRetryMs = 5000;
+
+function connectSSE() {
+  if (!window.EventSource) return;   // browser doesn't support SSE
+  _sseSource = new EventSource('/api/stream');
+
+  _sseSource.addEventListener('dashboard', () => {
+    // Only trigger if not already mid-refresh and countdown isn't imminent (< 3s)
+    const left = _nextRefreshAt ? Math.max(0, _nextRefreshAt - Date.now()) : Infinity;
+    if (left > 3000) load(false);
+  });
+
+  _sseSource.onopen = () => { _sseRetryMs = 5000; };
+
+  _sseSource.onerror = () => {
+    _sseSource.close();
+    _sseSource = null;
+    // Exponential back-off, cap at 60s
+    setTimeout(connectSSE, _sseRetryMs);
+    _sseRetryMs = Math.min(_sseRetryMs * 2, 60000);
+  };
+}
+
 /* ── KICKOFF ───────────────────────────────────────────── */
 initTheme();
+initWatchlistDropdown();
+connectSSE();
 
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;

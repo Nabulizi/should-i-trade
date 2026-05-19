@@ -10,7 +10,7 @@ AI:   Local multi-persona trading desk roundtable (no API key)
 """
 
 from __future__ import annotations
-import gzip, json, logging, os, shutil, tempfile, threading, time, webbrowser
+import gzip, json, logging, os, queue, shutil, tempfile, threading, time, webbrowser
 from collections import deque
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
@@ -50,6 +50,22 @@ _WATCHLIST_LOCK = threading.Lock()
 # Request counters for /metrics endpoint
 _METRICS: dict[str, int] = {"requests": 0, "cache_hits": 0, "cache_misses": 0, "errors": 0}
 _METRICS_LOCK = threading.Lock()
+
+# Server-Sent Events — connected client queues
+_SSE_CLIENTS: list[queue.Queue] = []
+_SSE_LOCK = threading.Lock()
+
+
+def _sse_broadcast(event_type: str, data: dict) -> None:
+    """Push a JSON event to all connected SSE clients (non-blocking)."""
+    payload = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+    with _SSE_LOCK:
+        clients = list(_SSE_CLIENTS)
+    for q in clients:
+        try:
+            q.put_nowait(payload)
+        except queue.Full:
+            pass   # slow client; they'll rely on the next event
 
 
 # ─── Rate Limiter ──────────────────────────────────────────────────────────
@@ -151,6 +167,13 @@ def get_cached_dashboard() -> dict:
             _DASHBOARD_CACHE["data"] = data
             _DASHBOARD_CACHE["ts"] = time.time()
 
+        # Notify SSE clients that fresh data is available.
+        _sse_broadcast("dashboard", {
+            "score": data.get("total_score"),
+            "decision": data.get("decision"),
+            "ts": data.get("ts"),
+        })
+
     # Record in history only when live data is trustworthy.
     if data.get("data_quality", {}).get("valid", True):
         now_ts = time.time()
@@ -176,17 +199,29 @@ def get_cached_dashboard() -> dict:
     return data
 
 
-def get_cached_watchlist_health() -> dict:
-    from watchlist import DEFAULT_WATCHLIST
+def get_cached_watchlist_health(filename: str | None = None) -> dict:
+    from watchlist import DEFAULT_WATCHLIST, WATCHLIST_DIR
+    # Resolve path; fall back to default when no filename given
+    if filename:
+        # Safety: only allow plain filenames (no path separators)
+        if os.sep in filename or "/" in filename or "\\" in filename:
+            raise ValueError("Invalid watchlist filename")
+        path = os.path.join(WATCHLIST_DIR, filename)
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Watchlist '{filename}' not found")
+    else:
+        path = DEFAULT_WATCHLIST
     try:
-        current_mtime = os.path.getmtime(DEFAULT_WATCHLIST)
+        current_mtime = os.path.getmtime(path)
     except OSError:
         current_mtime = 0.0
 
     with _WATCHLIST_LOCK:
         now = time.time()
         file_unchanged = current_mtime == _WATCHLIST_CACHE["mtime"]
+        cached_path = _WATCHLIST_CACHE.get("path")
         if (_WATCHLIST_CACHE["data"] and file_unchanged
+                and cached_path == path
                 and now - _WATCHLIST_CACHE["ts"] < _WATCHLIST_TTL):
             return _WATCHLIST_CACHE["data"]
 
@@ -207,13 +242,26 @@ def get_cached_watchlist_health() -> dict:
         spy_above_200 = True
         regime_known  = False
 
-    data = compute_watchlist_health(spy_above_200=spy_above_200)
+    data = compute_watchlist_health(path=path, spy_above_200=spy_above_200)
     data["regime_known"] = regime_known
     with _WATCHLIST_LOCK:
         _WATCHLIST_CACHE["data"] = data
         _WATCHLIST_CACHE["ts"] = time.time()
         _WATCHLIST_CACHE["mtime"] = current_mtime
+        _WATCHLIST_CACHE["path"] = path
     return data
+
+
+def list_watchlist_files() -> list[str]:
+    """Return sorted list of .txt filenames in the watchlists/ directory."""
+    from watchlist import WATCHLIST_DIR
+    try:
+        return sorted(
+            f for f in os.listdir(WATCHLIST_DIR)
+            if f.lower().endswith(".txt") and os.path.isfile(os.path.join(WATCHLIST_DIR, f))
+        )
+    except OSError:
+        return []
 
 
 # ─── HTTP handler ──────────────────────────────────────────────────────────
@@ -268,6 +316,40 @@ class Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def _sse_stream(self):
+        """Keep the connection open and push `dashboard` events via SSE."""
+        client_queue: queue.Queue = queue.Queue(maxsize=10)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self._cors()
+        self.end_headers()
+        with _SSE_LOCK:
+            _SSE_CLIENTS.append(client_queue)
+        logger.debug("SSE client connected (%d total)", len(_SSE_CLIENTS))
+        try:
+            self.wfile.write(b": connected\n\n")
+            self.wfile.flush()
+            while True:
+                try:
+                    payload = client_queue.get(timeout=30)
+                    self.wfile.write(payload.encode())
+                    self.wfile.flush()
+                except queue.Empty:
+                    # Keepalive comment so proxies/browsers don't time out
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
+        finally:
+            with _SSE_LOCK:
+                try:
+                    _SSE_CLIENTS.remove(client_queue)
+                except ValueError:
+                    pass
+            logger.debug("SSE client disconnected (%d remaining)", len(_SSE_CLIENTS))
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -311,13 +393,30 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── TradingView watchlist health ───────────────────────────────────
         if path == "/api/watchlist-health":
+            from urllib.parse import parse_qs
+            params = parse_qs(parsed.query)
+            filename = params.get("file", [None])[0]
             try:
-                self._json(get_cached_watchlist_health())
+                self._json(get_cached_watchlist_health(filename=filename))
+            except (ValueError, FileNotFoundError) as e:
+                self._json({"error": str(e)}, 400)
             except Exception:
                 logger.exception("Error serving /api/watchlist-health")
                 with _METRICS_LOCK:
                     _METRICS["errors"] += 1
                 self._json({"error": "Internal server error"}, 500)
+            return
+
+        # ── available watchlist files ──────────────────────────────────────
+        if path == "/api/watchlists":
+            from watchlist import DEFAULT_WATCHLIST
+            default = os.path.basename(DEFAULT_WATCHLIST)
+            self._json({"files": list_watchlist_files(), "default": default})
+            return
+
+        # ── Server-Sent Events stream ──────────────────────────────────────
+        if path == "/api/stream":
+            self._sse_stream()
             return
 
         # ── health check ───────────────────────────────────────────────────
