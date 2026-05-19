@@ -1226,16 +1226,13 @@ def _safe_pillar(fn, *args, name: str = "?") -> dict:
         }
 
 
-def compute_dashboard() -> DashboardResult:
-    """Fetch everything in one parallel batch then score all 5 pillars."""
+def _fetch_instruments() -> dict:
+    """Fire all network requests in one concurrent batch; return raw data."""
     all_symbols   = CORE_SYMBOLS + SECTOR_SYMBOLS + INDUSTRY_SYMBOLS
-    # Core history + sector histories (220d for 200d MA + RS in one fetch)
     history_pairs = ([("SPY", 220), ("QQQ", 220), ("RSP", 220),
                       ("^VIX", 252), ("^TNX", 60), ("DX-Y.NYB", 60), ("HYG", 60)]
                      + [(s, 220) for s in SECTOR_SYMBOLS])
 
-    # Fire all network requests concurrently. Sector histories run in the same pool;
-    # since they're independent Yahoo requests, net time increase is minimal.
     with _TPE(max_workers=24) as ex:
         q_futs      = {ex.submit(get_quote,   s):    s for s in all_symbols}
         h_futs      = {ex.submit(get_history, s, d): s for s, d in history_pairs}
@@ -1246,57 +1243,47 @@ def compute_dashboard() -> DashboardResult:
         fng_c_f     = ex.submit(fetch_fear_greed_crypto)
         fut_tape_f  = ex.submit(fetch_futures_tape)
 
-    quotes     = {q_futs[f]:  f.result() for f in q_futs}
-    histories  = {h_futs[f]:  f.result() for f in h_futs}
-    spy_ohlcv  = spy_ohlcv_f.result()
-    btc_q      = btc_q_f.result()
-    btc_closes = btc_h_f.result()
-    fng_stock  = fng_s_f.result()
-    fng_crypto = fng_c_f.result()
-    futures_tape = fut_tape_f.result()
+    return {
+        "all_symbols":   all_symbols,
+        "quotes":        {q_futs[f]: f.result() for f in q_futs},
+        "histories":     {h_futs[f]: f.result() for f in h_futs},
+        "spy_ohlcv":     spy_ohlcv_f.result(),
+        "btc_q":         btc_q_f.result(),
+        "btc_closes":    btc_h_f.result(),
+        "fng_stock":     fng_s_f.result(),
+        "fng_crypto":    fng_c_f.result(),
+        "futures_tape":  fut_tape_f.result(),
+        "sector_histories": {s: {} for s in SECTOR_SYMBOLS},   # placeholder
+    }
 
-    sector_histories = {s: histories.get(s, []) for s in SECTOR_SYMBOLS}
 
-    mstate  = market_state()
-    fomc    = fomc_proximity()
-    opex    = opex_proximity()
-    season  = seasonality()
-    earnings = earnings_season()
-    econ_events = econ_proximity()
+def _run_pillars(instruments: dict) -> dict[str, dict]:
+    """Run all 5 pillar scorers against the fetched instrument data."""
+    quotes   = instruments["quotes"]
+    hist     = instruments["histories"]
+    sector_h = {s: hist.get(s, []) for s in SECTOR_SYMBOLS}
 
-    # Data coverage is computed before scoring so failed feeds cannot become
-    # a confident trade decision. Pillars still render for debugging.
-    requested = len(all_symbols)
-    fetched = sum(1 for q in quotes.values() if q)
-    failed = [s for s, q in quotes.items() if not q]
-    data_quality = build_data_quality(
-        quotes, requested, fetched, failed, histories, SECTOR_SYMBOLS)
-
-    # Score each pillar (with graceful fallback per pillar)
-    vol  = _safe_pillar(score_volatility, quotes, histories.get("^VIX", []), name="Volatility")
-    tr   = _safe_pillar(score_trend, quotes, histories.get("SPY", []), histories.get("QQQ", []), spy_ohlcv, name="Trend")
-    br   = _safe_pillar(score_breadth, quotes, histories.get("RSP", []), sector_histories, name="Breadth")
-    mom  = _safe_pillar(score_momentum, quotes, sector_histories, name="Momentum")
+    vol  = _safe_pillar(score_volatility, quotes, hist.get("^VIX", []), name="Volatility")
+    tr   = _safe_pillar(score_trend, quotes, hist.get("SPY", []), hist.get("QQQ", []),
+                        instruments["spy_ohlcv"], name="Trend")
+    br   = _safe_pillar(score_breadth, quotes, hist.get("RSP", []), sector_h, name="Breadth")
+    mom  = _safe_pillar(score_momentum, quotes, sector_h, name="Momentum")
     mac  = _safe_pillar(score_macro, quotes,
-                        histories.get("^TNX", []), histories.get("DX-Y.NYB", []),
-                        btc_q, btc_closes, fomc, histories.get("HYG", []),
-                        opex, season, name="Macro")
+                        hist.get("^TNX", []), hist.get("DX-Y.NYB", []),
+                        instruments["btc_q"], instruments["btc_closes"],
+                        instruments["fomc"], hist.get("HYG", []),
+                        instruments["opex"], instruments["season"], name="Macro")
+    return {"volatility": vol, "trend": tr, "breadth": br, "momentum": mom, "macro": mac}
 
-    # Weighted total
-    total = int(vol["score"]  * PILLAR_WEIGHTS["volatility"] +
-                tr["score"]   * PILLAR_WEIGHTS["trend"] +
-                br["score"]   * PILLAR_WEIGHTS["breadth"] +
-                mom["score"]  * PILLAR_WEIGHTS["momentum"] +
-                mac["score"]  * PILLAR_WEIGHTS["macro"])
 
+def _apply_overrides(total: int, pillars: dict, data_quality: dict) -> tuple[int, int, list, str, str, str]:
+    """Apply hard regime caps and return (total, raw_total, override_reasons, decision, color, position)."""
     raw_total = total
-
-    # ── Hard regime overrides ──────────────────────────────────────────────
-    # Certain conditions should cap the decision regardless of the weighted total.
-    override_reasons = []
+    override_reasons: list[str] = []
     safety_max_score = None
-    vix_level    = vol["details"].get("vix_level") or 0
-    spy_above_200 = tr["details"].get("above_200", True)
+
+    vix_level    = pillars["volatility"]["details"].get("vix_level") or 0
+    spy_above_200 = pillars["trend"]["details"].get("above_200", True)
 
     if data_quality["valid"]:
         if vix_level >= 40:
@@ -1324,20 +1311,18 @@ def compute_dashboard() -> DashboardResult:
     else:
         decision, dc, pos = decision_for_score(total)
 
-    conflicts = detect_conflicts(
-        {"trend": tr, "volatility": vol, "breadth": br, "momentum": mom, "macro": mac},
-        total
-    )
+    return total, raw_total, safety_max_score, override_reasons, decision, dc, pos
 
-    # Ticker
-    ticker = []
+
+def _build_ticker(quotes: dict, btc_q: dict | None) -> list:
+    ticker: list[dict] = []
     for sym, label in [("SPY", "SPY"), ("QQQ", "QQQ"), ("^VIX", "VIX"),
-                        ("TLT", "TLT"), ("^TNX", "TNX"), ("DX-Y.NYB", "DXY"),
-                        ("RSP", "RSP"), ("IWM", "IWM")]:
+                       ("TLT", "TLT"), ("^TNX", "TNX"), ("DX-Y.NYB", "DXY"),
+                       ("RSP", "RSP"), ("IWM", "IWM")]:
         q = quotes.get(sym)
         if q:
             ticker.append({"symbol": label, "price": round(q.get("price") or 0, 2),
-                            "change_pct": round(pct(q), 2), "up": pct(q) >= 0})
+                           "change_pct": round(pct(q), 2), "up": pct(q) >= 0})
     if btc_q:
         ticker.insert(2, {"symbol": "BTC", "price": round(btc_q["price"], 0),
                           "change_pct": pct(btc_q), "up": pct(btc_q) >= 0})
@@ -1345,42 +1330,82 @@ def compute_dashboard() -> DashboardResult:
         q = quotes.get(s)
         if q:
             ticker.append({"symbol": s, "price": round(q.get("price") or 0, 2),
-                            "change_pct": round(pct(q), 2), "up": pct(q) >= 0})
+                           "change_pct": round(pct(q), 2), "up": pct(q) >= 0})
+    return ticker
 
+
+def compute_dashboard() -> DashboardResult:
+    """Orchestrate a full dashboard refresh in four clean phases."""
+    # 1. Fetch
+    instruments = _fetch_instruments()
+    instruments.update({
+        "mstate":      market_state(),
+        "fomc":        fomc_proximity(),
+        "opex":        opex_proximity(),
+        "season":      seasonality(),
+        "earnings":    earnings_season(),
+        "econ_events": econ_proximity(),
+    })
+
+    # 2. Score
+    pillars      = _run_pillars(instruments)
+    quotes       = instruments["quotes"]
+    all_symbols  = instruments["all_symbols"]
+    requested    = len(all_symbols)
+    fetched      = sum(1 for q in quotes.values() if q)
+    failed       = [s for s, q in quotes.items() if not q]
+    data_quality = build_data_quality(quotes, requested, fetched, failed,
+                                      instruments["histories"], SECTOR_SYMBOLS)
+
+    # 3. Aggregate
+    raw_total = int(
+        pillars["volatility"]["score"] * PILLAR_WEIGHTS["volatility"] +
+        pillars["trend"]["score"]      * PILLAR_WEIGHTS["trend"] +
+        pillars["breadth"]["score"]    * PILLAR_WEIGHTS["breadth"] +
+        pillars["momentum"]["score"]   * PILLAR_WEIGHTS["momentum"] +
+        pillars["macro"]["score"]      * PILLAR_WEIGHTS["macro"]
+    )
+    total, _, safety_max, override_reasons, decision, dc, pos = _apply_overrides(
+        raw_total, pillars, data_quality)
+    conflicts = detect_conflicts(pillars, total)
+
+    # 4. Assemble result
+    mstate = instruments["mstate"]
+    fomc   = instruments["fomc"]
     return {
         "total_score": total,
         "raw_total_score": raw_total,
-        "safety_max_score": safety_max_score,
+        "safety_max_score": safety_max,
         "decision": decision, "decision_color": dc, "position_size": pos,
         "market_state": mstate,
-        "fomc": fomc,
-        "opex": opex,
-        "season": season,
-        "earnings": earnings,
-        "econ_events": econ_events,
-        "econ_calendar_stale": len(econ_events) < 2,
+        "fomc":         fomc,
+        "opex":         instruments["opex"],
+        "season":       instruments["season"],
+        "earnings":     instruments["earnings"],
+        "econ_events":  instruments["econ_events"],
+        "econ_calendar_stale": len(instruments["econ_events"]) < 2,
         "fomc_calendar_stale": fomc.get("days_until") is None,
-        "conflicts": conflicts,
+        "conflicts":        conflicts,
         "override_reasons": override_reasons,
         "pillars": {
-            "volatility": {"score": vol["score"],  "weight": int(PILLAR_WEIGHTS["volatility"] * 100), "details": vol["details"],  "reasons": vol["reasons"]},
-            "trend":      {"score": tr["score"],   "weight": int(PILLAR_WEIGHTS["trend"]      * 100), "details": tr["details"],   "reasons": tr["reasons"]},
-            "breadth":    {"score": br["score"],   "weight": int(PILLAR_WEIGHTS["breadth"]    * 100), "details": br["details"],   "reasons": br["reasons"]},
-            "momentum":   {"score": mom["score"],  "weight": int(PILLAR_WEIGHTS["momentum"]   * 100), "details": mom["details"],  "reasons": mom["reasons"]},
-            "macro":      {"score": mac["score"],  "weight": int(PILLAR_WEIGHTS["macro"]      * 100), "details": mac["details"],  "reasons": mac["reasons"]},
+            k: {"score": v["score"],
+                "weight": int(PILLAR_WEIGHTS[k] * 100),
+                "details": v["details"],
+                "reasons": v["reasons"]}
+            for k, v in pillars.items()
         },
-        "ticker": ticker,
-        "futures_tape": futures_tape,
-        "fear_greed_stock":  fng_stock,
-        "fear_greed_crypto": fng_crypto,
-        "timestamp": mstate["et_time"],   # "HH:MM ET" — already computed above
+        "ticker":            _build_ticker(quotes, instruments["btc_q"]),
+        "futures_tape":      instruments["futures_tape"],
+        "fear_greed_stock":  instruments["fng_stock"],
+        "fear_greed_crypto": instruments["fng_crypto"],
+        "timestamp":         mstate["et_time"],
         "data_sources": {
-            "vix": "CBOE",                # history from cdn.cboe.com
-            "tnx": "US Treasury",         # history from home.treasury.gov
+            "vix": "CBOE",
+            "tnx": "US Treasury",
             "spy": _src_label(quotes.get("SPY")),
-            "btc": _src_label(btc_q),
+            "btc": _src_label(instruments["btc_q"]),
         },
         "data_coverage": {"requested": requested, "fetched": fetched, "failed": failed},
-        "data_quality": data_quality,
+        "data_quality":  data_quality,
         "decision_bands": DECISION_BANDS,
     }

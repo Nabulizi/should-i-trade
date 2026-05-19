@@ -28,6 +28,43 @@ _CACHE: dict[str, tuple[float, str]] = {}
 _CACHE_LOCK = threading.Lock()
 _UA = "Mozilla/5.0 (compatible; ShouldITrade/5.0)"
 
+# ─── circuit breaker ──────────────────────────────────────────────────────
+# Per-symbol failure tracking. Opens after _CB_THRESHOLD consecutive failures
+# and half-opens after _CB_RESET_SECS to allow a single probe.
+_CB_THRESHOLD = 3          # consecutive failures before opening
+_CB_RESET_SECS = 60        # seconds in OPEN state before trying again
+_CB: dict[str, dict] = {}  # {symbol: {"failures": int, "opened_at": float|None}}
+_CB_LOCK = threading.Lock()
+
+
+def _cb_allow(symbol: str) -> bool:
+    """Return True if the circuit is CLOSED or HALF-OPEN (probe allowed)."""
+    with _CB_LOCK:
+        state = _CB.get(symbol)
+        if not state or state["opened_at"] is None:
+            return True  # CLOSED
+        # OPEN — check whether reset period has elapsed
+        if time.time() - state["opened_at"] >= _CB_RESET_SECS:
+            # Transition to HALF-OPEN: clear opened_at so next failure re-opens
+            state["opened_at"] = None
+            return True
+        return False  # still OPEN
+
+
+def _cb_success(symbol: str) -> None:
+    with _CB_LOCK:
+        _CB[symbol] = {"failures": 0, "opened_at": None}
+
+
+def _cb_failure(symbol: str) -> None:
+    with _CB_LOCK:
+        state = _CB.setdefault(symbol, {"failures": 0, "opened_at": None})
+        state["failures"] += 1
+        if state["failures"] >= _CB_THRESHOLD and state["opened_at"] is None:
+            state["opened_at"] = time.time()
+            logger.warning("Circuit breaker OPENED for %s after %d failures",
+                           symbol, state["failures"])
+
 
 def fetch_url(url: str, timeout: int = 15, cache_secs: int = 30,
               headers: dict | None = None) -> str:
@@ -233,25 +270,51 @@ _OFFICIAL_SOURCES: dict[str, callable] = {
 }
 
 
-# ─── unified getters (with fallback) ────────────────────────────────────────
+# ─── unified getters (with fallback + circuit breaker) ───────────────────
 def get_quote(symbol: str) -> dict | None:
-    q = yf_quote(symbol)
-    if q and q.get("price") is not None:
-        return q
-    return stooq_quote(symbol)
+    if not _cb_allow(symbol):
+        logger.debug("Circuit OPEN: skipping quote fetch for %s", symbol)
+        return None
+    try:
+        q = yf_quote(symbol)
+        if q and q.get("price") is not None:
+            _cb_success(symbol)
+            return q
+        q2 = stooq_quote(symbol)
+        if q2:
+            _cb_success(symbol)
+        else:
+            _cb_failure(symbol)
+        return q2
+    except Exception:
+        _cb_failure(symbol)
+        return None
 
 
 def get_history(symbol: str, days: int = 220) -> list[float]:
-    # Use canonical publishers for VIX and 10Y yield — more reliable than Yahoo.
-    # Falls back to Yahoo then Stooq if the official source fails.
-    if symbol in _OFFICIAL_SOURCES:
-        h = _OFFICIAL_SOURCES[symbol](limit=max(days + 80, 300))
+    if not _cb_allow(symbol):
+        logger.debug("Circuit OPEN: skipping history fetch for %s", symbol)
+        return []
+    try:
+        # Use canonical publishers for VIX and 10Y yield — more reliable than Yahoo.
+        if symbol in _OFFICIAL_SOURCES:
+            h = _OFFICIAL_SOURCES[symbol](limit=max(days + 80, 300))
+            if len(h) >= 20:
+                _cb_success(symbol)
+                return h
+        h = yf_history(symbol, days)
         if len(h) >= 20:
+            _cb_success(symbol)
             return h
-    h = yf_history(symbol, days)
-    if len(h) >= 20:
-        return h
-    return stooq_history(symbol) or h
+        h2 = stooq_history(symbol) or h
+        if h2:
+            _cb_success(symbol)
+        else:
+            _cb_failure(symbol)
+        return h2
+    except Exception:
+        _cb_failure(symbol)
+        return []
 
 
 # ─── equity index futures tape ─────────────────────────────────────────────
