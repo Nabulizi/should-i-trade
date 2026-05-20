@@ -1,0 +1,15 @@
+{
+  "name": "should-i-trade",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "lint": "eslint static/app.js"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "jsdom": "^25.0.0",
+    "vitest": "^2.0.0"
+  }
+}
