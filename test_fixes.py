@@ -349,6 +349,64 @@ finally:
         srv._RECOMPUTING.clear()
 
 
+# ── §9b: background recompute failure must preserve stale cache ──────────
+# Wait for any previous background thread to complete
+time.sleep(1.0)
+max_wait = 5.0
+waited = 0.0
+while srv._RECOMPUTING.is_set() and waited < max_wait:
+    time.sleep(0.1)
+    waited += 0.1
+
+import scoring
+_9b_cache_orig  = copy.deepcopy(srv._DASHBOARD_CACHE)
+_9b_recomp_orig = srv._RECOMPUTING.is_set()
+
+_STALE_9B = {
+    "total_score": 42, "decision": "NO", "decision_color": "orange",
+    "position": "minimal", "pillars": {
+        "volatility": {"score": 42, "details": {}, "reasons": []},
+        "trend":      {"score": 42, "details": {}, "reasons": []},
+        "breadth":    {"score": 42, "details": {}, "reasons": []},
+        "momentum":   {"score": 42, "details": {}, "reasons": []},
+        "macro":      {"score": 42, "details": {}, "reasons": []},
+    },
+    "data_quality": {"valid": True}, "market_state": {}, "fomc": {},
+    "econ": [], "opex": {}, "seasonality": {}, "earnings_season": {},
+    "conflicts": [], "roundtable": [], "ts": time.time() - 1000,
+    "score_delta": 0, "stale": False,
+}
+
+try:
+    # Hold _COMPUTE_LOCK to prevent race with previous test's background thread
+    with srv._COMPUTE_LOCK:
+        with srv._DASHBOARD_LOCK:
+            srv._DASHBOARD_CACHE["data"] = _STALE_9B
+            srv._DASHBOARD_CACHE["ts"] = 0.0  # expired
+
+        def _fail_recompute():
+            raise RuntimeError("simulated data-feed failure")
+
+        # Patch _do_recompute to inject failure
+        _9b_do_recompute_orig = srv._do_recompute
+        srv._do_recompute = _fail_recompute
+        srv._RECOMPUTING.set()       # simulate: flag was set before thread ran
+    
+    # Release _COMPUTE_LOCK and call _background_recompute which will reacquire it
+    srv._background_recompute()  # must catch exception; clear flag in finally
+
+    check("§9b: _RECOMPUTING cleared after background crash",
+          not srv._RECOMPUTING.is_set())
+    check("§9b: stale cache data preserved after background crash",
+          srv._DASHBOARD_CACHE["data"] is _STALE_9B)
+finally:
+    srv._do_recompute = _9b_do_recompute_orig
+    with srv._DASHBOARD_LOCK:
+        srv._DASHBOARD_CACHE.update(_9b_cache_orig)
+    if not _9b_recomp_orig:
+        srv._RECOMPUTING.clear()
+
+
 total = sum(1 for line in open(__file__).readlines() if "check(" in line or "ok(" in line)
 if failures:
     print(f"\n  {FAIL} {len(failures)} test(s) FAILED:")

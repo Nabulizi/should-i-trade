@@ -220,12 +220,15 @@ def get_cached_dashboard() -> dict:
     # so the *next* request gets fresh data without any client waiting.
     with _DASHBOARD_LOCK:
         stale_data = _DASHBOARD_CACHE["data"]
+        should_spawn = False
+        if stale_data is not None and not _RECOMPUTING.is_set():
+            _RECOMPUTING.set()   # atomic check-and-set under _DASHBOARD_LOCK
+            should_spawn = True
 
     if stale_data is not None:
         with _METRICS_LOCK:
             _METRICS["cache_hits"] += 1
-        if not _RECOMPUTING.is_set():
-            _RECOMPUTING.set()
+        if should_spawn:
             threading.Thread(
                 target=_background_recompute, daemon=True, name="recompute"
             ).start()
