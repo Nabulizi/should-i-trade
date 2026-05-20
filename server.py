@@ -42,6 +42,7 @@ _DASHBOARD_CACHE = {"ts": 0.0, "data": None}
 _DASHBOARD_TTL = DASHBOARD_TTL
 _DASHBOARD_LOCK = threading.Lock()
 _COMPUTE_LOCK   = threading.Lock()   # serialises computation; prevents thundering herd
+_RECOMPUTING    = threading.Event()  # set while a background stale-while-revalidate thread runs
 
 _WATCHLIST_CACHE = {"ts": 0.0, "data": None, "mtime": 0.0}
 _WATCHLIST_TTL = WATCHLIST_TTL
@@ -128,52 +129,39 @@ def _save_history(snapshot: list) -> None:
         logger.exception("Failed to save history.json")
 
 
-def get_cached_dashboard() -> dict:
+def _do_recompute() -> dict:
+    """Fetch fresh data, update cache, broadcast SSE, record history.
+
+    Must be called while *not* holding _DASHBOARD_LOCK.
+    Returns the freshly computed data dict with ``stale=False``.
+    """
     with _METRICS_LOCK:
-        _METRICS["requests"] += 1
+        _METRICS["cache_misses"] += 1
 
-    # Fast path — cache hit, no lock contention
+    data = compute_dashboard()
+
+    # Score delta vs. last snapshot; suppressed for invalid feeds to avoid fake collapses.
+    prev_total = None
+    if data.get("data_quality", {}).get("valid", True):
+        with _HISTORY_LOCK:
+            prev_total = _HISTORY[-1]["total"] if _HISTORY else None
+        data["score_delta"] = (data["total_score"] - prev_total
+                               if prev_total is not None else None)
+    else:
+        data["score_delta"] = None
+
+    data["stale"] = False
+
     with _DASHBOARD_LOCK:
-        now = time.time()
-        if _DASHBOARD_CACHE["data"] and now - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
-            with _METRICS_LOCK:
-                _METRICS["cache_hits"] += 1
-            return _DASHBOARD_CACHE["data"]
+        _DASHBOARD_CACHE["data"] = data
+        _DASHBOARD_CACHE["ts"] = time.time()
 
-    # Cache miss — only one thread computes; the rest queue then get the fresh result.
-    with _COMPUTE_LOCK:
-        with _DASHBOARD_LOCK:
-            now = time.time()
-            if _DASHBOARD_CACHE["data"] and now - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
-                with _METRICS_LOCK:
-                    _METRICS["cache_hits"] += 1
-                return _DASHBOARD_CACHE["data"]
-
-        with _METRICS_LOCK:
-            _METRICS["cache_misses"] += 1
-
-        data = compute_dashboard()
-
-        # Score delta vs. last snapshot. Invalid feed states show None to avoid fake collapses.
-        if data.get("data_quality", {}).get("valid", True):
-            with _HISTORY_LOCK:
-                prev_total = _HISTORY[-1]["total"] if _HISTORY else None
-            data["score_delta"] = (data["total_score"] - prev_total
-                                   if prev_total is not None else None)
-        else:
-            data["score_delta"] = None
-
-        with _DASHBOARD_LOCK:
-            _DASHBOARD_CACHE["data"] = data
-            _DASHBOARD_CACHE["ts"] = time.time()
-
-        # Notify SSE clients that fresh data is available.
-        _sse_broadcast("dashboard", {
-            "score": data.get("total_score"),
-            "previous_score": prev_total,
-            "decision": data.get("decision"),
-            "ts": data.get("ts"),
-        })
+    _sse_broadcast("dashboard", {
+        "score":          data.get("total_score"),
+        "previous_score": prev_total,
+        "decision":       data.get("decision"),
+        "ts":             data.get("ts"),
+    })
 
     # Record in history only when live data is trustworthy.
     if data.get("data_quality", {}).get("valid", True):
@@ -198,6 +186,60 @@ def get_cached_dashboard() -> dict:
             _save_history(history_copy)
 
     return data
+
+
+def _background_recompute() -> None:
+    """Background thread: refresh stale cache without blocking any request."""
+    try:
+        with _COMPUTE_LOCK:
+            # Another thread may have refreshed while we waited for the lock.
+            with _DASHBOARD_LOCK:
+                if time.time() - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
+                    return
+            _do_recompute()
+    except Exception:
+        logger.exception("Background recompute failed")
+    finally:
+        _RECOMPUTING.clear()
+
+
+def get_cached_dashboard() -> dict:
+    with _METRICS_LOCK:
+        _METRICS["requests"] += 1
+
+    # ── Fast path ── cache is fresh; return immediately.
+    with _DASHBOARD_LOCK:
+        now = time.time()
+        if _DASHBOARD_CACHE["data"] and now - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
+            with _METRICS_LOCK:
+                _METRICS["cache_hits"] += 1
+            return _DASHBOARD_CACHE["data"]
+
+    # ── Stale-while-revalidate ── cache exists but is expired.
+    # Return the last known result right now; kick off a background refresh
+    # so the *next* request gets fresh data without any client waiting.
+    with _DASHBOARD_LOCK:
+        stale_data = _DASHBOARD_CACHE["data"]
+
+    if stale_data is not None:
+        with _METRICS_LOCK:
+            _METRICS["cache_hits"] += 1
+        if not _RECOMPUTING.is_set():
+            _RECOMPUTING.set()
+            threading.Thread(
+                target=_background_recompute, daemon=True, name="recompute"
+            ).start()
+        return {**stale_data, "stale": True}
+
+    # ── Cold start ── no data at all; must block once (only on first boot).
+    with _COMPUTE_LOCK:
+        # Re-check: another thread may have finished while we waited.
+        with _DASHBOARD_LOCK:
+            if _DASHBOARD_CACHE["data"] and time.time() - _DASHBOARD_CACHE["ts"] < _DASHBOARD_TTL:
+                with _METRICS_LOCK:
+                    _METRICS["cache_hits"] += 1
+                return _DASHBOARD_CACHE["data"]
+        return _do_recompute()
 
 
 def get_cached_watchlist_health(filename: str | None = None) -> dict:

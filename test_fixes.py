@@ -232,8 +232,123 @@ check("FutureTimeoutError imported in data.py",             hasattr(data_mod, "F
 check("_PARALLEL_TIMEOUT == 30",                            data_mod._PARALLEL_TIMEOUT == 30)
 
 
+
 # ══════════════════════════════════════════════════════════════════════════
-print("\n── Summary ───────────────────────────────────────────────────────")
+print("\n── 8. Static file serving — app.css and app.js ──────────────────")
+import server as server_mod
+
+# Verify static files exist on disk
+static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+check("static/app.css exists on disk", os.path.isfile(os.path.join(static_dir, "app.css")))
+check("static/app.js  exists on disk", os.path.isfile(os.path.join(static_dir, "app.js")))
+
+# Spin up a second test server to avoid port conflict with section 6's shutdown server
+TEST_PORT2 = 18766
+server2 = ThreadingHTTPServer(("127.0.0.1", TEST_PORT2), Handler)
+t2 = threading.Thread(target=server2.serve_forever, daemon=True)
+t2.start()
+time.sleep(0.2)
+
+def get2(path, headers=None):
+    url = f"http://127.0.0.1:{TEST_PORT2}{path}"
+    req = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status, dict(r.headers), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), b""
+
+status, hdrs, body = get2("/static/app.css")
+check("GET /static/app.css → 200",            status == 200, f"got {status}")
+check("app.css Content-Type is text/css",      "text/css" in hdrs.get("Content-Type", ""),
+      hdrs.get("Content-Type"))
+check("app.css body is non-empty",             len(body) > 100)
+
+status, hdrs, body = get2("/static/app.js")
+check("GET /static/app.js → 200",             status == 200, f"got {status}")
+check("app.js Content-Type is application/javascript",
+      "javascript" in hdrs.get("Content-Type", ""), hdrs.get("Content-Type"))
+check("app.js body is non-empty",              len(body) > 100)
+
+# Path traversal via /static/ must be blocked
+status, _, _ = get2("/static/../../../etc/passwd")
+check("Path traversal via /static/ → 403 or 404", status in (403, 404), f"got {status}")
+
+# HTML file now links to external CSS/JS, not inline
+html_path = server_mod.HTML_FILE
+with open(os.path.join(os.path.dirname(os.path.abspath(server_mod.__file__)), html_path)) as hf:
+    html_src = hf.read()
+check("HTML links to /static/app.css",         "/static/app.css" in html_src)
+check("HTML links to /static/app.js",          "/static/app.js"  in html_src)
+check("HTML has no inline <style> block",      "<style>" not in html_src)
+check("HTML has no inline <script> block",     "<script>" not in html_src or
+      'src="/static/app.js"' in html_src)
+
+server2.shutdown()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+print("\n── 9. Stale-while-revalidate — server.py cache logic ────────────")
+import server as srv
+import inspect
+
+src = inspect.getsource(srv.get_cached_dashboard)
+src_helper = inspect.getsource(srv._do_recompute)
+src_bg = inspect.getsource(srv._background_recompute)
+
+check("get_cached_dashboard has stale-while-revalidate path",
+      "stale_data is not None" in src)
+check("_do_recompute exists and sets stale=False",
+      "stale" in src_helper and "False" in src_helper)
+check("_background_recompute clears _RECOMPUTING",
+      "_RECOMPUTING.clear()" in src_bg)
+check("_RECOMPUTING is a threading.Event",
+      isinstance(srv._RECOMPUTING, type(threading.Event())))
+
+# Functional: pre-seed a stale cache entry; call get_cached_dashboard; verify
+# it returns immediately (stale flag) and spawns a background thread.
+import copy
+original_cache = copy.deepcopy(srv._DASHBOARD_CACHE)
+original_recomputing = srv._RECOMPUTING.is_set()
+
+FAKE_DATA = {
+    "total_score": 55, "decision": "NEUTRAL", "decision_color": "yellow",
+    "position": "flat", "pillars": {
+        "volatility": {"score": 55, "details": {}, "reasons": []},
+        "trend":      {"score": 55, "details": {}, "reasons": []},
+        "breadth":    {"score": 55, "details": {}, "reasons": []},
+        "momentum":   {"score": 55, "details": {}, "reasons": []},
+        "macro":      {"score": 55, "details": {}, "reasons": []},
+    },
+    "data_quality": {"valid": True}, "market_state": {}, "fomc": {},
+    "econ": [], "opex": {}, "seasonality": {}, "earnings_season": {},
+    "conflicts": [], "roundtable": [], "ts": time.time() - 1000,
+    "score_delta": 0, "stale": False,
+}
+
+try:
+    with srv._DASHBOARD_LOCK:
+        srv._DASHBOARD_CACHE["data"] = FAKE_DATA
+        srv._DASHBOARD_CACHE["ts"] = time.time() - (srv._DASHBOARD_TTL + 10)  # expired
+    srv._RECOMPUTING.clear()
+
+    result = srv.get_cached_dashboard()
+
+    check("stale-while-revalidate returns stale data immediately",
+          result.get("total_score") == 55)
+    check("returned dict has stale=True",
+          result.get("stale") is True)
+    time.sleep(0.1)  # let thread spawn
+    check("_RECOMPUTING was set (background thread launched)",
+          srv._RECOMPUTING.is_set())
+finally:
+    # Restore original cache state so other tests aren't affected
+    with srv._DASHBOARD_LOCK:
+        srv._DASHBOARD_CACHE.update(original_cache)
+    if not original_recomputing:
+        srv._RECOMPUTING.clear()
+
+
 total = sum(1 for line in open(__file__).readlines() if "check(" in line or "ok(" in line)
 if failures:
     print(f"\n  {FAIL} {len(failures)} test(s) FAILED:")
