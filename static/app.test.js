@@ -98,11 +98,13 @@ describe('decisionForScore', () => {
 
   it('uses custom bands when provided', () => {
     const custom = [
-      { min: 50, decision: 'BUY',  color: 'green',  position: 'full' },
-      { min: 0,  decision: 'SELL', color: 'red',    position: 'none' },
+      { min: 50, decision: 'BUY',  color: 'green', position: 'full' },
+      { min: 0,  decision: 'SELL', color: 'red',   position: 'none' },
     ];
     expect(decisionForScore(60, custom).decision).toBe('BUY');
     expect(decisionForScore(30, custom).decision).toBe('SELL');
+    expect(decisionForScore(60, custom).decision_color).toBe('green');
+    expect(decisionForScore(60, custom).position_size).toBe('full');
   });
 });
 
@@ -136,5 +138,14 @@ describe('FALLBACK_DECISION_BANDS', () => {
     expect(decisions).toContain('CAUTION');
     expect(decisions).toContain('NO');
     expect(decisions).toContain('STRONG NO');
+  });
+
+  it('each band has required fields', () => {
+    FALLBACK_DECISION_BANDS.forEach(band => {
+      expect(band).toHaveProperty('min');
+      expect(band).toHaveProperty('decision');
+      expect(band).toHaveProperty('color');
+      expect(band).toHaveProperty('position');
+    });
   });
 });
