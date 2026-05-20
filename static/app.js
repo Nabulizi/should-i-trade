@@ -1127,6 +1127,9 @@ if (!globalThis.__TESTING__) {
   window.onWeightChange         = onWeightChange;
   window.applyWeights           = applyWeights;
   window.resetWeights           = resetWeights;
+  window.toggleDetail           = toggleDetail;
+  window.toggleWhy              = toggleWhy;
+  window.selectWatchlistView    = selectWatchlistView;
 
   initTheme();
   initWatchlistDropdown();
