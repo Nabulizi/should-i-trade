@@ -145,14 +145,54 @@ def test_volatility() -> None:
     ok("VIX9D 18 / VIX 22 (0.818x) → vix9d_label == 'Calm'",
        r_9d_c["details"]["vix9d_label"] == "Calm")
 
-    # SKEW ≥ 150 → Extreme Tail Risk
-    quotes_skew = {
-        "^VIX": q(18.0, 0.0), "^SKEW": q(152.0),
+    # SKEW context-aware interpretation — high SKEW with calm VIX = wall of worry (bullish)
+    quotes_skew_calm = {
+        "^VIX": q(17.0, 0.0), "^SKEW": q(152.0),  # VIX 17 < 19 = calm
         "TQQQ": q(40, 0.5), "SQQQ": q(10, -0.5), "UVXY": q(5, -1),
     }
-    r_skew = scoring.score_volatility(quotes_skew, flat_closes(252, 18.0))
-    ok("SKEW 152 → skew_label == 'Extreme Tail Risk'",
-       r_skew["details"]["skew_label"] == "Extreme Tail Risk")
+    r_skew_calm = scoring.score_volatility(quotes_skew_calm, flat_closes(252, 17.0))
+    ok("SKEW 152 + calm VIX → 'Cautious Optimism' (wall of worry, not bearish)",
+       r_skew_calm["details"]["skew_label"] == "Cautious Optimism")
+    ok("SKEW 152 + calm VIX → score NOT penalised (d >= 0)",
+       r_skew_calm["score"] > scoring.score_volatility(
+           {"^VIX": q(17.0, 0.0), "TQQQ": q(40, 0.5), "SQQQ": q(10, -0.5), "UVXY": q(5, -1)},
+           flat_closes(252, 17.0))["score"] - 1)  # within 1 pt of no-SKEW score
+
+    # SKEW 152 + elevated VIX → compound fear signal (bearish)
+    quotes_skew_fear = {
+        "^VIX": q(26.0, 2.0), "^SKEW": q(152.0),  # VIX 26 > 19 = elevated
+        "TQQQ": q(40, -1), "SQQQ": q(10, 1), "UVXY": q(5, 3),
+    }
+    r_skew_fear = scoring.score_volatility(quotes_skew_fear, flat_closes(252, 26.0))
+    ok("SKEW 152 + elevated VIX → 'Compound Fear'",
+       r_skew_fear["details"]["skew_label"] == "Compound Fear")
+
+    # SKEW 145 + calm VIX → cautious bulls (positive)
+    quotes_skew_bulls = {
+        "^VIX": q(16.0, -0.5), "^SKEW": q(145.0),
+        "TQQQ": q(40, 0.5), "SQQQ": q(10, -0.5), "UVXY": q(5, -1),
+    }
+    r_skew_bulls = scoring.score_volatility(quotes_skew_bulls, flat_closes(252, 16.0))
+    ok("SKEW 145 + calm VIX → 'Cautious Bulls'",
+       r_skew_bulls["details"]["skew_label"] == "Cautious Bulls")
+
+    # SKEW 145 + elevated VIX → elevated hedging (slight penalty)
+    quotes_skew_hedge = {
+        "^VIX": q(24.0, 1.5), "^SKEW": q(145.0),
+        "TQQQ": q(40, -0.5), "SQQQ": q(10, 0.5), "UVXY": q(5, 2),
+    }
+    r_skew_hedge = scoring.score_volatility(quotes_skew_hedge, flat_closes(252, 24.0))
+    ok("SKEW 145 + elevated VIX → 'Elevated Hedging'",
+       r_skew_hedge["details"]["skew_label"] == "Elevated Hedging")
+
+    # SKEW 110 → complacency (slight negative, not the old +4 bonus)
+    quotes_skew_comp = {
+        "^VIX": q(16.0, -0.5), "^SKEW": q(110.0),
+        "TQQQ": q(40, 0.5), "SQQQ": q(10, -0.5), "UVXY": q(5, -1),
+    }
+    r_skew_comp = scoring.score_volatility(quotes_skew_comp, flat_closes(252, 16.0))
+    ok("SKEW 110 → 'Complacent' (complacency risk)",
+       r_skew_comp["details"]["skew_label"] == "Complacent")
 
     # Score is always clamped 0–100
     ok("score clamped 0-100", between(r["score"], 0, 100))
@@ -414,6 +454,82 @@ def test_constants() -> None:
        scoring.RSI_OVERBOUGHT < scoring.RSI_SEVERELY_OVERBOUGHT)
 
 
+# ─── fix/skew-vix-intraday ───────────────────────────────────────────────────
+
+def _make_pillars(vix_level: float = 20.0, above_200: bool = True) -> dict:
+    """Build a minimal pillars dict for _apply_overrides testing."""
+    return {
+        "volatility": {"details": {"vix_level": vix_level}, "score": 70, "reasons": []},
+        "trend":      {"details": {"above_200": above_200}, "score": 70, "reasons": []},
+        "breadth":    {"score": 70, "details": {}, "reasons": []},
+        "momentum":   {"score": 70, "details": {}, "reasons": []},
+        "macro":      {"score": 70, "details": {}, "reasons": []},
+    }
+
+
+_DATA_QUALITY_OK = {"valid": True, "message": "OK"}
+
+
+def test_vix_floor_graduated() -> None:
+    print("\n[graduated VIX floor — _apply_overrides]")
+
+    # VIX 37: reduce size, cap at 57 (CAUTION / half size)
+    total, _, safety, _, decision, _, _ = scoring._apply_overrides(
+        80, _make_pillars(vix_level=37.0), _DATA_QUALITY_OK)
+    ok("VIX 37 → score capped at 57", total == 57)
+    ok("VIX 37 → decision CAUTION (half size)", decision == "CAUTION")
+
+    # VIX 45: defined-risk entries allowed, cap at 47 (NO not STRONG NO)
+    total, _, safety, reasons, decision, _, _ = scoring._apply_overrides(
+        80, _make_pillars(vix_level=45.0), _DATA_QUALITY_OK)
+    ok("VIX 45 → score capped at 47 (not 39)", total == 47)
+    ok("VIX 45 → decision is NO (not STRONG NO)", decision == "NO")
+    ok("VIX 45 → override reason mentions 'defined risk'",
+       any("defined" in r.lower() for r in reasons))
+
+    # VIX 52: extreme crisis, cap at 39 (STRONG NO)
+    total, _, _, reasons, decision, _, _ = scoring._apply_overrides(
+        80, _make_pillars(vix_level=52.0), _DATA_QUALITY_OK)
+    ok("VIX 52 → score capped at 39", total == 39)
+    ok("VIX 52 → decision STRONG NO", decision == "STRONG NO")
+
+    # VIX 20: no VIX override triggered
+    total, _, safety, reasons, _, _, _ = scoring._apply_overrides(
+        75, _make_pillars(vix_level=20.0), _DATA_QUALITY_OK)
+    ok("VIX 20 → no VIX override, score unchanged", total == 75)
+    ok("VIX 20 → override_reasons empty (no VIX cap)", safety is None)
+
+    # SPY below 200d still caps at 54 regardless of VIX
+    total, _, safety, _, decision, _, _ = scoring._apply_overrides(
+        80, _make_pillars(vix_level=20.0, above_200=False), _DATA_QUALITY_OK)
+    ok("SPY below 200d → score capped at 54", total == 54)
+
+
+def test_splice_live() -> None:
+    print("\n[_splice_live — intraday bar splice]")
+
+    closes = [100.0, 101.0, 102.0, 103.0]
+
+    # Normal splice: last bar replaced
+    result = scoring._splice_live(closes, 105.5)
+    ok("_splice_live replaces last bar with live price", result[-1] == 105.5)
+    ok("_splice_live keeps earlier bars unchanged", result[:-1] == closes[:-1])
+    ok("_splice_live returns new list (original not mutated)", result is not closes)
+    ok("_splice_live length unchanged", len(result) == len(closes))
+
+    # None live price: returns original list unchanged
+    result_none = scoring._splice_live(closes, None)
+    ok("_splice_live with None live price → original list returned", result_none is closes)
+
+    # Empty history: returns empty list unchanged
+    result_empty = scoring._splice_live([], 105.5)
+    ok("_splice_live with empty history → returns empty list", result_empty == [])
+
+    # Single-element list
+    result_one = scoring._splice_live([99.0], 100.5)
+    ok("_splice_live single-element list → [live_price]", result_one == [100.5])
+
+
 # ─── runner ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -424,6 +540,8 @@ if __name__ == "__main__":
     test_macro()
     test_utilities()
     test_constants()
+    test_vix_floor_graduated()
+    test_splice_live()
 
     total = _PASS + _FAIL
     print(f"\n{'=' * 55}")

@@ -74,6 +74,13 @@ VIX_CALM        = 15    # VIX below this → low vol, bonus points
 VIX_MODERATE    = 19    # VIX below this → moderate vol
 VIX_ELEVATED    = 25    # VIX below this → elevated vol
 VIX_HIGH        = 30    # VIX below this → high vol; above → extreme
+
+# VIX override floor thresholds — graduated position-size caps (see _apply_overrides)
+# Historically, VIX 40–80 contains generational entries (Mar 2020, Oct 2022, Oct 2008).
+# We cap score (reduce size) but never issue a flat "never trade" below VIX 50.
+VIX_FLOOR_MODERATE = 35   # reduce size, caution (score capped at 54)
+VIX_FLOOR_HIGH     = 40   # defined-risk entries only (score capped at 47)
+VIX_FLOOR_CRISIS   = 50   # extreme crisis; very small size, defined risk (score capped at 39)
 VIX_TREND_BIG   = 3     # % change threshold for "falling fast" / "spiking" labels
 VIX_PCTILE_LOW  = 25    # 1Y percentile below this → calm zone bonus
 VIX_PCTILE_HIGH = 75    # 1Y percentile above this → fear zone penalty
@@ -479,28 +486,45 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> PillarResult:
         vix9d_ratio=vix9d_ratio, vix9d_label=vix9d_label, vix9d_color=vix9d_color,
     )
 
-    # SKEW Index — OTM put demand measures "tail risk" / black-swan insurance cost.
-    # High SKEW = institutions buying OTM puts = crash hedging elevated.
-    # Low SKEW = no crash protection demand = potential complacency.
+    # SKEW Index — context-aware interpretation.
+    # High SKEW alone ≠ bearish: institutions often buy OTM puts while staying long ("wall of worry").
+    # Only treat high SKEW as a bearish signal when VIX is also elevated — that is compound fear.
+    # Low SKEW = no crash protection demand = dangerous complacency = slight negative.
     skew_q = quotes.get("^SKEW")
     skew_val = price(skew_q)
     skew_label, skew_color = "N/A", "gray"
+    vix_calm = vix_val < VIX_MODERATE  # VIX < 19 = calm environment
     if skew_val:
-        if skew_val >= SKEW_EXTREME:
-            d, skew_label, skew_color = -15, "Extreme Tail Risk", "red"
-            score += d
-            reasons.append(f"{d} SKEW {skew_val:.0f} — extreme crash insurance demand")
-        elif skew_val >= SKEW_ELEVATED:
-            d, skew_label, skew_color = -8, "Elevated", "orange"
-            score += d
-            reasons.append(f"{d} SKEW {skew_val:.0f} — elevated tail risk hedging")
-        elif skew_val >= SKEW_NORMAL:
+        if skew_val >= SKEW_EXTREME:  # >= 150
+            if vix_calm:
+                # Institutions buying crash insurance while staying long = wall of worry (bullish lean)
+                d, skew_label, skew_color = +2, "Cautious Optimism", "yellow"
+                score += d
+                reasons.append(f"+{d} SKEW {skew_val:.0f} + calm VIX — hedged longs, wall of worry (not panic)")
+            else:
+                # High SKEW + elevated VIX = compound fear signal = bearish
+                d, skew_label, skew_color = -10, "Compound Fear", "red"
+                score += d
+                reasons.append(f"{d} SKEW {skew_val:.0f} + elevated VIX — compound fear signal")
+        elif skew_val >= SKEW_ELEVATED:  # 140–149
+            if vix_calm:
+                # Elevated hedging with calm vol = cautious bulls, healthy wall-of-worry
+                d, skew_label, skew_color = +3, "Cautious Bulls", "green"
+                score += d
+                reasons.append(f"+{d} SKEW {skew_val:.0f} + calm VIX — cautious bulls long with insurance")
+            else:
+                # Elevated hedging + rising vol = genuine tail-risk concern
+                d, skew_label, skew_color = -5, "Elevated Hedging", "orange"
+                score += d
+                reasons.append(f"{d} SKEW {skew_val:.0f} + elevated VIX — elevated tail hedging with rising vol")
+        elif skew_val >= SKEW_NORMAL:  # 120–139
             skew_label, skew_color = "Normal", "yellow"
             reasons.append(f"+0 SKEW {skew_val:.0f} — normal tail risk appetite")
-        else:
-            d, skew_label, skew_color = +4, "Complacent", "green"
+        else:  # < 120
+            # Low SKEW = nobody buying crash protection = complacency risk
+            d, skew_label, skew_color = -3, "Complacent", "orange"
             score += d
-            reasons.append(f"+{d} SKEW {skew_val:.0f} — low tail risk demand, calm market")
+            reasons.append(f"{d} SKEW {skew_val:.0f} — low tail protection demand, complacency risk")
     details.update(
         skew_value=round(skew_val, 1) if skew_val else None,
         skew_label=skew_label, skew_color=skew_color,
@@ -1259,21 +1283,50 @@ def _fetch_instruments() -> dict:
     }
 
 
+def _splice_live(closes: list[float], live_price: float | None) -> list[float]:
+    """Replace the last daily bar with the current live quote price.
+
+    Yahoo Finance includes today's partial bar in daily history, but it can
+    lag by up to 5 minutes (cache).  Splicing the live quote as the current
+    bar ensures MA / RSI / ATR calculations reflect the actual current price.
+
+    Returns a new list so the original cached history is never mutated.
+    """
+    if not closes or live_price is None:
+        return closes
+    return [*closes[:-1], live_price]
+
+
 def _run_pillars(instruments: dict) -> dict[str, dict]:
     """Run all 5 pillar scorers against the fetched instrument data."""
     quotes   = instruments["quotes"]
     hist     = instruments["histories"]
     sector_h = {s: hist.get(s, []) for s in SECTOR_SYMBOLS}
 
-    vol  = _safe_pillar(score_volatility, quotes, hist.get("^VIX", []), name="Volatility")
-    tr   = _safe_pillar(score_trend, quotes, hist.get("SPY", []), hist.get("QQQ", []),
+    def _live(sym: str) -> float | None:
+        q = quotes.get(sym)
+        return price(q) if q else None
+
+    # Splice the live quote as the current bar so all MA/RSI/ATR calculations
+    # reflect the actual price right now, not the 5-min-stale cached daily close.
+    vix_hist = _splice_live(hist.get("^VIX",     []), _live("^VIX"))
+    spy_hist = _splice_live(hist.get("SPY",       []), _live("SPY"))
+    qqq_hist = _splice_live(hist.get("QQQ",       []), _live("QQQ"))
+    rsp_hist = _splice_live(hist.get("RSP",       []), _live("RSP"))
+    tnx_hist = _splice_live(hist.get("^TNX",      []), _live("^TNX"))
+    dxy_hist = _splice_live(hist.get("DX-Y.NYB",  []), _live("DX-Y.NYB"))
+    hyg_hist = _splice_live(hist.get("HYG",       []), _live("HYG"))
+    spliced_sector_h = {s: _splice_live(hist.get(s, []), _live(s)) for s in SECTOR_SYMBOLS}
+
+    vol  = _safe_pillar(score_volatility, quotes, vix_hist, name="Volatility")
+    tr   = _safe_pillar(score_trend, quotes, spy_hist, qqq_hist,
                         instruments["spy_ohlcv"], name="Trend")
-    br   = _safe_pillar(score_breadth, quotes, hist.get("RSP", []), sector_h, name="Breadth")
-    mom  = _safe_pillar(score_momentum, quotes, sector_h, name="Momentum")
+    br   = _safe_pillar(score_breadth, quotes, rsp_hist, spliced_sector_h, name="Breadth")
+    mom  = _safe_pillar(score_momentum, quotes, spliced_sector_h, name="Momentum")
     mac  = _safe_pillar(score_macro, quotes,
-                        hist.get("^TNX", []), hist.get("DX-Y.NYB", []),
+                        tnx_hist, dxy_hist,
                         instruments["btc_q"], instruments["btc_closes"],
-                        instruments["fomc"], hist.get("HYG", []),
+                        instruments["fomc"], hyg_hist,
                         instruments["opex"], instruments["season"], name="Macro")
     return {"volatility": vol, "trend": tr, "breadth": br, "momentum": mom, "macro": mac}
 
@@ -1288,16 +1341,30 @@ def _apply_overrides(total: int, pillars: dict, data_quality: dict) -> tuple[int
     spy_above_200 = pillars["trend"]["details"].get("above_200", True)
 
     if data_quality["valid"]:
-        if vix_level >= 40:
+        if vix_level >= VIX_FLOOR_CRISIS:  # >= 50: extreme crisis
             safety_max_score = 39 if safety_max_score is None else min(safety_max_score, 39)
             if total > 39:
                 total = 39
-            override_reasons.append(f"VIX {vix_level:.0f} >= 40 - extreme fear, hard NO regardless of other signals")
-        elif vix_level >= 35:
-            safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
-            if total > 54:
-                total = 54
-            override_reasons.append(f"VIX {vix_level:.0f} >= 35 - high fear, score capped at NO")
+            override_reasons.append(
+                f"VIX {vix_level:.0f} ≥ 50 — extreme crisis vol; "
+                "if trading, defined-risk only (very small size)"
+            )
+        elif vix_level >= VIX_FLOOR_HIGH:  # 40–49: serious fear, not a hard NO
+            # Historically contains generational entries (Mar 2020, Oct 2022, Oct 2008)
+            safety_max_score = 47 if safety_max_score is None else min(safety_max_score, 47)
+            if total > 47:
+                total = 47
+            override_reasons.append(
+                f"VIX {vix_level:.0f} ≥ 40 — elevated fear; "
+                "trade small with defined risk only on highest-conviction setups"
+            )
+        elif vix_level >= VIX_FLOOR_MODERATE:  # 35–39: high fear, reduce size
+            safety_max_score = 57 if safety_max_score is None else min(safety_max_score, 57)
+            if total > 57:
+                total = 57
+            override_reasons.append(
+                f"VIX {vix_level:.0f} ≥ 35 — high fear; reduce position size"
+            )
 
         if not spy_above_200:
             safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
