@@ -36,3 +36,22 @@ jobs:
 
       - name: Run analysis / roundtable persona tests (test_analysis.py)
         run: python test_analysis.py
+
+      - name: Set up Node
+        if: matrix.python-version == '3.12'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install JS dev dependencies
+        if: matrix.python-version == '3.12'
+        run: npm ci
+
+      - name: JS lint
+        if: matrix.python-version == '3.12'
+        run: npm run lint
+
+      - name: JS tests
+        if: matrix.python-version == '3.12'
+        run: npm test

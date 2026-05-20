@@ -1112,16 +1112,39 @@ function connectSSE() {
 }
 
 /* ── KICKOFF ───────────────────────────────────────────── */
-initTheme();
-initWatchlistDropdown();
-connectSSE();
+if (!globalThis.__TESTING__) {
+  // Expose functions used by HTML inline event handlers (onclick=, oninput=, etc.)
+  // Required because ES modules don't leak to global scope.
+  window.copySnapshot           = copySnapshot;
+  window.toggleAlerts           = toggleAlerts;
+  window.toggleTheme            = toggleTheme;
+  window.toggleSettings         = toggleSettings;
+  window.load                   = load;
+  window.toggleSparkLine        = toggleSparkLine;
+  window.onWatchlistChange      = onWatchlistChange;
+  window.runRoundtable          = runRoundtable;
+  window.closeSettingsOnOverlay = closeSettingsOnOverlay;
+  window.onWeightChange         = onWeightChange;
+  window.applyWeights           = applyWeights;
+  window.resetWeights           = resetWeights;
+  window.toggleDetail           = toggleDetail;
+  window.toggleWhy              = toggleWhy;
+  window.selectWatchlistView    = selectWatchlistView;
 
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'r' || e.key === 'R') load(true);
-  if (e.key === 'd' || e.key === 'D') toggleTheme();
-  if (e.key === 's' || e.key === 'S') toggleSettings();
-  if (e.key === 'Escape') { if ($('settings-overlay').classList.contains('open')) toggleSettings(); }
-});
+  initTheme();
+  initWatchlistDropdown();
+  connectSSE();
 
-load(true);
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'r' || e.key === 'R') load(true);
+    if (e.key === 'd' || e.key === 'D') toggleTheme();
+    if (e.key === 's' || e.key === 'S') toggleSettings();
+    if (e.key === 'Escape') { if ($('settings-overlay').classList.contains('open')) toggleSettings(); }
+  });
+
+  load(true);
+}
+
+// ── Exports for unit testing ───────────────────────────────────────────────
+export { scoreColor, colorClass, decisionForScore, chgStr, FALLBACK_DECISION_BANDS };

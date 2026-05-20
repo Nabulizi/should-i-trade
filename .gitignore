@@ -29,3 +29,6 @@ watchlists/*.txt
 venv/
 .venv/
 env/
+
+# Node.js
+node_modules/
