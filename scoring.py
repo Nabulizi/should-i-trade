@@ -78,7 +78,7 @@ VIX_HIGH        = 30    # VIX below this → high vol; above → extreme
 # VIX override floor thresholds — graduated position-size caps (see _apply_overrides)
 # Historically, VIX 40–80 contains generational entries (Mar 2020, Oct 2022, Oct 2008).
 # We cap score (reduce size) but never issue a flat "never trade" below VIX 50.
-VIX_FLOOR_MODERATE = 35   # reduce size, caution (score capped at 54)
+VIX_FLOOR_MODERATE = 35   # reduce size, caution (score capped at 57)
 VIX_FLOOR_HIGH     = 40   # defined-risk entries only (score capped at 47)
 VIX_FLOOR_CRISIS   = 50   # extreme crisis; very small size, defined risk (score capped at 39)
 VIX_TREND_BIG   = 3     # % change threshold for "falling fast" / "spiking" labels
@@ -1288,9 +1288,12 @@ def _splice_live(closes: list[float], live_price: float | None) -> list[float]:
 
     Yahoo Finance includes today's partial bar in daily history, but it can
     lag by up to 5 minutes (cache).  Splicing the live quote as the current
-    bar ensures MA / RSI / ATR calculations reflect the actual current price.
+    bar ensures close-based indicators (MA, RSI) reflect the actual current
+    price rather than the stale cached close.
 
-    Returns a new list so the original cached history is never mutated.
+    Returns a new list when a splice is performed.  Returns the original
+    ``closes`` object unchanged when ``live_price`` is None or ``closes`` is
+    empty (no copy is made in those no-op cases).
     """
     if not closes or live_price is None:
         return closes
@@ -1307,8 +1310,10 @@ def _run_pillars(instruments: dict) -> dict[str, dict]:
         q = quotes.get(sym)
         return price(q) if q else None
 
-    # Splice the live quote as the current bar so all MA/RSI/ATR calculations
-    # reflect the actual price right now, not the 5-min-stale cached daily close.
+    # Splice the live quote as the current bar so close-based indicators
+    # (MA, RSI) reflect the actual price right now, not the 5-min-stale
+    # cached daily close.  ATR uses highs/lows from spy_ohlcv which is not
+    # spliced here (intraday OHLC would require a separate tick fetch).
     vix_hist = _splice_live(hist.get("^VIX",     []), _live("^VIX"))
     spy_hist = _splice_live(hist.get("SPY",       []), _live("SPY"))
     qqq_hist = _splice_live(hist.get("QQQ",       []), _live("QQQ"))
@@ -1316,6 +1321,10 @@ def _run_pillars(instruments: dict) -> dict[str, dict]:
     tnx_hist = _splice_live(hist.get("^TNX",      []), _live("^TNX"))
     dxy_hist = _splice_live(hist.get("DX-Y.NYB",  []), _live("DX-Y.NYB"))
     hyg_hist = _splice_live(hist.get("HYG",       []), _live("HYG"))
+    btc_hist = _splice_live(
+        instruments["btc_closes"],
+        price(instruments["btc_q"]) if instruments.get("btc_q") else None,
+    )
     spliced_sector_h = {s: _splice_live(hist.get(s, []), _live(s)) for s in SECTOR_SYMBOLS}
 
     vol  = _safe_pillar(score_volatility, quotes, vix_hist, name="Volatility")
@@ -1325,7 +1334,7 @@ def _run_pillars(instruments: dict) -> dict[str, dict]:
     mom  = _safe_pillar(score_momentum, quotes, spliced_sector_h, name="Momentum")
     mac  = _safe_pillar(score_macro, quotes,
                         tnx_hist, dxy_hist,
-                        instruments["btc_q"], instruments["btc_closes"],
+                        instruments["btc_q"], btc_hist,
                         instruments["fomc"], hyg_hist,
                         instruments["opex"], instruments["season"], name="Macro")
     return {"volatility": vol, "trend": tr, "breadth": br, "momentum": mom, "macro": mac}

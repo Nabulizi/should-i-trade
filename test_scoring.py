@@ -194,6 +194,48 @@ def test_volatility() -> None:
     ok("SKEW 110 → 'Complacent' (complacency risk)",
        r_skew_comp["details"]["skew_label"] == "Complacent")
 
+    # Score-direction assertions — verify exact point deltas, not just labels
+    _base17 = scoring.score_volatility(
+        {"^VIX": q(17.0, 0.0), "TQQQ": q(40, 0.5), "SQQQ": q(10, -0.5), "UVXY": q(5, -1)},
+        flat_closes(252, 17.0))["score"]
+    ok("SKEW 152 + calm VIX adds exactly +2 pts", r_skew_calm["score"] == _base17 + 2)
+
+    _base26 = scoring.score_volatility(
+        {"^VIX": q(26.0, 2.0), "TQQQ": q(40, -1), "SQQQ": q(10, 1), "UVXY": q(5, 3)},
+        flat_closes(252, 26.0))["score"]
+    ok("SKEW 152 + elevated VIX deducts exactly -10 pts", r_skew_fear["score"] == _base26 - 10)
+
+    _base16 = scoring.score_volatility(
+        {"^VIX": q(16.0, -0.5), "TQQQ": q(40, 0.5), "SQQQ": q(10, -0.5), "UVXY": q(5, -1)},
+        flat_closes(252, 16.0))["score"]
+    ok("SKEW 145 + calm VIX adds exactly +3 pts", r_skew_bulls["score"] == _base16 + 3)
+
+    _base24 = scoring.score_volatility(
+        {"^VIX": q(24.0, 1.5), "TQQQ": q(40, -0.5), "SQQQ": q(10, 0.5), "UVXY": q(5, 2)},
+        flat_closes(252, 24.0))["score"]
+    ok("SKEW 145 + elevated VIX deducts exactly -5 pts", r_skew_hedge["score"] == _base24 - 5)
+
+    ok("SKEW 110 complacency deducts exactly -3 pts", r_skew_comp["score"] == _base16 - 3)
+
+    # SKEW boundary: VIX 18.9 (< 19 = calm) vs 19.0 (>= 19 = elevated)
+    quotes_skew_b_calm = {
+        "^VIX": q(18.9, 0.0), "^SKEW": q(155.0),
+        "TQQQ": q(40, 0.5), "SQQQ": q(10, -0.5), "UVXY": q(5, -1),
+    }
+    r_skew_b_calm = scoring.score_volatility(quotes_skew_b_calm, flat_closes(252, 18.9))
+    ok("SKEW 155 + VIX 18.9 (< 19) → 'Cautious Optimism' (calm boundary)",
+       r_skew_b_calm["details"]["skew_label"] == "Cautious Optimism")
+
+    quotes_skew_b_elev = {
+        "^VIX": q(19.0, 0.1), "^SKEW": q(155.0),
+        "TQQQ": q(40, -0.5), "SQQQ": q(10, 0.5), "UVXY": q(5, 1),
+    }
+    r_skew_b_elev = scoring.score_volatility(quotes_skew_b_elev, flat_closes(252, 19.0))
+    ok("SKEW 155 + VIX 19.0 (>= 19) → 'Compound Fear' (elevated boundary)",
+       r_skew_b_elev["details"]["skew_label"] == "Compound Fear")
+    ok("SKEW boundary: calm side (+2) scores higher than elevated side (-10)",
+       r_skew_b_calm["score"] > r_skew_b_elev["score"])
+
     # Score is always clamped 0–100
     ok("score clamped 0-100", between(r["score"], 0, 100))
     ok("score clamped 0-100 (fear case)", between(r2["score"], 0, 100))
@@ -504,6 +546,20 @@ def test_vix_floor_graduated() -> None:
         80, _make_pillars(vix_level=20.0, above_200=False), _DATA_QUALITY_OK)
     ok("SPY below 200d → score capped at 54", total == 54)
 
+    # Exact floor boundary values
+    total, *_ = scoring._apply_overrides(80, _make_pillars(vix_level=35.0), _DATA_QUALITY_OK)
+    ok("VIX exactly 35.0 → MODERATE floor triggers (capped at 57)", total == 57)
+    total, *_ = scoring._apply_overrides(80, _make_pillars(vix_level=34.9), _DATA_QUALITY_OK)
+    ok("VIX 34.9 → below MODERATE floor, no cap", total == 80)
+    total, *_ = scoring._apply_overrides(80, _make_pillars(vix_level=40.0), _DATA_QUALITY_OK)
+    ok("VIX exactly 40.0 → HIGH floor triggers (capped at 47)", total == 47)
+    total, *_ = scoring._apply_overrides(80, _make_pillars(vix_level=39.9), _DATA_QUALITY_OK)
+    ok("VIX 39.9 → still in MODERATE range (capped at 57)", total == 57)
+    total, *_ = scoring._apply_overrides(80, _make_pillars(vix_level=50.0), _DATA_QUALITY_OK)
+    ok("VIX exactly 50.0 → CRISIS floor triggers (capped at 39)", total == 39)
+    total, *_ = scoring._apply_overrides(80, _make_pillars(vix_level=49.9), _DATA_QUALITY_OK)
+    ok("VIX 49.9 → still in HIGH range (capped at 47)", total == 47)
+
 
 def test_splice_live() -> None:
     print("\n[_splice_live — intraday bar splice]")
@@ -530,6 +586,78 @@ def test_splice_live() -> None:
     ok("_splice_live single-element list → [live_price]", result_one == [100.5])
 
 
+def _make_instruments(spy_live: float | None = None) -> dict:
+    """Minimal instruments dict for _run_pillars() integration tests.
+
+    Uses a trending SPY history (200→401) so the default live price is above
+    all MAs (strict >), making trend scoring non-trivial.
+    """
+    spy_hist = trending_closes(252, start=200.0, per_day=0.8)  # ends near 401
+    live_price = spy_live if spy_live is not None else spy_hist[-1]
+    spy_chg_pct = (live_price / spy_hist[-1] - 1) * 100
+    sector_quotes = {s: q(50.0, 0.0) for s in scoring.SECTOR_SYMBOLS}
+    sector_hist   = {s: flat_closes(252, 50.0) for s in scoring.SECTOR_SYMBOLS}
+    return {
+        "quotes": {
+            "SPY":       q(live_price, spy_chg_pct),
+            "QQQ":       q(320.0, 0.0),
+            "^VIX":      q(18.0, 0.0),
+            "RSP":       q(150.0, 0.0),
+            "^TNX":      q(4.3, 0.0),
+            "DX-Y.NYB":  q(104.0, 0.0),
+            "HYG":       q(79.0, 0.0),
+            **sector_quotes,
+        },
+        "histories": {
+            "SPY":       spy_hist,
+            "QQQ":       flat_closes(252, 320.0),
+            "^VIX":      flat_closes(252, 18.0),
+            "RSP":       flat_closes(252, 150.0),
+            "^TNX":      flat_closes(252, 4.3),
+            "DX-Y.NYB":  flat_closes(252, 104.0),
+            "HYG":       flat_closes(252, 79.0),
+            **sector_hist,
+        },
+        "spy_ohlcv": None,
+        "btc_q":     None,
+        "btc_closes": [],
+        "fomc":      {},
+        "opex":      {},
+        "season":    {},
+    }
+
+
+def test_run_pillars_splice_wiring() -> None:
+    print("\n[_run_pillars — live splice wiring]")
+
+    # Baseline: live SPY at end of trending history (above all MAs)
+    r_matched = scoring._run_pillars(_make_instruments())
+    ok("_run_pillars returns all 5 pillars",
+       set(r_matched) == {"volatility", "trend", "breadth", "momentum", "macro"})
+
+    # Live SPY crashes 40% below history → splice makes MA200 aware of drop
+    # spy_px (240) << ma200 (~399 with spliced close) → above_200 = False → lower trend
+    r_dropped = scoring._run_pillars(_make_instruments(spy_live=240.0))
+    ok("_run_pillars: live SPY crash spliced into history lowers trend score",
+       r_dropped["trend"]["score"] < r_matched["trend"]["score"])
+
+    # BTC wiring: btc_q flows through btc_hist into score_macro reasons
+    instr_btc_bull = {**_make_instruments(),
+                      "btc_q": q(95_000.0, 3.0),
+                      "btc_closes": flat_closes(252, 80_000.0)}
+    r_btc_bull = scoring._run_pillars(instr_btc_bull)
+    ok("_run_pillars: btc_q wired to macro — BTC label appears in macro reasons",
+       any("BTC" in reason for reason in r_btc_bull["macro"]["reasons"]))
+
+    # BTC crash (live far below history) scores macro lower than BTC bull
+    instr_btc_crash = {**_make_instruments(),
+                       "btc_q": q(30_000.0, -20.0),
+                       "btc_closes": flat_closes(252, 80_000.0)}
+    r_btc_crash = scoring._run_pillars(instr_btc_crash)
+    ok("_run_pillars: BTC crash macro score < BTC bull macro score",
+       r_btc_crash["macro"]["score"] < r_btc_bull["macro"]["score"])
+
+
 # ─── runner ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -542,6 +670,7 @@ if __name__ == "__main__":
     test_constants()
     test_vix_floor_graduated()
     test_splice_live()
+    test_run_pillars_splice_wiring()
 
     total = _PASS + _FAIL
     print(f"\n{'=' * 55}")
