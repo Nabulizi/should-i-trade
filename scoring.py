@@ -44,7 +44,8 @@ INDUSTRY_NAMES = {
 
 # Everything the dashboard needs in one shot.
 CORE_SYMBOLS = ["SPY", "QQQ", "RSP", "^VIX", "^VIX3M", "^VIX9D", "^SKEW",
-                "TLT", "^TNX", "^IRX", "DX-Y.NYB", "TQQQ", "SQQQ", "UVXY", "HYG", "GLD"]
+                "TLT", "^TNX", "^IRX", "DX-Y.NYB", "TQQQ", "SQQQ", "UVXY",
+                "HYG", "LQD", "GLD"]
 
 
 MIN_DATA_COVERAGE = 0.80
@@ -884,6 +885,7 @@ def score_momentum(quotes: dict, sector_histories: dict | None = None) -> Pillar
 def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
                 btc_q: dict | None, btc_closes: list[float], fomc: dict,
                 hyg_closes: list[float] | None = None,
+                lqd_closes: list[float] | None = None,
                 opex: dict | None = None, season: dict | None = None) -> PillarResult:
     tnx_q, dxy_q, tlt_q = quotes.get("^TNX"), quotes.get("DX-Y.NYB"), quotes.get("TLT")
     tnx_val, dxy_px = price(tnx_q), price(dxy_q)
@@ -995,7 +997,62 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
             else:
                 hyg_label, hyg_color = "Neutral", "yellow"
 
-    # GLD (Gold) — flight-to-safety signal
+    # HYG-LQD Spread — credit quality divergence (liquidity early-warning).
+    # When HYG (junk bonds) underperforms LQD (investment-grade bonds),
+    # smart money is fleeing risky credit — often signals stress before equities react.
+    lqd_q = quotes.get("LQD")
+    hyg_lqd_label, hyg_lqd_color = "N/A", "gray"
+    hyg_lqd_spread_today = None
+    hyg_lqd_20d_spread   = None
+    if hyg_q and lqd_q:
+        hyg_chg_now = pct(hyg_q)
+        lqd_chg_now = pct(lqd_q)
+        hyg_lqd_spread_today = round(hyg_chg_now - lqd_chg_now, 3)
+
+        # 20-day rolling return divergence — structural signal
+        if (hyg_closes and lqd_closes and
+                len(hyg_closes) >= 21 and len(lqd_closes) >= 21 and
+                hyg_closes[-21] > 0 and lqd_closes[-21] > 0):   # guard against zero prices
+            hyg_20d = (hyg_closes[-1] / hyg_closes[-21] - 1) * 100
+            lqd_20d = (lqd_closes[-1] / lqd_closes[-21] - 1) * 100
+            hyg_lqd_20d_spread = round(hyg_20d - lqd_20d, 2)
+        else:
+            hyg_lqd_20d_spread = None
+
+        structural_stress  = hyg_lqd_20d_spread is not None and hyg_lqd_20d_spread < -2.0
+        structural_risk_on = hyg_lqd_20d_spread is not None and hyg_lqd_20d_spread > 2.0
+        intraday_stress    = hyg_lqd_spread_today < -0.3
+        intraday_risk_on   = hyg_lqd_spread_today > 0.3
+
+        if structural_stress and intraday_stress:
+            d, hyg_lqd_label, hyg_lqd_color = -12, "Credit Stress", "red"
+            score += d
+            reasons.append(
+                f"{d} HYG-LQD: {hyg_lqd_spread_today:+.2f}% today, "
+                f"{hyg_lqd_20d_spread:+.1f}% 20d — credit quality deteriorating")
+        elif structural_stress:
+            d, hyg_lqd_label, hyg_lqd_color = -6, "Credit Deteriorating", "orange"
+            score += d
+            reasons.append(
+                f"{d} HYG-LQD: {hyg_lqd_20d_spread:+.1f}% 20d divergence — junk lagging IG")
+        elif intraday_stress:
+            d, hyg_lqd_label, hyg_lqd_color = -5, "Spread Widening", "orange"
+            score += d
+            reasons.append(
+                f"{d} HYG-LQD: {hyg_lqd_spread_today:+.2f}% today — acute credit spread widening")
+        elif structural_risk_on:
+            d, hyg_lqd_label, hyg_lqd_color = +5, "Credit Risk-On", "green"
+            score += d
+            reasons.append(
+                f"+{d} HYG-LQD: {hyg_lqd_20d_spread:+.1f}% 20d — junk outperforming IG, risk appetite healthy")
+        elif intraday_risk_on:
+            d, hyg_lqd_label, hyg_lqd_color = +3, "Intraday Risk-On", "green"
+            score += d
+            reasons.append(
+                f"+{d} HYG-LQD: {hyg_lqd_spread_today:+.2f}% today — junk outperforming IG intraday")
+        else:
+            hyg_lqd_label, hyg_lqd_color = "Neutral", "yellow"
+            reasons.append(f"+0 HYG-LQD: {hyg_lqd_spread_today:+.2f}% today — credit spread neutral")
     gld_q = quotes.get("GLD")
     gld_px = price(gld_q)
     gld_chg = pct(gld_q)
@@ -1088,6 +1145,9 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
         "hyg_change_pct": round(hyg_chg, 2),
         "hyg_ma50": round(hyg_ma50, 2) if hyg_ma50 else None,
         "hyg_label": hyg_label, "hyg_color": hyg_color,
+        "hyg_lqd_spread_today": hyg_lqd_spread_today,
+        "hyg_lqd_20d_spread":   hyg_lqd_20d_spread,
+        "hyg_lqd_label": hyg_lqd_label, "hyg_lqd_color": hyg_lqd_color,
         "gld_price": round(gld_px, 2) if gld_px else None,
         "gld_change_pct": round(gld_chg, 2) if gld_q else None,
         "gld_label": gld_label, "gld_color": gld_color,
@@ -1256,7 +1316,8 @@ def _fetch_instruments() -> dict:
     """Fire all network requests in one concurrent batch; return raw data."""
     all_symbols   = CORE_SYMBOLS + SECTOR_SYMBOLS + INDUSTRY_SYMBOLS
     history_pairs = ([("SPY", 220), ("QQQ", 220), ("RSP", 220),
-                      ("^VIX", 252), ("^TNX", 60), ("DX-Y.NYB", 60), ("HYG", 60)]
+                      ("^VIX", 252), ("^TNX", 60), ("DX-Y.NYB", 60),
+                      ("HYG", 60), ("LQD", 60)]
                      + [(s, 220) for s in SECTOR_SYMBOLS])
 
     with _TPE(max_workers=24) as ex:
@@ -1281,6 +1342,34 @@ def _fetch_instruments() -> dict:
         "futures_tape":  fut_tape_f.result(),
         "sector_histories": {s: {} for s in SECTOR_SYMBOLS},   # placeholder
     }
+
+
+def _day_streak(closes: list[float]) -> dict:
+    """Count consecutive trading days SPY closed in the same direction.
+
+    Walks backwards from the most recent bar.  The 'days' count is the
+    length of the current run (e.g. 5 consecutive up closes → 5).
+    Returns {"days": int, "direction": "up" | "down" | "flat"}.
+    """
+    if len(closes) < 2:
+        return {"days": 0, "direction": "flat"}
+    last, prev = closes[-1], closes[-2]
+    if last > prev:
+        direction = "up"
+    elif last < prev:
+        direction = "down"
+    else:
+        return {"days": 0, "direction": "flat"}
+
+    count = 0
+    for i in range(len(closes) - 1, 0, -1):
+        if direction == "up"   and closes[i] > closes[i - 1]:
+            count += 1
+        elif direction == "down" and closes[i] < closes[i - 1]:
+            count += 1
+        else:
+            break
+    return {"days": count, "direction": direction}
 
 
 def _splice_live(closes: list[float], live_price: float | None) -> list[float]:
@@ -1321,6 +1410,7 @@ def _run_pillars(instruments: dict) -> dict[str, dict]:
     tnx_hist = _splice_live(hist.get("^TNX",      []), _live("^TNX"))
     dxy_hist = _splice_live(hist.get("DX-Y.NYB",  []), _live("DX-Y.NYB"))
     hyg_hist = _splice_live(hist.get("HYG",       []), _live("HYG"))
+    lqd_hist = _splice_live(hist.get("LQD",       []), _live("LQD"))
     btc_hist = _splice_live(
         instruments["btc_closes"],
         price(instruments["btc_q"]) if instruments.get("btc_q") else None,
@@ -1335,7 +1425,7 @@ def _run_pillars(instruments: dict) -> dict[str, dict]:
     mac  = _safe_pillar(score_macro, quotes,
                         tnx_hist, dxy_hist,
                         instruments["btc_q"], btc_hist,
-                        instruments["fomc"], hyg_hist,
+                        instruments["fomc"], hyg_hist, lqd_hist,
                         instruments["opex"], instruments["season"], name="Macro")
     return {"volatility": vol, "trend": tr, "breadth": br, "momentum": mom, "macro": mac}
 
@@ -1447,6 +1537,13 @@ def compute_dashboard() -> DashboardResult:
         raw_total, pillars, data_quality)
     conflicts = detect_conflicts(pillars, total)
 
+    # SPY consecutive-day win/loss streak — uses spliced history so today counts
+    spy_closes_spliced = _splice_live(
+        instruments["histories"].get("SPY", []),
+        price(instruments["quotes"].get("SPY")),
+    )
+    spy_streak = _day_streak(spy_closes_spliced)
+
     # 4. Assemble result
     mstate = instruments["mstate"]
     fomc   = instruments["fomc"]
@@ -1476,6 +1573,7 @@ def compute_dashboard() -> DashboardResult:
         "futures_tape":      instruments["futures_tape"],
         "fear_greed_stock":  instruments["fng_stock"],
         "fear_greed_crypto": instruments["fng_crypto"],
+        "spy_streak":        spy_streak,
         "timestamp":         mstate["et_time"],
         "data_sources": {
             "vix": "CBOE",

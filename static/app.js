@@ -239,6 +239,21 @@ function renderHero(d) {
     if (deltaHtml) scoreLabel.insertAdjacentHTML('afterend', deltaHtml);
   }
 
+  // SPY win/loss streak badge
+  const streak = d.spy_streak;
+  const streakContainer = document.querySelector('.streak-badge-wrap');
+  if (streakContainer) {
+    if (streak && streak.days >= 2) {
+      const emoji = streak.direction === 'up' ? '🟢' : '🔴';
+      const label = streak.direction === 'up' ? 'win streak' : 'losing streak';
+      streakContainer.innerHTML =
+        `<span class="streak-badge streak-${streak.direction}">${emoji} SPY ${streak.days}-day ${label}</span>`;
+      streakContainer.style.display = '';
+    } else {
+      streakContainer.style.display = 'none';
+    }
+  }
+
   // Radar chart replaces pillar mini-bars
   $('pillars-mini').innerHTML = `<div class="radar-wrap">${buildRadarChart(d.pillars)}</div>`;
 }

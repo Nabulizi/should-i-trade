@@ -658,6 +658,94 @@ def test_run_pillars_splice_wiring() -> None:
        r_btc_crash["macro"]["score"] < r_btc_bull["macro"]["score"])
 
 
+def test_hyg_lqd_spread() -> None:
+    print("\n[HYG-LQD spread — score_macro]")
+
+    def _macro_with_credit(hyg_closes, lqd_closes, hyg_chg=0.0, lqd_chg=0.0):
+        quotes = {
+            "^TNX": q(4.3, 0.0), "DX-Y.NYB": q(103.0, 0.0),
+            "HYG": q(76.0, hyg_chg), "LQD": q(110.0, lqd_chg),
+        }
+        return scoring.score_macro(quotes, flat_closes(60, 4.3), flat_closes(60, 103.0),
+                                   btc_q=None, btc_closes=[], fomc={},
+                                   hyg_closes=hyg_closes, lqd_closes=lqd_closes)
+
+    # No credit data → N/A label, no crash (no HYG/LQD quotes present)
+    r_no = scoring.score_macro({}, flat_closes(60, 4.3), flat_closes(60, 103.0),
+                                btc_q=None, btc_closes=[], fomc={})
+    ok("No HYG/LQD quotes → hyg_lqd_label == 'N/A'",
+       r_no["details"]["hyg_lqd_label"] == "N/A")
+
+    # Structural stress: HYG 20d return trails LQD by >2% + HYG down more today
+    # closes[-21] is the "20 days ago" price — index 1 in a 22-item list
+    hyg_stress = flat_closes(22, 76.0)
+    hyg_stress[1] = 80.0        # 20d ago: 80 → today: 76 = -5%
+    lqd_stable = flat_closes(22, 110.0)  # LQD flat
+    r_stress = _macro_with_credit(hyg_stress, lqd_stable, hyg_chg=-0.5, lqd_chg=0.0)
+    ok("Structural + intraday stress → 'Credit Stress' (-12)",
+       r_stress["details"]["hyg_lqd_label"] == "Credit Stress")
+    ok("Credit stress adds negative reasons",
+       any("HYG-LQD" in r for r in r_stress["reasons"]))
+
+    # Intraday stress only (today HYG -0.4% vs LQD +0.1%)
+    r_intra = _macro_with_credit(flat_closes(22, 76.0), flat_closes(22, 110.0),
+                                  hyg_chg=-0.4, lqd_chg=0.1)
+    ok("Intraday spread widening → 'Spread Widening' (-5)",
+       r_intra["details"]["hyg_lqd_label"] == "Spread Widening")
+
+    # Intraday risk-on only (no structural data, HYG +0.4% vs LQD +0.0%)
+    r_intra_riskon = _macro_with_credit(flat_closes(22, 76.0), flat_closes(22, 110.0),
+                                         hyg_chg=0.4, lqd_chg=0.0)
+    ok("Intraday risk-on spread → 'Intraday Risk-On' (+3)",
+       r_intra_riskon["details"]["hyg_lqd_label"] == "Intraday Risk-On")
+
+    # Zero price in 20d lookback → no ZeroDivisionError, graceful None
+    hyg_zero = flat_closes(22, 76.0)
+    hyg_zero[1] = 0.0   # closes[-21] = 0 → should not crash
+    lqd_zero = flat_closes(22, 110.0)
+    r_zero = _macro_with_credit(hyg_zero, lqd_zero, hyg_chg=0.1, lqd_chg=0.0)
+    ok("Zero price in 20d lookback → no crash, 20d_spread is None",
+       r_zero["details"]["hyg_lqd_20d_spread"] is None)
+    hyg_bull = flat_closes(22, 76.0)
+    hyg_bull[1] = 72.0         # 20d ago: 72 → today: 76 = +5.6%
+    lqd_flat2 = flat_closes(22, 110.0)
+    r_riskon = _macro_with_credit(hyg_bull, lqd_flat2, hyg_chg=0.1, lqd_chg=0.0)
+    ok("Structural risk-on → 'Credit Risk-On' (+5)",
+       r_riskon["details"]["hyg_lqd_label"] == "Credit Risk-On")
+
+
+def test_day_streak() -> None:
+    print("\n[_day_streak — SPY consecutive day streak]")
+
+    # 4 consecutive up days
+    ok("4 up days → days=4, direction='up'",
+       scoring._day_streak([100, 101, 102, 103, 104]) == {"days": 4, "direction": "up"})
+
+    # 3 consecutive down days
+    ok("3 down days → days=3, direction='down'",
+       scoring._day_streak([105, 104, 103, 102]) == {"days": 3, "direction": "down"})
+
+    # Streak broken — only last 2 up after a down
+    ok("streak broken → only tail counted",
+       scoring._day_streak([100, 99, 100, 101]) == {"days": 2, "direction": "up"})
+
+    # Single up day
+    ok("1 up day → days=1, direction='up'",
+       scoring._day_streak([99, 100]) == {"days": 1, "direction": "up"})
+
+    # Flat (equal close) → flat
+    ok("flat close → direction='flat'",
+       scoring._day_streak([100, 100])["direction"] == "flat")
+
+    # Too short
+    ok("single element → days=0",
+       scoring._day_streak([100])["days"] == 0)
+
+    # Empty
+    ok("empty → days=0",
+       scoring._day_streak([])["days"] == 0)
+
+
 # ─── runner ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -671,6 +759,8 @@ if __name__ == "__main__":
     test_vix_floor_graduated()
     test_splice_live()
     test_run_pillars_splice_wiring()
+    test_hyg_lqd_spread()
+    test_day_streak()
 
     total = _PASS + _FAIL
     print(f"\n{'=' * 55}")
