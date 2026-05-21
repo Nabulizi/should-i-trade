@@ -44,18 +44,19 @@ def _map_ta_to_personas(state: dict, spy_decision: object, qqq_decision: object,
     """
     Map TradingAgents propagate() output onto the 5 existing persona slots.
 
-    TradingAgents state keys (common across v0.2.x):
-      state.get("market_report")              — technical + fundamental summary
+    Verified state keys (v0.2.x, confirmed via probe 2026-05-21):
+      state.get("market_report")              — technical summary
       state.get("sentiment_report")           — sentiment analysis
       state.get("news_report")                — news analysis
       state.get("fundamentals_report")        — fundamentals analysis
       state.get("investment_debate_state", {})
-        .get("bear_argument")                 — bear researcher text
-        .get("bull_argument")                 — bull researcher text
-      state.get("trader_investment_plan")     — trader's plan
+        .get("bear_history")                  — list of bear debate turns
+        .get("bull_history")                  — list of bull debate turns
+        .get("judge_decision")                — judge's final call
+      state.get("trader_investment_plan")     — trader's plan text
+      state.get("final_trade_decision")       — final decision string (e.g. "Overweight")
 
     If a key is missing, the corresponding legacy persona's read is preserved.
-    Run Task 5 first to confirm these key names against your installed version.
     """
     debate = state.get("investment_debate_state") or {}
 
@@ -79,21 +80,27 @@ def _map_ta_to_personas(state: dict, spy_decision: object, qqq_decision: object,
     if macro_text:
         personas[1]["read"] = macro_text
 
-    # 2 — Risk Manager ← bear researcher argument
-    bear_text = _text(debate.get("bear_argument") or state.get("bear_researcher_report"))
+    # 2 — Risk Manager ← last bear debate turn (bear_history is a list)
+    bear_history = debate.get("bear_history") or []
+    bear_raw = bear_history[-1] if bear_history else None
+    bear_text = _text(bear_raw)
     if bear_text:
         personas[2]["read"] = bear_text
 
-    # 3 — Rotator/Quant ← bull researcher argument
-    bull_text = _text(debate.get("bull_argument") or state.get("bull_researcher_report"))
+    # 3 — Rotator/Quant ← last bull debate turn (bull_history is a list)
+    bull_history = debate.get("bull_history") or []
+    bull_raw = bull_history[-1] if bull_history else None
+    bull_text = _text(bull_raw)
     if bull_text:
         personas[3]["read"] = bull_text
 
-    # 4 — Desk Head ← trader plan or combined SPY/QQQ decision
+    # 4 — Desk Head ← trader plan + final decision
     plan_text = _text(state.get("trader_investment_plan") or desk_summary)
     if plan_text:
         personas[4]["read"] = plan_text
-        personas[4]["verdict"] = _text(spy_decision, 200) or personas[4]["verdict"]
+    final_decision = _text(state.get("final_trade_decision") or spy_decision, 200)
+    if final_decision:
+        personas[4]["verdict"] = final_decision
 
     return {
         "personas": personas,
