@@ -21,7 +21,7 @@
 | Anthropic Claude | LLM backbone for all agents | `ANTHROPIC_API_KEY` |
 | Alpha Vantage (free tier) | Fundamentals + news data for TradingAgents | `ALPHA_VANTAGE_API_KEY` |
 
-Keys stored in `.env` at the project root (already gitignored).
+Keys stored in `.env` at the project root. **Step 0 of implementation: add `.env` to `.gitignore`** to prevent accidental key leakage.
 
 ---
 
@@ -34,7 +34,7 @@ should-i-trade/
 ├── analysis.py          ← CHANGED: LLM-powered roundtable with legacy fallback
 ├── analysis_legacy.py   ← NEW: copy of original rule-based roundtable
 ├── review.py            ← NEW: on-demand CLI review script
-├── .env                 ← NEW: API keys (gitignored)
+├── .env                 ← NEW: API keys (must add .env to .gitignore)
 └── docs/superpowers/specs/
     └── 2026-05-21-tradingagents-integration-design.md  ← this file
 ```
