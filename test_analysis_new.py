@@ -47,7 +47,7 @@ class TestAnalysisNew(unittest.TestCase):
     # ── Test 2 ──────────────────────────────────────────────────────────────
     def test_roundtable_returns_quickly(self):
         """roundtable() must return in < 1 second (non-blocking contract)."""
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict('os.environ', {}, clear=False):
             # Remove ANTHROPIC_API_KEY if present so fallback path is taken
             import os
             os.environ.pop('ANTHROPIC_API_KEY', None)
@@ -60,7 +60,7 @@ class TestAnalysisNew(unittest.TestCase):
     # ── Test 3 ──────────────────────────────────────────────────────────────
     def test_output_schema(self):
         """Return value must be {personas: [...5 dicts...], timestamp: str}."""
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict('os.environ', {}, clear=False):
             import os
             os.environ.pop('ANTHROPIC_API_KEY', None)
             result = analysis.roundtable(MINIMAL_DASHBOARD)
@@ -101,7 +101,7 @@ class TestAnalysisNew(unittest.TestCase):
         import analysis_legacy
         sentinel = {"personas": [], "timestamp": "SENTINEL"}
 
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict('os.environ', {}, clear=False):
             import os
             os.environ.pop('ANTHROPIC_API_KEY', None)
             with patch.object(analysis_legacy, 'roundtable', return_value=sentinel) as mock_legacy:
