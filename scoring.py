@@ -1011,7 +1011,8 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
 
         # 20-day rolling return divergence — structural signal
         if (hyg_closes and lqd_closes and
-                len(hyg_closes) >= 21 and len(lqd_closes) >= 21):
+                len(hyg_closes) >= 21 and len(lqd_closes) >= 21 and
+                hyg_closes[-21] > 0 and lqd_closes[-21] > 0):   # guard against zero prices
             hyg_20d = (hyg_closes[-1] / hyg_closes[-21] - 1) * 100
             lqd_20d = (lqd_closes[-1] / lqd_closes[-21] - 1) * 100
             hyg_lqd_20d_spread = round(hyg_20d - lqd_20d, 2)
@@ -1044,6 +1045,11 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
             score += d
             reasons.append(
                 f"+{d} HYG-LQD: {hyg_lqd_20d_spread:+.1f}% 20d — junk outperforming IG, risk appetite healthy")
+        elif intraday_risk_on:
+            d, hyg_lqd_label, hyg_lqd_color = +3, "Intraday Risk-On", "green"
+            score += d
+            reasons.append(
+                f"+{d} HYG-LQD: {hyg_lqd_spread_today:+.2f}% today — junk outperforming IG intraday")
         else:
             hyg_lqd_label, hyg_lqd_color = "Neutral", "yellow"
             reasons.append(f"+0 HYG-LQD: {hyg_lqd_spread_today:+.2f}% today — credit spread neutral")

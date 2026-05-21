@@ -693,7 +693,19 @@ def test_hyg_lqd_spread() -> None:
     ok("Intraday spread widening → 'Spread Widening' (-5)",
        r_intra["details"]["hyg_lqd_label"] == "Spread Widening")
 
-    # Structural risk-on: HYG 20d outperforms LQD by >2%
+    # Intraday risk-on only (no structural data, HYG +0.4% vs LQD +0.0%)
+    r_intra_riskon = _macro_with_credit(flat_closes(22, 76.0), flat_closes(22, 110.0),
+                                         hyg_chg=0.4, lqd_chg=0.0)
+    ok("Intraday risk-on spread → 'Intraday Risk-On' (+3)",
+       r_intra_riskon["details"]["hyg_lqd_label"] == "Intraday Risk-On")
+
+    # Zero price in 20d lookback → no ZeroDivisionError, graceful None
+    hyg_zero = flat_closes(22, 76.0)
+    hyg_zero[1] = 0.0   # closes[-21] = 0 → should not crash
+    lqd_zero = flat_closes(22, 110.0)
+    r_zero = _macro_with_credit(hyg_zero, lqd_zero, hyg_chg=0.1, lqd_chg=0.0)
+    ok("Zero price in 20d lookback → no crash, 20d_spread is None",
+       r_zero["details"]["hyg_lqd_20d_spread"] is None)
     hyg_bull = flat_closes(22, 76.0)
     hyg_bull[1] = 72.0         # 20d ago: 72 → today: 76 = +5.6%
     lqd_flat2 = flat_closes(22, 110.0)
