@@ -32,7 +32,8 @@ MINIMAL_DASHBOARD = {
 class TestAnalysisNew(unittest.TestCase):
     def setUp(self):
         if hasattr(analysis, '_ROUNDTABLE_CACHE'):
-            analysis._ROUNDTABLE_CACHE.clear()
+            analysis._ROUNDTABLE_CACHE['ts'] = 0.0
+            analysis._ROUNDTABLE_CACHE['data'] = None
         if hasattr(analysis, '_REFRESH_RUNNING'):
             analysis._REFRESH_RUNNING.clear()
 
@@ -88,12 +89,12 @@ class TestAnalysisNew(unittest.TestCase):
             ] * 5,
             "timestamp": "12:00 UTC"
         }
-        analysis._ROUNDTABLE_CACHE["result"] = fake_result
+        analysis._ROUNDTABLE_CACHE["data"] = fake_result
         analysis._ROUNDTABLE_CACHE["ts"] = time.time()  # fresh — < 1800s old
 
         result = analysis.roundtable({})  # empty dashboard; cache should be used
-        self.assertEqual(result, fake_result,
-                         "Expected cached result to be returned unchanged")
+        self.assertIs(result, fake_result,
+                      "Expected cached result to be returned unchanged")
 
     # ── Test 5 ──────────────────────────────────────────────────────────────
     def test_fallback_used_when_no_api_key(self):
