@@ -343,8 +343,32 @@ def _call_agent(
         logger.warning("%s returned invalid JSON: %s", agent["persona"], exc)
         return None
     except Exception as exc:
+        # On 429, check whether it's a short per-minute limit (retryable)
+        # or daily quota exhaustion (not worth waiting for)
+        msg = str(exc)
+        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+            retry_s = _parse_retry_delay(msg)
+            if retry_s is not None and retry_s <= 30:
+                logger.info("%s hit RPM limit — retrying in %.0fs...", agent["persona"], retry_s)
+                time.sleep(retry_s + 1)
+                return _call_agent(client, agent, market_snapshot, prior_speakers, cumulative_ms)
+            else:
+                logger.warning("%s hit daily quota (retry=%s s) — fallback.", agent["persona"], retry_s)
+                return None
         logger.warning("%s call failed (%s): %s", agent["persona"], type(exc).__name__, exc)
         return None
+
+
+def _parse_retry_delay(error_msg: str) -> Optional[float]:
+    """Extract retryDelay seconds from a Gemini 429 error message string."""
+    import re
+    m = re.search(r"'retryDelay':\s*'(\d+(?:\.\d+)?)s'", error_msg)
+    if m:
+        return float(m.group(1))
+    m = re.search(r"retry.*?(\d+(?:\.\d+)?)\s*s", error_msg, re.IGNORECASE)
+    if m:
+        return float(m.group(1))
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
