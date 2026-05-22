@@ -62,6 +62,11 @@
   .btn-ai { border-color: rgba(0,176,255,0.35); color: var(--accent); }
   .btn-ai:hover { background: rgba(0,176,255,0.08); border-color: var(--accent); }
 
+  /* AI toast notification */
+  .ai-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; pointer-events: none; transition: opacity 0.5s; z-index: 9999; white-space: nowrap; }
+  .ai-toast-ok   { background: rgba(0,230,118,0.15); border: 1px solid rgba(0,230,118,0.4); color: var(--green); }
+  .ai-toast-warn { background: rgba(255,215,64,0.12); border: 1px solid rgba(255,215,64,0.35); color: var(--yellow); }
+
   /* ── MAIN ── */
   .main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
 

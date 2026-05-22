@@ -24,7 +24,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-_MODEL_NAME = "models/gemini-2.5-flash-lite"
+_MODEL_NAME = "models/gemini-2.5-flash"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Agent configurations — each is a fully independent expert persona

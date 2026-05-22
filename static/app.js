@@ -862,6 +862,8 @@ async function runRoundtable(auto=false, useAi=false) {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
+    if (useAi && data.ai_used === false) _showToast('AI quota exhausted — showing rule-based analysis. Resets at midnight.', 'warn');
+    else if (useAi && data.ai_used)      _showToast('✦ AI analysis complete', 'ok');
     renderRoundtable(data.personas || []);
   } catch(e) {
     $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${e.message}</div>`;
@@ -1132,6 +1134,21 @@ function connectSSE() {
     setTimeout(connectSSE, _sseRetryMs);
     _sseRetryMs = Math.min(_sseRetryMs * 2, 60000);
   };
+}
+
+/* ── TOAST ─────────────────────────────────────────────── */
+function _showToast(msg, type='ok') {
+  let t = $('ai-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'ai-toast';
+    document.body.appendChild(t);
+  }
+  t.className = 'ai-toast ' + (type === 'warn' ? 'ai-toast-warn' : 'ai-toast-ok');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 4000);
 }
 
 /* ── KICKOFF ───────────────────────────────────────────── */

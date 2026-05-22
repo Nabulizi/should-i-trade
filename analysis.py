@@ -586,6 +586,7 @@ def roundtable(dashboard: dict, use_ai: bool = False) -> dict:
     if use_ai and _AI_AVAILABLE and _ai_roundtable is not None:
         result = _ai_roundtable(dashboard)
         if result is not None:
+            result["ai_used"] = True
             return result
 
     # Rule-based (default path, and fallback for AI failures)
@@ -597,4 +598,5 @@ def roundtable(dashboard: dict, use_ai: bool = False) -> dict:
     return {
         "personas": [tech, macro, risk, rot, head],
         "timestamp": time.strftime("%H:%M UTC", time.gmtime()),
+        "ai_used": False,
     }
