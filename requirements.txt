@@ -1,5 +1,4 @@
 # Should I Trade? — Market Quality Terminal v5
-# No external packages required — Python standard library only.
 # Python 3.10+ required (union type hints: dict | None, match statements).
 #
 # Run:   python3 server.py
@@ -7,3 +6,14 @@
 #
 # All data: Yahoo Finance v8 API → Stooq CSV fallback (free, no API key)
 # BTC data: Yahoo Finance → CoinGecko → Binance public API
+#
+# ── Optional: AI Synthesis (Gemini 1.5 Flash free tier) ──────────────────
+# Enables the AI-powered Desk Head in the roundtable.
+# Without this package the app runs normally with the rule-based fallback.
+#
+#   pip install google-genai
+#
+# Then set your free API key (https://aistudio.google.com) in config.py
+# or as the GEMINI_API_KEY environment variable.
+#
+# google-genai>=1.0.0

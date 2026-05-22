@@ -890,15 +890,18 @@ function renderRoundtable(personas) {
     const fg = `var(--${stanceCol === 'gray' ? 'muted' : stanceCol})`;
     const pts = (p.points || []).map(pt => `
       <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || pt.icon}</span><span>${pt.text}</span></div>`).join('');
+    const aiBadge = p.ai_powered
+      ? ` <span class="ai-badge" title="Powered by Gemini 1.5 Flash · ${p.latency_ms || '?'}ms">✦ AI</span>`
+      : '';
     return `
       <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
         <div class="persona-header">
           <div class="persona-id">
-            <div class="persona-name">${AVATAR_SVG[p.avatar] || p.avatar} ${p.persona}</div>
+            <div class="persona-name">${AVATAR_SVG[p.avatar] || p.avatar} ${p.persona}${aiBadge}</div>
             <div class="persona-role">${p.role}</div>
           </div>
           <span class="persona-stance" style="background:${bg};color:${fg}">${p.stance}</span>
-        </div>
+        </div>`
         <div class="persona-read">"${p.read}"</div>
         <div class="persona-points">${pts}</div>
         <div class="persona-verdict">${p.verdict}</div>

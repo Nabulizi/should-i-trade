@@ -2,7 +2,11 @@
 analysis.py — Trading Desk Roundtable
 
 Five distinct voices, each with a narrow remit, followed by a synthesis
-from the Desk Head. Rule-based — fast, deterministic, no API key.
+from the Desk Head.
+
+Personas 1-4 are rule-based (fast, deterministic, no API key).
+Persona 5 (Desk Head) uses Gemini 1.5 Flash when GEMINI_API_KEY is set,
+falling back to the rule-based version transparently on any failure.
 
 Each persona returns:
   { persona, role, avatar, stance, stance_color, read, points, verdict }
@@ -12,6 +16,14 @@ Call `roundtable(dashboard)` to get the full ordered list.
 
 from __future__ import annotations
 import time
+
+# ── Optional AI synthesis (Gemini 1.5 Flash) ──────────────────────────────
+try:
+    from ai_synthesis import ai_desk_head as _ai_desk_head
+    _AI_AVAILABLE = True
+except Exception:  # ImportError or any init-time error
+    _AI_AVAILABLE = False
+    _ai_desk_head = None  # type: ignore[assignment]
 
 
 def _pick_stance(score: int) -> tuple[str, str]:
@@ -564,12 +576,24 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
 
 # ─── public entry ──────────────────────────────────────────────────────────
 def roundtable(dashboard: dict) -> dict:
-    """Full trading desk output. Ordered: specialists first, Desk Head last."""
-    tech = persona_technician(dashboard)
+    """Full trading desk output. Ordered: specialists first, Desk Head last.
+
+    The Desk Head is AI-powered (Gemini 1.5 Flash) when GEMINI_API_KEY is set;
+    falls back to rule-based automatically on any failure or missing key.
+    """
+    tech  = persona_technician(dashboard)
     macro = persona_macro(dashboard)
-    risk = persona_risk(dashboard)
-    rot = persona_rotator(dashboard)
-    head = persona_desk_head(dashboard, [tech, macro, risk, rot])
+    risk  = persona_risk(dashboard)
+    rot   = persona_rotator(dashboard)
+    specialists = [tech, macro, risk, rot]
+
+    # Try AI Desk Head first; fall back to rule-based on any failure
+    head = None
+    if _AI_AVAILABLE and _ai_desk_head is not None:
+        head = _ai_desk_head(dashboard, specialists)
+    if head is None:
+        head = persona_desk_head(dashboard, specialists)
+
     return {
         "personas": [tech, macro, risk, rot, head],
         "timestamp": time.strftime("%H:%M UTC", time.gmtime()),

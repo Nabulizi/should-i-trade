@@ -44,6 +44,14 @@ PILLAR_WEIGHTS: dict[str, float] = {
     "macro":      0.10,
 }
 
+# ── AI Synthesis (optional) ──────────────────────────────────────────────────
+
+GEMINI_API_KEY: str = ""
+"""Google Gemini API key for AI-powered Desk Head synthesis (free tier).
+   Get a free key at https://aistudio.google.com  (1 500 req/day, no credit card).
+   Leave empty to use the rule-based fallback — everything still works.
+   Can also be set via the GEMINI_API_KEY environment variable (takes priority)."""
+
 # ── Circuit Breaker (data.py) ─────────────────────────────────────────────────
 
 CB_FAILURE_THRESHOLD: int = 3
