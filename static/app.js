@@ -901,7 +901,7 @@ function renderRoundtable(personas) {
             <div class="persona-role">${p.role}</div>
           </div>
           <span class="persona-stance" style="background:${bg};color:${fg}">${p.stance}</span>
-        </div>`
+        </div>
         <div class="persona-read">"${p.read}"</div>
         <div class="persona-points">${pts}</div>
         <div class="persona-verdict">${p.verdict}</div>
