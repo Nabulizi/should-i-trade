@@ -306,8 +306,9 @@ def _call_agent(
             config=types.GenerateContentConfig(
                 system_instruction=agent["system"],
                 temperature=0.75,
-                max_output_tokens=700,
+                max_output_tokens=1024,
                 response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         elapsed_ms = round((time.time() - t0) * 1000)
@@ -340,7 +341,7 @@ def _call_agent(
         }
 
     except json.JSONDecodeError as exc:
-        logger.warning("%s returned invalid JSON: %s", agent["persona"], exc)
+        logger.warning("%s returned invalid JSON: %s\nRaw: %r", agent["persona"], exc, raw if 'raw' in dir() else '?')
         return None
     except Exception as exc:
         # On 429, check whether it's a short per-minute limit (retryable)
