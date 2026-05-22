@@ -891,7 +891,7 @@ function renderRoundtable(personas) {
     const pts = (p.points || []).map(pt => `
       <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || pt.icon}</span><span>${pt.text}</span></div>`).join('');
     const aiBadge = p.ai_powered
-      ? ` <span class="ai-badge" title="Powered by Gemini 1.5 Flash · ${p.latency_ms || '?'}ms">✦ AI</span>`
+      ? ` <span class="ai-badge" title="AI-generated · ${p.latency_ms || '?'}ms total roundtable">✦ AI</span>`
       : '';
     return `
       <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
