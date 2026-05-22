@@ -848,12 +848,17 @@ async function renderSparkline() {
 }
 
 /* ── ROUNDTABLE ────────────────────────────────────────── */
-async function runRoundtable(auto=false) {
-  const btn = $('rt-btn');
-  if (!auto) btn.disabled = true;
-  btn.textContent = auto ? '▶ Generate Desk Read' : '⏳ Convening desk…';
+async function runRoundtable(auto=false, useAi=false) {
+  const btn    = useAi ? $('rt-ai-btn') : $('rt-btn');
+  const altBtn = useAi ? $('rt-btn')    : $('rt-ai-btn');
+  if (btn)    btn.disabled    = true;
+  if (altBtn) altBtn.disabled = true;
+  if (btn) btn.textContent = useAi
+    ? '⏳ Consulting 5 AI agents…'
+    : (auto ? '▶ Rule-Based Read' : '⏳ Convening desk…');
   try {
-    const res = await fetch('/api/analysis');
+    const url = useAi ? '/api/analysis?ai=1' : '/api/analysis';
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -861,8 +866,8 @@ async function runRoundtable(auto=false) {
   } catch(e) {
     $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${e.message}</div>`;
   } finally {
-    btn.disabled = false;
-    btn.textContent = '↻ Refresh Desk Read';
+    if (btn)    { btn.disabled    = false; btn.textContent    = useAi ? '✦ Re-run AI Analysis' : '↻ Refresh Read'; }
+    if (altBtn) { altBtn.disabled = false; }
   }
 }
 

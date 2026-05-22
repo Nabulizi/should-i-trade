@@ -575,21 +575,20 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
 
 
 # ─── public entry ──────────────────────────────────────────────────────────
-def roundtable(dashboard: dict) -> dict:
+def roundtable(dashboard: dict, use_ai: bool = False) -> dict:
     """Full trading desk roundtable.
 
-    When GEMINI_API_KEY is set: all 5 personas are AI-generated in a single
-    Gemini call, with each persona debating the previous speakers.
-
-    Fallback: all 5 rule-based personas if AI is unavailable or fails.
+    use_ai=False (default): fast, deterministic, rule-based — no API cost.
+                            Auto-runs on every page load at zero cost.
+    use_ai=True:            5-agent Gemini debate; falls back to rule-based
+                            silently on any failure.
     """
-    # Try full AI roundtable (all 5 personas with live debate)
-    if _AI_AVAILABLE and _ai_roundtable is not None:
+    if use_ai and _AI_AVAILABLE and _ai_roundtable is not None:
         result = _ai_roundtable(dashboard)
         if result is not None:
             return result
 
-    # Full rule-based fallback
+    # Rule-based (default path, and fallback for AI failures)
     tech  = persona_technician(dashboard)
     macro = persona_macro(dashboard)
     risk  = persona_risk(dashboard)

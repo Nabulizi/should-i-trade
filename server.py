@@ -429,7 +429,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/analysis":
             try:
                 data = get_cached_dashboard()
-                self._json(roundtable(data))
+                use_ai = "ai=1" in (parsed.query or "")
+                self._json(roundtable(data, use_ai=use_ai))
             except Exception:
                 logger.exception("Error serving /api/analysis")
                 with _METRICS_LOCK:

@@ -59,6 +59,8 @@
   .btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px; font-family: inherit; letter-spacing: 0.5px; transition: all 0.2s; }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn:disabled { opacity: 0.4; cursor: wait; }
+  .btn-ai { border-color: rgba(0,176,255,0.35); color: var(--accent); }
+  .btn-ai:hover { background: rgba(0,176,255,0.08); border-color: var(--accent); }
 
   /* ── MAIN ── */
   .main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }

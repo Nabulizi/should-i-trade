@@ -183,7 +183,8 @@
     <div class="roundtable-section">
       <div class="roundtable-head">
         <span class="roundtable-title"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Trading Desk Roundtable</span>
-        <button class="btn" id="rt-btn" onclick="runRoundtable()">▶ Generate Desk Read</button>
+        <button class="btn" id="rt-btn" onclick="runRoundtable()">▶ Rule-Based Read</button>
+        <button class="btn btn-ai" id="rt-ai-btn" onclick="runRoundtable(false, true)" title="5 specialist AI agents debate in sequence (~10s)">✦ AI Analysis</button>
       </div>
       <div id="roundtable-grid" class="roundtable-grid"></div>
     </div>
