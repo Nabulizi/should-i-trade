@@ -4,8 +4,7 @@ analysis.py — Trading Desk Roundtable
 Five distinct voices, each with a narrow remit, followed by a synthesis
 from the Desk Head.
 
-Personas 1-4 are rule-based (fast, deterministic, no API key).
-Persona 5 (Desk Head) uses Gemini 1.5 Flash when GEMINI_API_KEY is set,
+Rule-based by default. With use_ai=True, all 5 personas use Gemini 2.5 Flash,
 falling back to the rule-based version transparently on any failure.
 
 Each persona returns:

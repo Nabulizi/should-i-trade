@@ -282,82 +282,86 @@ def _call_agent(
     cumulative_ms: int,
 ) -> Optional[dict]:
     """Call one sub-agent. Returns stamped persona dict or None."""
-    try:
-        from google.genai import types  # type: ignore[import]
+    from google.genai import types  # type: ignore[import]
 
-        prior_text = ""
-        if prior_speakers:
-            lines = [
-                f"{p['persona']} [{p['stance']}]: {p['read']}  -> Verdict: \"{p['verdict']}\""
-                for p in prior_speakers
-            ]
-            prior_text = _PRIOR_HEADER + "\n".join(lines)
+    prior_text = ""
+    if prior_speakers:
+        lines = [
+            f"{p['persona']} [{p['stance']}]: {p['read']}  -> Verdict: \"{p['verdict']}\""
+            for p in prior_speakers
+        ]
+        prior_text = _PRIOR_HEADER + "\n".join(lines)
 
-        user_prompt = (
-            f"LIVE MARKET DATA:\n{market_snapshot}"
-            f"{prior_text}"
-            f"{_SCHEMA_REMINDER}"
-        )
+    user_prompt = (
+        f"LIVE MARKET DATA:\n{market_snapshot}"
+        f"{prior_text}"
+        f"{_SCHEMA_REMINDER}"
+    )
 
-        t0 = time.time()
-        response = client.models.generate_content(
-            model=_MODEL_NAME,
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=agent["system"],
-                temperature=0.75,
-                max_output_tokens=1024,
-                response_mime_type="application/json",
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
-            ),
-        )
-        elapsed_ms = round((time.time() - t0) * 1000)
+    for attempt in range(3):
+        raw = ""
+        try:
+            t0 = time.time()
+            response = client.models.generate_content(
+                model=_MODEL_NAME,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=agent["system"],
+                    temperature=0.75,
+                    max_output_tokens=1024,
+                    response_mime_type="application/json",
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                ),
+            )
+            elapsed_ms = round((time.time() - t0) * 1000)
 
-        raw = (response.text or "").strip()
-        if raw.startswith("```"):
-            parts = raw.split("```")
-            raw = parts[1] if len(parts) >= 3 else parts[-1]
-            raw = raw.lstrip("json").strip()
+            raw = (response.text or "").strip()
+            if raw.startswith("```"):
+                parts = raw.split("```")
+                raw = parts[1] if len(parts) >= 3 else parts[-1]
+                raw = raw.lstrip("json").strip()
 
-        parsed = json.loads(raw)
-        required = ("stance", "stance_color", "read", "points", "verdict")
-        if not all(k in parsed for k in required):
-            logger.warning("%s response missing keys: %s", agent["persona"], list(parsed.keys()))
+            parsed = json.loads(raw)
+            required = ("stance", "stance_color", "read", "points", "verdict")
+            if not all(k in parsed for k in required):
+                logger.warning("%s response missing keys: %s", agent["persona"], list(parsed.keys()))
+                return None
+
+            logger.info("  %-24s [%s] in %dms", agent["persona"], parsed.get("stance", "?"), elapsed_ms)
+
+            return {
+                "persona":      agent["persona"],
+                "role":         agent["role"],
+                "avatar":       agent["avatar"],
+                "stance":       parsed["stance"],
+                "stance_color": parsed["stance_color"],
+                "read":         parsed["read"],
+                "points":       parsed["points"],
+                "verdict":      parsed["verdict"],
+                "ai_powered":   True,
+                "latency_ms":   cumulative_ms + elapsed_ms,
+            }
+
+        except json.JSONDecodeError as exc:
+            logger.warning("%s returned invalid JSON: %s\nRaw: %r", agent["persona"], exc, raw)
+            return None
+        except Exception as exc:
+            # On 429, check whether it's a short per-minute limit (retryable)
+            # or daily quota exhaustion (not worth waiting for)
+            msg = str(exc)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                retry_s = _parse_retry_delay(msg)
+                if retry_s is not None and retry_s <= 30 and attempt < 2:
+                    logger.info("%s hit RPM limit — retrying in %.0fs (attempt %d/3)...", agent["persona"], retry_s, attempt + 1)
+                    time.sleep(retry_s + 1)
+                    continue
+                else:
+                    logger.warning("%s hit daily quota or retry limit (retry=%s s) — fallback.", agent["persona"], retry_s)
+                    return None
+            logger.warning("%s call failed (%s): %s", agent["persona"], type(exc).__name__, exc)
             return None
 
-        logger.info("  %-24s [%s] in %dms", agent["persona"], parsed.get("stance", "?"), elapsed_ms)
-
-        return {
-            "persona":      agent["persona"],
-            "role":         agent["role"],
-            "avatar":       agent["avatar"],
-            "stance":       parsed["stance"],
-            "stance_color": parsed["stance_color"],
-            "read":         parsed["read"],
-            "points":       parsed["points"],
-            "verdict":      parsed["verdict"],
-            "ai_powered":   True,
-            "latency_ms":   cumulative_ms + elapsed_ms,
-        }
-
-    except json.JSONDecodeError as exc:
-        logger.warning("%s returned invalid JSON: %s\nRaw: %r", agent["persona"], exc, raw if 'raw' in dir() else '?')
-        return None
-    except Exception as exc:
-        # On 429, check whether it's a short per-minute limit (retryable)
-        # or daily quota exhaustion (not worth waiting for)
-        msg = str(exc)
-        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-            retry_s = _parse_retry_delay(msg)
-            if retry_s is not None and retry_s <= 30:
-                logger.info("%s hit RPM limit — retrying in %.0fs...", agent["persona"], retry_s)
-                time.sleep(retry_s + 1)
-                return _call_agent(client, agent, market_snapshot, prior_speakers, cumulative_ms)
-            else:
-                logger.warning("%s hit daily quota (retry=%s s) — fallback.", agent["persona"], retry_s)
-                return None
-        logger.warning("%s call failed (%s): %s", agent["persona"], type(exc).__name__, exc)
-        return None
+    return None
 
 
 def _parse_retry_delay(error_msg: str) -> Optional[float]:
