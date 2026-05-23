@@ -63,7 +63,7 @@
   .btn-ai:hover { background: rgba(0,176,255,0.08); border-color: var(--accent); }
 
   /* AI toast notification */
-  .ai-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; pointer-events: none; transition: opacity 0.5s; z-index: 9999; white-space: nowrap; }
+  .ai-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; pointer-events: none; transition: opacity 0.25s; z-index: 30; white-space: nowrap; }
   .ai-toast-ok   { background: rgba(0,230,118,0.15); border: 1px solid rgba(0,230,118,0.4); color: var(--green); }
   .ai-toast-warn { background: rgba(255,215,64,0.12); border: 1px solid rgba(255,215,64,0.35); color: var(--yellow); }
 
@@ -233,7 +233,7 @@
   .persona-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
   .persona-id { display: flex; flex-direction: column; gap: 2px; }
   .persona-name { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
-  .ai-badge { font-size: 8px; font-weight: 800; letter-spacing: 0.8px; padding: 1px 5px; border-radius: 2px; background: rgba(0,176,255,0.15); color: var(--accent); border: 1px solid rgba(0,176,255,0.3); text-transform: uppercase; }
+  .ai-badge { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; padding: 1px 5px; border-radius: 2px; background: rgba(0,176,255,0.15); color: var(--accent); border: 1px solid rgba(0,176,255,0.3); text-transform: uppercase; }
   .persona-role { font-size: 9px; color: var(--muted); }
   .persona-stance { font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 2px; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
   .persona-read { font-size: 10.5px; line-height: 1.55; color: var(--text); font-style: italic; min-height: 44px; }
@@ -398,5 +398,6 @@
     .pillar-bar-fill, .pm-fill, .weight-bar, .sector-bar { transition: none; }
     .persona-card { transition: none; opacity: 1; transform: none; }
     .settings-drawer { animation: none; }
+    .ai-toast { transition: none; }
   }
 
