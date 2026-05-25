@@ -339,7 +339,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Encoding", "gzip")
         self._cors()
         self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.wfile.write(body)
+        except BrokenPipeError:
+            pass
 
     def _file(self, path: str, ctype: str = "text/html; charset=utf-8"):
         try:
@@ -544,7 +547,15 @@ def main():
         daemon=True,
     ).start()
 
-    server = ThreadingHTTPServer(("", PORT), Handler)
+    class _QuietServer(ThreadingHTTPServer):
+        def handle_error(self, request, client_address):
+            import sys
+            exc = sys.exc_info()[1]
+            if isinstance(exc, (ConnectionResetError, BrokenPipeError)):
+                return  # browser dropped connection — not an error
+            super().handle_error(request, client_address)
+
+    server = _QuietServer(("", PORT), Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
