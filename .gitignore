@@ -6,9 +6,6 @@ __pycache__/
 *.pyd
 .Python
 
-# Secrets — never commit API keys
-config.py
-
 # macOS
 .DS_Store
 .AppleDouble
