@@ -75,7 +75,7 @@
   .decision-card, .pos-card, .score-wrap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 0; overflow: hidden; }
   .decision-card { justify-content: flex-start; padding-top: 16px; }
   .decision-label, .pos-label { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
-  .decision-badge { font-size: clamp(18px, 2.3vw, 34px); font-weight: 800; letter-spacing: clamp(0px, 0.15vw, 2px); margin-bottom: 4px; overflow: hidden; white-space: nowrap; }
+  .decision-badge { font-size: clamp(14px, 1.4vw, 22px); font-weight: 800; letter-spacing: clamp(0px, 0.08vw, 1px); margin-bottom: 4px; white-space: nowrap; }
   .decision-sub { font-size: 9px; color: var(--muted); }
   .pos-icon { font-size: 26px; margin-bottom: 4px; }
   .pos-text { font-size: 13px; font-weight: 700; letter-spacing: 1px; }
@@ -364,7 +364,7 @@
     .roundtable-grid { grid-template-columns: 1fr; }
     .bottom-row { grid-template-columns: 1fr; }
     .hero { grid-template-columns: 1fr; grid-template-areas: "mid" "dec" "pos"; }
-    .decision-badge { font-size: 28px; letter-spacing: 1px; }
+    .decision-badge { font-size: 24px; letter-spacing: 1px; }
     .header { flex-wrap: wrap; gap: 8px; }
     .header-left, .header-right { flex-wrap: wrap; }
     .main { padding: 10px; }
