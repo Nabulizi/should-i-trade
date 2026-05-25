@@ -2,7 +2,10 @@
 analysis.py — Trading Desk Roundtable
 
 Five distinct voices, each with a narrow remit, followed by a synthesis
-from the Desk Head. Rule-based — fast, deterministic, no API key.
+from the Desk Head.
+
+Rule-based by default. With use_ai=True, all 5 personas use Gemini 2.5 Flash,
+falling back to the rule-based version transparently on any failure.
 
 Each persona returns:
   { persona, role, avatar, stance, stance_color, read, points, verdict }
@@ -12,6 +15,14 @@ Call `roundtable(dashboard)` to get the full ordered list.
 
 from __future__ import annotations
 import time
+
+# ── Optional AI roundtable (all 5 personas via Gemini) ────────────────────────
+try:
+    from ai_synthesis import ai_roundtable as _ai_roundtable
+    _AI_AVAILABLE = True
+except Exception:  # ImportError or any init-time error
+    _AI_AVAILABLE = False
+    _ai_roundtable = None  # type: ignore[assignment]
 
 
 def _pick_stance(score: int) -> tuple[str, str]:
@@ -563,14 +574,28 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
 
 
 # ─── public entry ──────────────────────────────────────────────────────────
-def roundtable(dashboard: dict) -> dict:
-    """Full trading desk output. Ordered: specialists first, Desk Head last."""
-    tech = persona_technician(dashboard)
+def roundtable(dashboard: dict, use_ai: bool = False) -> dict:
+    """Full trading desk roundtable.
+
+    use_ai=False (default): fast, deterministic, rule-based — no API cost.
+                            Auto-runs on every page load at zero cost.
+    use_ai=True:            5-agent Gemini debate; falls back to rule-based
+                            silently on any failure.
+    """
+    if use_ai and _AI_AVAILABLE and _ai_roundtable is not None:
+        result = _ai_roundtable(dashboard)
+        if result is not None:
+            result["ai_used"] = True
+            return result
+
+    # Rule-based (default path, and fallback for AI failures)
+    tech  = persona_technician(dashboard)
     macro = persona_macro(dashboard)
-    risk = persona_risk(dashboard)
-    rot = persona_rotator(dashboard)
-    head = persona_desk_head(dashboard, [tech, macro, risk, rot])
+    risk  = persona_risk(dashboard)
+    rot   = persona_rotator(dashboard)
+    head  = persona_desk_head(dashboard, [tech, macro, risk, rot])
     return {
         "personas": [tech, macro, risk, rot, head],
         "timestamp": time.strftime("%H:%M UTC", time.gmtime()),
+        "ai_used": False,
     }

@@ -848,21 +848,32 @@ async function renderSparkline() {
 }
 
 /* ── ROUNDTABLE ────────────────────────────────────────── */
-async function runRoundtable(auto=false) {
-  const btn = $('rt-btn');
-  if (!auto) btn.disabled = true;
-  btn.textContent = auto ? '▶ Generate Desk Read' : '⏳ Convening desk…';
+// SVG icons used in roundtable buttons (match initial HTML renders in should-i-trade-v5.html)
+const _BTN_PLAY_SVG = '<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+const _BTN_STAR_SVG = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+
+async function runRoundtable(auto=false, useAi=false) {
+  const btn    = useAi ? $('rt-ai-btn') : $('rt-btn');
+  const altBtn = useAi ? $('rt-btn')    : $('rt-ai-btn');
+  if (btn)    btn.disabled    = true;
+  if (altBtn) altBtn.disabled = true;
+  if (btn) btn.innerHTML = useAi
+    ? `${_BTN_STAR_SVG}Consulting AI agents…`
+    : (auto ? `${_BTN_PLAY_SVG}Rule-Based Read` : `${_BTN_PLAY_SVG}Convening desk…`);
   try {
-    const res = await fetch('/api/analysis');
+    const url = useAi ? '/api/analysis?ai=1' : '/api/analysis';
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
+    if (useAi && data.ai_used === false) _showToast('AI quota exhausted — showing rule-based analysis. Resets at midnight.', 'warn');
+    else if (useAi && data.ai_used)      _showToast('AI analysis complete', 'ok');
     renderRoundtable(data.personas || []);
   } catch(e) {
     $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${e.message}</div>`;
   } finally {
-    btn.disabled = false;
-    btn.textContent = '↻ Refresh Desk Read';
+    if (btn)    { btn.disabled = false; btn.innerHTML = useAi ? `${_BTN_STAR_SVG}Re-run AI Analysis` : `${_BTN_PLAY_SVG}Refresh Read`; }
+    if (altBtn) { altBtn.disabled = false; }
   }
 }
 
@@ -890,11 +901,14 @@ function renderRoundtable(personas) {
     const fg = `var(--${stanceCol === 'gray' ? 'muted' : stanceCol})`;
     const pts = (p.points || []).map(pt => `
       <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || pt.icon}</span><span>${pt.text}</span></div>`).join('');
+    const aiBadge = p.ai_powered
+      ? ` <span class="ai-badge" aria-label="AI-generated, ${p.latency_ms || '?'}ms total roundtable"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:2px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI</span>`
+      : '';
     return `
       <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
         <div class="persona-header">
           <div class="persona-id">
-            <div class="persona-name">${AVATAR_SVG[p.avatar] || p.avatar} ${p.persona}</div>
+            <div class="persona-name">${AVATAR_SVG[p.avatar] || p.avatar} ${p.persona}${aiBadge}</div>
             <div class="persona-role">${p.role}</div>
           </div>
           <span class="persona-stance" style="background:${bg};color:${fg}">${p.stance}</span>
@@ -1124,6 +1138,23 @@ function connectSSE() {
     setTimeout(connectSSE, _sseRetryMs);
     _sseRetryMs = Math.min(_sseRetryMs * 2, 60000);
   };
+}
+
+/* ── TOAST ─────────────────────────────────────────────── */
+function _showToast(msg, type='ok') {
+  let t = $('ai-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'ai-toast';
+    document.body.appendChild(t);
+  }
+  t.setAttribute('role', type === 'warn' ? 'alert' : 'status');
+  t.setAttribute('aria-live', type === 'warn' ? 'assertive' : 'polite');
+  t.className = 'ai-toast ' + (type === 'warn' ? 'ai-toast-warn' : 'ai-toast-ok');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, type === 'warn' ? 7000 : 4000);
 }
 
 /* ── KICKOFF ───────────────────────────────────────────── */
