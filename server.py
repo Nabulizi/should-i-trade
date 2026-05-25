@@ -19,9 +19,14 @@ from scoring import compute_dashboard
 from analysis import roundtable
 from watchlist import compute_watchlist_health
 from config import (
-    PORT, DASHBOARD_TTL, WATCHLIST_TTL, HISTORY_MAXLEN,
+    PORT as _CONFIG_PORT, DASHBOARD_TTL, WATCHLIST_TTL, HISTORY_MAXLEN,
     RATE_LIMIT_MAX, RATE_LIMIT_WINDOW, SSE_KEEPALIVE_SECS,
 )
+
+# Production-aware PORT: Render (and most PaaS) inject PORT as env var.
+# Falls back to config.PORT for local dev.
+PORT = int(os.environ.get("PORT", _CONFIG_PORT))
+IS_PRODUCTION = bool(os.environ.get("PORT") or os.environ.get("RENDER"))
 
 # ─── logging ──────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
@@ -29,7 +34,9 @@ logger = logging.getLogger(__name__)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HTML_FILE = "should-i-trade-v5.html"
 HISTORY_FILE = os.path.join(SCRIPT_DIR, "history.json")
-_ALLOWED_ORIGIN = f"http://localhost:{PORT}"
+# In production, allow all origins (public dashboard, no auth).
+# Locally, restrict to dev URL.
+_ALLOWED_ORIGIN = "*" if IS_PRODUCTION else f"http://localhost:{PORT}"
 _SERVER_START = time.time()
 
 # In-memory score history for sparkline. Persisted to history.json on each update.
@@ -542,10 +549,12 @@ def main():
 
     _load_history()
 
-    threading.Thread(
-        target=lambda: (time.sleep(1.2), webbrowser.open(f"http://localhost:{PORT}")),
-        daemon=True,
-    ).start()
+    # Only auto-open browser locally (would fail on a headless server)
+    if not IS_PRODUCTION:
+        threading.Thread(
+            target=lambda: (time.sleep(1.2), webbrowser.open(f"http://localhost:{PORT}")),
+            daemon=True,
+        ).start()
 
     class _QuietServer(ThreadingHTTPServer):
         def handle_error(self, request, client_address):

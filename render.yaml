@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: should-i-trade
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: ""
+    startCommand: python3 server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    autoDeploy: true
