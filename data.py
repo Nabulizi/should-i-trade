@@ -15,7 +15,7 @@ No API key required for any source. Thread-safe cache.
 from __future__ import annotations
 import csv, io, json, logging, threading, time
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from urllib.request import Request, urlopen
 
 from config import CB_FAILURE_THRESHOLD, CB_RESET_SECS
@@ -573,6 +573,70 @@ def _is_dst_et(d: datetime) -> bool:
     return dst_start <= d < dst_end
 
 
+def _easter(y: int) -> date:
+    """Compute Easter Sunday for year y (Anonymous Gregorian algorithm)."""
+    a = y % 19
+    b, c = divmod(y, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month, day = divmod(114 + h + l - 7 * m, 31)
+    return date(y, month, day + 1)
+
+
+def _nth_weekday(y: int, month: int, weekday: int, n: int) -> date:
+    """Return the nth occurrence (1-based) of weekday (0=Mon) in given month/year."""
+    first = date(y, month, 1)
+    delta = (weekday - first.weekday()) % 7
+    return first + timedelta(days=delta + (n - 1) * 7)
+
+
+def _last_monday(y: int, month: int) -> date:
+    """Return the last Monday of the given month/year."""
+    # Start from day 31 and work back
+    last_day = date(y, month, 28) + timedelta(days=4)  # last day of month
+    last_day = last_day - timedelta(days=last_day.day - 1)  # first of next month
+    last_day -= timedelta(days=1)  # actual last day
+    return last_day - timedelta(days=(last_day.weekday()) % 7)
+
+
+def _nyse_holidays(y: int) -> set:
+    """Return the set of NYSE market holidays for year y.
+
+    Rules follow the NYSE holiday schedule:
+    https://www.nyse.com/markets/hours-calendars
+    When a holiday falls on Saturday, the preceding Friday is observed.
+    When a holiday falls on Sunday, the following Monday is observed.
+    """
+    def observe(d: date) -> date:
+        if d.weekday() == 5:   # Saturday → Friday
+            return d - timedelta(days=1)
+        if d.weekday() == 6:   # Sunday → Monday
+            return d + timedelta(days=1)
+        return d
+
+    easter_sunday = _easter(y)
+    good_friday   = easter_sunday - timedelta(days=2)
+
+    holidays = {
+        observe(date(y, 1, 1)),                      # New Year's Day
+        _nth_weekday(y, 1, 0, 3),                    # MLK Day (3rd Mon Jan)
+        _nth_weekday(y, 2, 0, 3),                    # Presidents' Day (3rd Mon Feb)
+        good_friday,                                 # Good Friday
+        _last_monday(y, 5),                          # Memorial Day (last Mon May)
+        observe(date(y, 6, 19)),                     # Juneteenth
+        observe(date(y, 7, 4)),                      # Independence Day
+        _nth_weekday(y, 9, 0, 1),                    # Labor Day (1st Mon Sep)
+        _nth_weekday(y, 11, 3, 4),                   # Thanksgiving (4th Thu Nov)
+        observe(date(y, 12, 25)),                    # Christmas Day
+    }
+    return holidays
+
+
 def market_state() -> dict:
     """Return current NYSE trading state + local ET time string."""
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -580,9 +644,12 @@ def market_state() -> dict:
     et = now_utc + timedelta(hours=offset)
     hour, minute = et.hour, et.minute
     minutes = hour * 60 + minute
+    today = et.date()
 
     if et.weekday() >= 5:
         state, label, color = "weekend", "Weekend", "gray"
+    elif today in _nyse_holidays(today.year):
+        state, label, color = "closed", "Market Holiday", "gray"
     elif minutes < 4 * 60:                           # before 4:00 AM
         state, label, color = "closed",    "Closed",      "gray"
     elif minutes < 9 * 60 + 30:                      # 4:00 – 9:30 AM
