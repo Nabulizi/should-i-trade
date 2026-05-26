@@ -908,7 +908,7 @@ _EARNINGS_WINDOWS = [
 
 def earnings_season() -> dict:
     """Return current or next earnings season status with gap-risk context."""
-    today = datetime.now(timezone.utc)
+    today = datetime.now(timezone.utc).replace(tzinfo=None)
     year  = today.year
 
     for ms, ds, me, de, quarter in _EARNINGS_WINDOWS:
