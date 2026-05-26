@@ -105,15 +105,38 @@ def yf_quote(symbol: str) -> dict | None:
         if price is None or prev is None:
             return None
         change = price - prev
+        trade_ts = meta.get("regularMarketTime")
+        trade_date = (datetime.fromtimestamp(trade_ts, tz=timezone.utc).date()
+                      if trade_ts else None)
         return {
-            "price":     round(price, 4),
-            "prevClose": round(prev, 4),
-            "change1d":  round(change, 4),
-            "changePct": round(change / prev * 100, 4) if prev else 0.0,
-            "source":    "yahoo",
+            "price":      round(price, 4),
+            "prevClose":  round(prev, 4),
+            "change1d":   round(change, 4),
+            "changePct":  round(change / prev * 100, 4) if prev else 0.0,
+            "source":     "yahoo",
+            "trade_date": trade_date,
         }
     except Exception:
         return None
+
+
+def yf_last_bar_date(symbol: str, days: int = 220) -> date | None:
+    """Return the date of the most recent bar in Yahoo daily history.
+
+    Uses the same URL and cache as yf_history — no extra network request.
+    Returns None if timestamps are unavailable.
+    """
+    period = "1y" if days <= 252 else "2y"
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{_yf_sym(symbol)}"
+           f"?interval=1d&range={period}&includePrePost=false")
+    try:
+        data = json.loads(fetch_url(url, cache_secs=300))
+        timestamps = data["chart"]["result"][0].get("timestamp", [])
+        if timestamps:
+            return datetime.fromtimestamp(timestamps[-1], tz=timezone.utc).date()
+    except Exception:
+        pass
+    return None
 
 
 def yf_history(symbol: str, days: int = 220) -> list[float]:

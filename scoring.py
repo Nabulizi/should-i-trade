@@ -9,6 +9,7 @@ score was built. This removes the "black box" problem.
 
 from __future__ import annotations
 import logging, time
+from datetime import date
 
 logger = logging.getLogger(__name__)
 from concurrent.futures import ThreadPoolExecutor as _TPE
@@ -19,6 +20,7 @@ from data import (
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
     opex_proximity, seasonality, earnings_season, fetch_futures_tape,
+    yf_last_bar_date,
 )
 from config import PILLAR_WEIGHTS
 from models import PillarResult, DashboardResult
@@ -1321,14 +1323,15 @@ def _fetch_instruments() -> dict:
                      + [(s, 220) for s in SECTOR_SYMBOLS])
 
     with _TPE(max_workers=24) as ex:
-        q_futs      = {ex.submit(get_quote,   s):    s for s in all_symbols}
-        h_futs      = {ex.submit(get_history, s, d): s for s, d in history_pairs}
-        spy_ohlcv_f = ex.submit(get_ohlcv, "SPY", 220)
-        btc_q_f     = ex.submit(btc_quote)
-        btc_h_f     = ex.submit(btc_history)
-        fng_s_f     = ex.submit(fetch_fear_greed_stock)
-        fng_c_f     = ex.submit(fetch_fear_greed_crypto)
-        fut_tape_f  = ex.submit(fetch_futures_tape)
+        q_futs           = {ex.submit(get_quote,   s):    s for s in all_symbols}
+        h_futs           = {ex.submit(get_history, s, d): s for s, d in history_pairs}
+        spy_ohlcv_f      = ex.submit(get_ohlcv, "SPY", 220)
+        btc_q_f          = ex.submit(btc_quote)
+        btc_h_f          = ex.submit(btc_history)
+        fng_s_f          = ex.submit(fetch_fear_greed_stock)
+        fng_c_f          = ex.submit(fetch_fear_greed_crypto)
+        fut_tape_f       = ex.submit(fetch_futures_tape)
+        spy_last_bar_f   = ex.submit(yf_last_bar_date, "SPY", 220)
 
     def _safe_result(fut, default):
         try:
@@ -1346,7 +1349,8 @@ def _fetch_instruments() -> dict:
         "btc_closes":    _safe_result(btc_h_f, []),
         "fng_stock":     _safe_result(fng_s_f, {"available": False}),
         "fng_crypto":    _safe_result(fng_c_f, {"available": False}),
-        "futures_tape":  _safe_result(fut_tape_f, {"valid": False}),
+        "futures_tape":      _safe_result(fut_tape_f, {"valid": False}),
+        "spy_last_bar_date": _safe_result(spy_last_bar_f, None),
     }
 
 
@@ -1378,20 +1382,28 @@ def _day_streak(closes: list[float]) -> dict:
     return {"days": count, "direction": direction}
 
 
-def _splice_live(closes: list[float], live_price: float | None) -> list[float]:
-    """Replace the last daily bar with the current live quote price.
+def _splice_live(closes: list[float], live_price: float | None,
+                 quote_date: date | None = None,
+                 last_bar_date: date | None = None) -> list[float]:
+    """Replace (or append) the live quote onto the daily history closes array.
 
-    Yahoo Finance includes today's partial bar in daily history, but it can
-    lag by up to 5 minutes (cache).  Splicing the live quote as the current
-    bar ensures close-based indicators (MA, RSI) reflect the actual current
-    price rather than the stale cached close.
+    Normally replaces closes[-1] — Yahoo includes today's partial bar during
+    market hours and we overwrite it with a fresher live price.
 
-    Returns a new list when a splice is performed.  Returns the original
-    ``closes`` object unchanged when ``live_price`` is None or ``closes`` is
-    empty (no copy is made in those no-op cases).
+    After the close Yahoo drops the partial bar before committing the official
+    EOD close (typically 4 PM–midnight ET).  During that window quote_date
+    (the date of the last trade) is newer than last_bar_date (the date of the
+    last history bar), so we append instead of replace.  This ensures the
+    streak counter compares today's close against yesterday's, not against
+    two days ago.
+
+    On weekends/holidays the last trade date equals the last bar date, so
+    the regular replace path is taken and no duplicate bar is introduced.
     """
     if not closes or live_price is None:
         return closes
+    if quote_date is not None and last_bar_date is not None and quote_date > last_bar_date:
+        return [*closes, live_price]
     return [*closes[:-1], live_price]
 
 
@@ -1543,10 +1555,15 @@ def compute_dashboard() -> DashboardResult:
         raw_total, pillars, data_quality)
     conflicts = detect_conflicts(pillars, total)
 
-    # SPY consecutive-day win/loss streak — uses spliced history so today counts
+    # SPY consecutive-day win/loss streak — uses spliced history so today counts.
+    # Pass quote_date vs last_bar_date so _splice_live appends (rather than
+    # replacing) when Yahoo drops the partial bar after close (4 PM–midnight ET).
+    spy_q = instruments["quotes"].get("SPY")
     spy_closes_spliced = _splice_live(
         instruments["histories"].get("SPY", []),
-        price(instruments["quotes"].get("SPY")),
+        price(spy_q),
+        quote_date=spy_q.get("trade_date") if spy_q else None,
+        last_bar_date=instruments.get("spy_last_bar_date"),
     )
     spy_streak = _day_streak(spy_closes_spliced)
 

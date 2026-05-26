@@ -20,6 +20,7 @@ for _fn in [
     "market_state", "fomc_proximity", "econ_proximity",
     "fetch_fear_greed_stock", "fetch_fear_greed_crypto",
     "opex_proximity", "seasonality", "earnings_season", "fetch_futures_tape",
+    "yf_last_bar_date",
 ]:
     setattr(_data_stub, _fn, lambda *a, **kw: None)
 sys.modules["data"] = _data_stub
