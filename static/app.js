@@ -126,7 +126,7 @@ function renderHeader(d) {
     $('coverage-warn').innerHTML = `⚠ ${esc(quality.message || 'Market data unavailable.')} ${esc(cov.fetched ?? 0)}/${esc(cov.requested ?? 0)} symbols fetched.${esc(missing)}${esc(histMissing)}`;
   } else if (cov.failed && cov.failed.length) {
     $('coverage-warn').style.display = 'flex';
-    $('coverage-warn').innerHTML = `⚠ Partial data: ${cov.fetched}/${cov.requested} symbols fetched. Missing: ${cov.failed.slice(0, 8).join(', ')}${cov.failed.length > 8 ? '…' : ''}`;
+    $('coverage-warn').innerHTML = `⚠ Partial data: ${esc(cov.fetched)}/${esc(cov.requested)} symbols fetched. Missing: ${cov.failed.slice(0, 8).map(esc).join(', ')}${cov.failed.length > 8 ? '…' : ''}`;
   } else {
     $('coverage-warn').style.display = 'none';
   }
@@ -900,22 +900,22 @@ function renderRoundtable(personas) {
     const bg = `rgba(${stanceCol === 'green' ? '0,230,118' : stanceCol === 'yellow' ? '255,215,64' : stanceCol === 'orange' ? '255,145,0' : stanceCol === 'red' ? '255,23,68' : '90,112,128'}, 0.15)`;
     const fg = `var(--${stanceCol === 'gray' ? 'muted' : stanceCol})`;
     const pts = (p.points || []).map(pt => `
-      <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || pt.icon}</span><span>${pt.text}</span></div>`).join('');
+      <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || esc(pt.icon)}</span><span>${esc(pt.text)}</span></div>`).join('');
     const aiBadge = p.ai_powered
-      ? ` <span class="ai-badge" aria-label="AI-generated, ${p.latency_ms || '?'}ms total roundtable"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:2px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI</span>`
+      ? ` <span class="ai-badge" aria-label="AI-generated, ${esc(p.latency_ms || '?')}ms total roundtable"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:2px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI</span>`
       : '';
     return `
       <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
         <div class="persona-header">
           <div class="persona-id">
-            <div class="persona-name">${AVATAR_SVG[p.avatar] || p.avatar} ${p.persona}${aiBadge}</div>
-            <div class="persona-role">${p.role}</div>
+            <div class="persona-name">${AVATAR_SVG[p.avatar] || esc(p.avatar)} ${esc(p.persona)}${aiBadge}</div>
+            <div class="persona-role">${esc(p.role)}</div>
           </div>
-          <span class="persona-stance" style="background:${bg};color:${fg}">${p.stance}</span>
+          <span class="persona-stance" style="background:${bg};color:${fg}">${esc(p.stance)}</span>
         </div>
-        <div class="persona-read">"${p.read}"</div>
+        <div class="persona-read">"${esc(p.read)}"</div>
         <div class="persona-points">${pts}</div>
-        <div class="persona-verdict">${p.verdict}</div>
+        <div class="persona-verdict">${esc(p.verdict)}</div>
       </div>`;
   }).join('');
 
