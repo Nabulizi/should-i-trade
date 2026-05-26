@@ -96,6 +96,10 @@ class RateLimiter:
                 return False
             timestamps.append(now)
             self._buckets[client_ip] = timestamps
+            # Periodically evict IPs whose entire window has expired to prevent
+            # unbounded dict growth under bot traffic on a public deployment.
+            if len(self._buckets) > 10_000:
+                self._buckets = {ip: ts for ip, ts in self._buckets.items() if ts}
             return True
 
 

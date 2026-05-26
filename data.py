@@ -239,7 +239,7 @@ def cboe_vix_history(limit: int = 300) -> list[float]:
 def treasury_10y_history(limit: int = 300) -> list[float]:
     """US Treasury 10-Year yield daily (current + prior year). Returns [] on failure.
     Treasury CSV is newest-first; this reverses each batch before combining."""
-    year = datetime.utcnow().year
+    year = datetime.now(timezone.utc).year
     all_closes: list[float] = []
     for y in (year - 1, year):
         url = (
@@ -774,7 +774,7 @@ _ECON_EXPIRY_WARN_DAYS = 30
 
 def econ_proximity() -> list[dict]:
     """Return the next 3 upcoming economic releases with days-until and risk color."""
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
 
     # Warn when fewer than _ECON_EXPIRY_WARN_DAYS of coverage remain.
     last_date = datetime.strptime(_ECON_CALENDAR_LAST, "%Y-%m-%d").date()
@@ -829,7 +829,7 @@ def _third_friday(year: int, month: int):
 
 def opex_proximity() -> dict:
     """Days until next options expiration (3rd Friday). Flags Triple Witching months."""
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     y, m = today.year, today.month
     # Scan the next 6 months to find the next OpEx >= today
     for _ in range(6):
@@ -884,7 +884,7 @@ _MONTHLY_SEASONALITY = {
 
 def seasonality() -> dict:
     """Current month's historical seasonal bias for US equities."""
-    month = datetime.utcnow().month
+    month = datetime.now(timezone.utc).month
     s = _MONTHLY_SEASONALITY[month]
     return {
         "month":     month,
@@ -908,7 +908,7 @@ _EARNINGS_WINDOWS = [
 
 def earnings_season() -> dict:
     """Return current or next earnings season status with gap-risk context."""
-    today = datetime.utcnow()
+    today = datetime.now(timezone.utc)
     year  = today.year
 
     for ms, ds, me, de, quarter in _EARNINGS_WINDOWS:
@@ -961,7 +961,7 @@ _FOMC_EXPIRY_WARN_DAYS = 30
 
 def fomc_proximity() -> dict:
     """Days until next FOMC decision + event-risk label."""
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
 
     # Warn when fewer than _FOMC_EXPIRY_WARN_DAYS of coverage remain.
     last_date = datetime.strptime(_FOMC_LAST, "%Y-%m-%d").date()

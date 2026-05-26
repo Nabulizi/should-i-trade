@@ -378,8 +378,8 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> PillarResult:
         return {"score": 50, "details": details, "reasons": reasons}
 
     # VIX level
-    if   vix_val < VIX_CALM:     d, lbl, col = +25, "Low",      "yellow"
-    elif vix_val < VIX_MODERATE: d, lbl, col = +35, "Moderate", "green"
+    if   vix_val < VIX_CALM:     d, lbl, col = +35, "Low",      "green"
+    elif vix_val < VIX_MODERATE: d, lbl, col = +25, "Moderate", "yellow"
     elif vix_val < VIX_ELEVATED: d, lbl, col = +10, "Elevated", "orange"
     elif vix_val < VIX_HIGH:     d, lbl, col = -10, "High",     "red"
     else:                        d, lbl, col = -30, "Extreme",  "red"
@@ -1330,17 +1330,23 @@ def _fetch_instruments() -> dict:
         fng_c_f     = ex.submit(fetch_fear_greed_crypto)
         fut_tape_f  = ex.submit(fetch_futures_tape)
 
+    def _safe_result(fut, default):
+        try:
+            return fut.result()
+        except Exception:
+            logger.debug("Future result error", exc_info=True)
+            return default
+
     return {
         "all_symbols":   all_symbols,
-        "quotes":        {q_futs[f]: f.result() for f in q_futs},
-        "histories":     {h_futs[f]: f.result() for f in h_futs},
-        "spy_ohlcv":     spy_ohlcv_f.result(),
-        "btc_q":         btc_q_f.result(),
-        "btc_closes":    btc_h_f.result(),
-        "fng_stock":     fng_s_f.result(),
-        "fng_crypto":    fng_c_f.result(),
-        "futures_tape":  fut_tape_f.result(),
-        "sector_histories": {s: {} for s in SECTOR_SYMBOLS},   # placeholder
+        "quotes":        {q_futs[f]: _safe_result(f, None) for f in q_futs},
+        "histories":     {h_futs[f]: _safe_result(f, []) for f in h_futs},
+        "spy_ohlcv":     _safe_result(spy_ohlcv_f, None),
+        "btc_q":         _safe_result(btc_q_f, None),
+        "btc_closes":    _safe_result(btc_h_f, []),
+        "fng_stock":     _safe_result(fng_s_f, {"available": False}),
+        "fng_crypto":    _safe_result(fng_c_f, {"available": False}),
+        "futures_tape":  _safe_result(fut_tape_f, {"valid": False}),
     }
 
 
@@ -1430,8 +1436,8 @@ def _run_pillars(instruments: dict) -> dict[str, dict]:
     return {"volatility": vol, "trend": tr, "breadth": br, "momentum": mom, "macro": mac}
 
 
-def _apply_overrides(total: int, pillars: dict, data_quality: dict) -> tuple[int, int, list, str, str, str]:
-    """Apply hard regime caps and return (total, raw_total, override_reasons, decision, color, position)."""
+def _apply_overrides(total: int, pillars: dict, data_quality: dict) -> tuple[int, int, int | None, list[str], str, str, str]:
+    """Apply hard regime caps and return (total, raw_total, safety_max_score, override_reasons, decision, color, position)."""
     raw_total = total
     override_reasons: list[str] = []
     safety_max_score = None
