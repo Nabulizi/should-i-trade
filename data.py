@@ -140,14 +140,27 @@ def yf_last_bar_date(symbol: str, days: int = 220) -> date | None:
 
 
 def yf_history(symbol: str, days: int = 220) -> list[float]:
-    """Fetch daily closes from Yahoo. Returns [] on failure."""
+    """Fetch daily *adjusted* closes from Yahoo. Returns [] on failure.
+
+    Adjusted close back-corrects for splits and dividends, so MA stacks, RSI,
+    MACD and the 200d line aren't distorted by ex-dividend gaps (this matches
+    the methodology validated in the walk-forward backtest). Falls back to the
+    raw close per-bar when adjclose is missing for a given day.
+    """
     period = "1y" if days <= 252 else "2y"
     url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{_yf_sym(symbol)}"
            f"?interval=1d&range={period}&includePrePost=false")
     try:
-        data = json.loads(fetch_url(url, cache_secs=300))
-        closes = data["chart"]["result"][0]["indicators"]["quote"][0].get("close", [])
-        return [c for c in closes if c is not None]
+        result = json.loads(fetch_url(url, cache_secs=300))["chart"]["result"][0]
+        closes = result["indicators"]["quote"][0].get("close", [])
+        adj = (result["indicators"].get("adjclose") or [{}])[0].get("adjclose", [])
+        merged = []
+        for i, raw in enumerate(closes):
+            a = adj[i] if i < len(adj) else None
+            v = a if a is not None else raw
+            if v is not None:
+                merged.append(v)
+        return merged
     except Exception:
         return []
 

@@ -9,22 +9,21 @@ import {
 
 // ── scoreColor ────────────────────────────────────────────────────────────
 describe('scoreColor', () => {
-  it('returns green for scores >= 80', () => {
-    expect(scoreColor(80)).toBe('var(--green)');
+  it('returns green for scores >= 70', () => {
+    expect(scoreColor(70)).toBe('var(--green)');
     expect(scoreColor(90)).toBe('var(--green)');
     expect(scoreColor(100)).toBe('var(--green)');
   });
 
-  it('returns yellow for scores 60–79', () => {
+  it('returns yellow for scores 55–69', () => {
+    expect(scoreColor(55)).toBe('var(--yellow)');
     expect(scoreColor(60)).toBe('var(--yellow)');
-    expect(scoreColor(75)).toBe('var(--yellow)');
-    expect(scoreColor(79)).toBe('var(--yellow)');
+    expect(scoreColor(69)).toBe('var(--yellow)');
   });
 
-  it('returns orange for scores 40–59', () => {
+  it('returns orange for scores 40–54', () => {
     expect(scoreColor(40)).toBe('var(--orange)');
-    expect(scoreColor(55)).toBe('var(--orange)');
-    expect(scoreColor(59)).toBe('var(--orange)');
+    expect(scoreColor(54)).toBe('var(--orange)');
   });
 
   it('returns red for scores below 40', () => {
@@ -36,18 +35,19 @@ describe('scoreColor', () => {
 
 // ── colorClass ────────────────────────────────────────────────────────────
 describe('colorClass', () => {
-  it('returns c-green for scores >= 80', () => {
-    expect(colorClass(80)).toBe('c-green');
+  it('returns c-green for scores >= 70', () => {
+    expect(colorClass(70)).toBe('c-green');
     expect(colorClass(100)).toBe('c-green');
   });
 
-  it('returns c-yellow for scores 60–79', () => {
-    expect(colorClass(60)).toBe('c-yellow');
-    expect(colorClass(79)).toBe('c-yellow');
+  it('returns c-yellow for scores 55–69', () => {
+    expect(colorClass(55)).toBe('c-yellow');
+    expect(colorClass(69)).toBe('c-yellow');
   });
 
-  it('returns c-orange for scores 40–59', () => {
+  it('returns c-orange for scores 40–54', () => {
     expect(colorClass(40)).toBe('c-orange');
+    expect(colorClass(54)).toBe('c-orange');
   });
 
   it('returns c-red for scores below 40', () => {
@@ -58,42 +58,42 @@ describe('colorClass', () => {
 
 // ── decisionForScore ──────────────────────────────────────────────────────
 describe('decisionForScore', () => {
-  it('returns STRONG YES for 85+', () => {
-    expect(decisionForScore(85).decision).toBe('STRONG YES');
-    expect(decisionForScore(100).decision).toBe('STRONG YES');
+  it('returns RISK-ON for 85+', () => {
+    expect(decisionForScore(85).decision).toBe('RISK-ON');
+    expect(decisionForScore(100).decision).toBe('RISK-ON');
   });
 
-  it('returns YES for 70–84', () => {
-    expect(decisionForScore(70).decision).toBe('YES');
-    expect(decisionForScore(84).decision).toBe('YES');
+  it('returns CONSTRUCTIVE for 70–84', () => {
+    expect(decisionForScore(70).decision).toBe('CONSTRUCTIVE');
+    expect(decisionForScore(84).decision).toBe('CONSTRUCTIVE');
   });
 
-  it('returns CAUTION for 55–69', () => {
-    expect(decisionForScore(55).decision).toBe('CAUTION');
-    expect(decisionForScore(69).decision).toBe('CAUTION');
+  it('returns SELECTIVE for 55–69', () => {
+    expect(decisionForScore(55).decision).toBe('SELECTIVE');
+    expect(decisionForScore(69).decision).toBe('SELECTIVE');
   });
 
-  it('returns NO for 40–54', () => {
-    expect(decisionForScore(40).decision).toBe('NO');
-    expect(decisionForScore(54).decision).toBe('NO');
+  it('returns DE-RISK for 40–54', () => {
+    expect(decisionForScore(40).decision).toBe('DE-RISK');
+    expect(decisionForScore(54).decision).toBe('DE-RISK');
   });
 
-  it('returns STRONG NO for below 40', () => {
-    expect(decisionForScore(0).decision).toBe('STRONG NO');
-    expect(decisionForScore(39).decision).toBe('STRONG NO');
+  it('returns RISK-OFF for below 40', () => {
+    expect(decisionForScore(0).decision).toBe('RISK-OFF');
+    expect(decisionForScore(39).decision).toBe('RISK-OFF');
   });
 
   it('returns position_size in the result', () => {
-    expect(decisionForScore(90).position_size).toBe('FULL SIZE');
-    expect(decisionForScore(72).position_size).toBe('STANDARD SIZE');
-    expect(decisionForScore(60).position_size).toBe('HALF SIZE');
-    expect(decisionForScore(45).position_size).toBe('MINIMAL');
-    expect(decisionForScore(10).position_size).toBe('PRESERVE CAPITAL');
+    expect(decisionForScore(90).position_size).toBe('FULL EXPOSURE');
+    expect(decisionForScore(72).position_size).toBe('STANDARD EXPOSURE');
+    expect(decisionForScore(60).position_size).toBe('MODERATE EXPOSURE');
+    expect(decisionForScore(45).position_size).toBe('REDUCED EXPOSURE');
+    expect(decisionForScore(10).position_size).toBe('DEFENSIVE / FLAT');
   });
 
-  it('boundary: score 85 is STRONG YES, score 84 is YES', () => {
-    expect(decisionForScore(85).decision).toBe('STRONG YES');
-    expect(decisionForScore(84).decision).toBe('YES');
+  it('boundary: score 85 is RISK-ON, score 84 is CONSTRUCTIVE', () => {
+    expect(decisionForScore(85).decision).toBe('RISK-ON');
+    expect(decisionForScore(84).decision).toBe('CONSTRUCTIVE');
   });
 
   it('uses custom bands when provided', () => {
@@ -133,11 +133,11 @@ describe('FALLBACK_DECISION_BANDS', () => {
 
   it('contains expected decision labels', () => {
     const decisions = FALLBACK_DECISION_BANDS.map(b => b.decision);
-    expect(decisions).toContain('STRONG YES');
-    expect(decisions).toContain('YES');
-    expect(decisions).toContain('CAUTION');
-    expect(decisions).toContain('NO');
-    expect(decisions).toContain('STRONG NO');
+    expect(decisions).toContain('RISK-ON');
+    expect(decisions).toContain('CONSTRUCTIVE');
+    expect(decisions).toContain('SELECTIVE');
+    expect(decisions).toContain('DE-RISK');
+    expect(decisions).toContain('RISK-OFF');
   });
 
   it('each band has required fields', () => {

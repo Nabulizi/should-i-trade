@@ -28,8 +28,8 @@ from analysis import (
 
 def _make_dashboard(
     total_score: int = 72,
-    decision: str = "YES",
-    position_size: str = "STANDARD SIZE",
+    decision: str = "CONSTRUCTIVE",
+    position_size: str = "STANDARD EXPOSURE",
     trend_score: int = 75,
     vol_score: int = 70,
     breadth_score: int = 68,
@@ -414,7 +414,7 @@ class TestPersonaDeskHead(unittest.TestCase):
         self.assertIn("FOMC", texts)
 
     def test_verdict_score_present_in_points(self):
-        d = _make_dashboard(total_score=72, decision="YES")
+        d = _make_dashboard(total_score=72, decision="CONSTRUCTIVE")
         others = self._others(["Bullish", "Cautious", "Cautious", "Bullish"])
         r = persona_desk_head(d, others)
         # First point is always the VERDICT line with the score
@@ -479,7 +479,7 @@ class TestRoundtable(unittest.TestCase):
 
     def test_bearish_market_produces_defensive_desk_head(self):
         d = _make_dashboard(
-            total_score=22, decision="STRONG NO",
+            total_score=22, decision="RISK-OFF",
             trend_score=20, vol_score=20, breadth_score=20,
             momentum_score=20, macro_score=20,
             above_200=False, vix_level=38.0,

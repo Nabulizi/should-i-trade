@@ -5,15 +5,17 @@ const AUTO_REFRESH_MS = 5 * 60 * 1000;   // 5 minutes
 let _lastData = null;
 let _nextRefreshAt = 0;
 
+// Thresholds match the backend DECISION_BANDS (85/70/55/40): green ≥70 (engaged),
+// yellow ≥55 (selective — the engage line), orange ≥40 (de-risk), red <40 (risk-off).
 function scoreColor(s) {
-  if (s >= 80) return 'var(--green)';
-  if (s >= 60) return 'var(--yellow)';
+  if (s >= 70) return 'var(--green)';
+  if (s >= 55) return 'var(--yellow)';
   if (s >= 40) return 'var(--orange)';
   return 'var(--red)';
 }
 function colorClass(s) {
-  if (s >= 80) return 'c-green';
-  if (s >= 60) return 'c-yellow';
+  if (s >= 70) return 'c-green';
+  if (s >= 55) return 'c-yellow';
   if (s >= 40) return 'c-orange';
   return 'c-red';
 }
@@ -25,8 +27,8 @@ function renderTicker(items) {
   const doubled = [...items, ...items];
   $('ticker').innerHTML = doubled.map(t => `
     <span class="tick ${t.up ? 'up' : 'dn'}">
-      <span class="sym">${t.symbol}</span>
-      <span class="px">${t.price}</span>
+      <span class="sym">${esc(t.symbol)}</span>
+      <span class="px">${esc(t.price)}</span>
       <span class="chg"> ${chgStr(t.change_pct)}</span>
     </span>`).join('');
 }
@@ -88,7 +90,7 @@ function renderHeader(d) {
   if (d.fomc_calendar_stale) {
     $('fomc-badge').innerHTML = `⚠ FOMC calendar outdated <span class="date">update _FOMC_2026_2027 in data.py</span>`;
   } else {
-    $('fomc-badge').innerHTML = `${fomc.label || '—'} <span class="date">${fomc.date_pretty || ''}</span>`;
+    $('fomc-badge').innerHTML = `${esc(fomc.label || '—')} <span class="date">${esc(fomc.date_pretty || '')}</span>`;
   }
 
   $('data-ts').textContent = d.timestamp ? `updated ${d.timestamp}` : '';
@@ -194,19 +196,19 @@ function renderHero(d) {
 
   // ── Decision context: regime, posture, confidence ──────
   const regime  = d.pillars?.trend?.details?.regime || null;
-  const posture = invalidData ? 'No trade — live market data is unavailable'
-                : s >= 85 ? 'Full size — press the bid on A/B setups'
-                : s >= 70 ? 'Standard size — run your normal game'
-                : s >= 55 ? 'Half size — A+ setups only, tight stops'
-                : s >= 40 ? 'Minimal — very selective or sit out'
-                :           'Preserve capital — no new longs';
+  const posture = invalidData ? 'Exposure off — live market data is unavailable'
+                : s >= 85 ? 'Full exposure — low-drawdown regime, press the bid on A/B setups'
+                : s >= 70 ? 'Standard exposure — constructive regime, run your normal game'
+                : s >= 55 ? 'Moderate exposure — engage selectively, A+ setups, tight stops'
+                : s >= 40 ? 'Reduced exposure — de-risk, very selective or sit out'
+                :           'Defensive — drawdown risk elevated, no new longs';
   const confLevel = invalidData ? 0 : s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
   const confColor = invalidData ? 'var(--red)' : s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
   const confSegs  = [1,2,3,4,5].map(i =>
     `<div class="conf-seg" style="background:${i <= confLevel ? confColor : 'var(--border)'}"></div>`
   ).join('');
   const regimeTag = regime
-    ? `<span class="tag ${regime.toLowerCase().includes('up') ? 'green' : regime.toLowerCase().includes('down') ? 'red' : 'yellow'}">${regime}</span>`
+    ? `<span class="tag ${regime.toLowerCase().includes('up') ? 'green' : regime.toLowerCase().includes('down') ? 'red' : 'yellow'}">${esc(regime)}</span>`
     : '';
   const ctx = $('decision-context');
   ctx.style.display = 'flex';
@@ -261,13 +263,13 @@ function renderHero(d) {
 /* ── PILLARS ────────────────────────────────────────────── */
 function tag(label, color) {
   if (!label) return '';
-  return `<span class="tag ${tagColor(color)}">${label}</span>`;
+  return `<span class="tag ${tagColor(color)}">${esc(label)}</span>`;
 }
 function mrow(key, val, tagLabel, tagCol, src) {
   const srcHtml = src ? ` <span class="src-badge">${esc(src)}</span>` : '';
   return `<div class="metric-row">
-    <span class="metric-key">${key}</span>
-    <span class="metric-val">${val ?? ''} ${tag(tagLabel, tagCol)}${srcHtml}</span>
+    <span class="metric-key">${esc(key)}</span>
+    <span class="metric-val">${esc(val ?? '')} ${tag(tagLabel, tagCol)}${srcHtml}</span>
   </div>`;
 }
 
@@ -352,7 +354,7 @@ function renderPillars(d) {
           ? `<div class="rs-chips">${v.sector_rs.slice(0, 3).map(r => {
               const bg = r.rs_score >= 0 ? 'rgba(0,230,118,0.15)' : 'rgba(255,23,68,0.15)';
               const col = r.rs_score >= 0 ? 'var(--green)' : 'var(--red)';
-              return `<span class="rs-chip" style="background:${bg};color:${col}">${r.name}</span>`;
+              return `<span class="rs-chip" style="background:${bg};color:${col}">${esc(r.name)}</span>`;
             }).join('')}</div>` : '';
         return [
           mrow('Participation', '', v.participation ?? '—', v.participation_color),
@@ -421,7 +423,7 @@ function renderPillars(d) {
     const p = d.pillars[def.key];
     const sc = p.score;
     const c = scoreColor(sc);
-    const reasons = (p.reasons || []).map(r => `<div class="why-line">${r}</div>`).join('');
+    const reasons = (p.reasons || []).map(r => `<div class="why-line">${esc(r)}</div>`).join('');
     return `
       <div class="pillar-card">
         <div class="pillar-head">
@@ -464,7 +466,7 @@ function renderBars(elId, data) {
     const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
     const c  = v.change_pct >= 0 ? 'var(--green)' : 'var(--red)';
     return `<div class="sector-row">
-      <span class="sector-name">${v.name}</span>
+      <span class="sector-name">${esc(v.name)}</span>
       <div class="sector-bar-wrap">
         <div class="sector-bar" style="width:${w}%;background:${bg}">
           <span class="sector-pct" style="color:${c}">${chgStr(v.change_pct)}</span>
@@ -623,11 +625,11 @@ function loadWeights() {
 function saveWeightsLS(w) { localStorage.setItem('pillarWeights', JSON.stringify(w)); }
 
 const FALLBACK_DECISION_BANDS = [
-  { min: 85, decision: 'STRONG YES', color: 'green', position: 'FULL SIZE' },
-  { min: 70, decision: 'YES', color: 'green', position: 'STANDARD SIZE' },
-  { min: 55, decision: 'CAUTION', color: 'yellow', position: 'HALF SIZE' },
-  { min: 40, decision: 'NO', color: 'orange', position: 'MINIMAL' },
-  { min: 0, decision: 'STRONG NO', color: 'red', position: 'PRESERVE CAPITAL' }
+  { min: 85, decision: 'RISK-ON', color: 'green', position: 'FULL EXPOSURE' },
+  { min: 70, decision: 'CONSTRUCTIVE', color: 'green', position: 'STANDARD EXPOSURE' },
+  { min: 55, decision: 'SELECTIVE', color: 'yellow', position: 'MODERATE EXPOSURE' },
+  { min: 40, decision: 'DE-RISK', color: 'orange', position: 'REDUCED EXPOSURE' },
+  { min: 0, decision: 'RISK-OFF', color: 'red', position: 'DEFENSIVE / FLAT' }
 ];
 
 function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
@@ -870,7 +872,7 @@ async function runRoundtable(auto=false, useAi=false) {
     else if (useAi && data.ai_used)      _showToast('AI analysis complete', 'ok');
     renderRoundtable(data.personas || []);
   } catch(e) {
-    $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${e.message}</div>`;
+    $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${esc(e.message)}</div>`;
   } finally {
     if (btn)    { btn.disabled = false; btn.innerHTML = useAi ? `${_BTN_STAR_SVG}Re-run AI Analysis` : `${_BTN_PLAY_SVG}Refresh Read`; }
     if (altBtn) { altBtn.disabled = false; }
@@ -1025,7 +1027,7 @@ async function load(isManual = false) {
     $('refresh-dot').classList.remove('active');
     if (isFirst) {
       $('loading').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">
-        ⚠ Error: ${e.message}<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
+        ⚠ Error: ${esc(e.message)}<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
     } else {
       // Background refresh failed — keep stale data visible, retry on next cycle
       _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
@@ -1057,11 +1059,11 @@ let _lastAlertZone = null;
 
 function _scoreZone(score) {
   if (score === null || score === undefined) return null;
-  if (score >= 85) return 'STRONG YES';
-  if (score >= 70) return 'YES';
-  if (score >= 55) return 'CAUTION';
-  if (score >= 40) return 'NO';
-  return 'STRONG NO';
+  if (score >= 85) return 'RISK-ON';
+  if (score >= 70) return 'CONSTRUCTIVE';
+  if (score >= 55) return 'SELECTIVE';
+  if (score >= 40) return 'DE-RISK';
+  return 'RISK-OFF';
 }
 
 function _updateAlertBtn() {
@@ -1096,8 +1098,8 @@ function _maybeAlert(score, decision) {
   const prev = _lastAlertZone;
   _lastAlertZone = zone;
   if (prev === null) return;   // suppress on first load — no "change" yet
-  const emoji = zone === 'STRONG YES' ? '🟢' : zone === 'YES' ? '🟩' :
-                zone === 'CAUTION'    ? '🟡' : zone === 'NO'  ? '🟠' : '🔴';
+  const emoji = zone === 'RISK-ON' ? '🟢' : zone === 'CONSTRUCTIVE' ? '🟩' :
+                zone === 'SELECTIVE'    ? '🟡' : zone === 'DE-RISK'  ? '🟠' : '🔴';
   new Notification(`Should I Trade? → ${zone}`, {
     body: `Score ${score} • ${decision || zone}\nWas: ${prev}`,
     icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">${emoji}</text></svg>',

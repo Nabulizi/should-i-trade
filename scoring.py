@@ -63,12 +63,15 @@ CRITICAL_HISTORY_REQUIREMENTS = {
 }
 MIN_SECTOR_HISTORY_SYMBOLS = 8
 MIN_SECTOR_HISTORY_POINTS = 64
+# De-risk gauge: a 2005-2026 walk-forward backtest showed the composite is a
+# drawdown/exposure timer, not a forward-return predictor. Labels describe how
+# much market risk the current regime is worth; the "engage" line is 55, not 70.
 DECISION_BANDS = [
-    {"min": 85, "decision": "STRONG YES", "color": "green",  "position": "FULL SIZE"},
-    {"min": 70, "decision": "YES",        "color": "green",  "position": "STANDARD SIZE"},
-    {"min": 55, "decision": "CAUTION",    "color": "yellow", "position": "HALF SIZE"},
-    {"min": 40, "decision": "NO",         "color": "orange", "position": "MINIMAL"},
-    {"min": 0,  "decision": "STRONG NO",  "color": "red",    "position": "PRESERVE CAPITAL"},
+    {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "FULL EXPOSURE"},
+    {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "STANDARD EXPOSURE"},
+    {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MODERATE EXPOSURE"},
+    {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "REDUCED EXPOSURE"},
+    {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "DEFENSIVE / FLAT"},
 ]
 
 # ─── scoring thresholds ────────────────────────────────────────────────────
@@ -130,7 +133,7 @@ def decision_for_score(total: int) -> tuple[str, str, str]:
     for band in DECISION_BANDS:
         if total >= band["min"]:
             return band["decision"], band["color"], band["position"]
-    return "STRONG NO", "red", "PRESERVE CAPITAL"
+    return "RISK-OFF", "red", "DEFENSIVE / FLAT"
 
 
 def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[str],

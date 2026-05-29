@@ -6,6 +6,15 @@ __pycache__/
 *.pyd
 .Python
 
+# Secrets & local agent config
+.env
+.env.*
+.claude/
+
+# Backtest cache & generated results
+.backtest_cache/
+backtest_results.csv
+
 # macOS
 .DS_Store
 .AppleDouble

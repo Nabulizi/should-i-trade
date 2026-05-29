@@ -62,7 +62,7 @@
     <!-- HERO -->
     <div class="hero">
       <div class="decision-card">
-        <div class="decision-label">Decision</div>
+        <div class="decision-label">Risk Posture</div>
         <div class="decision-badge" id="decision-badge">—</div>
         <div class="decision-sub" id="decision-sub">Swing Trading</div>
         <div class="decision-context" id="decision-context" style="display:none"></div>
@@ -87,12 +87,12 @@
       </div>
 
       <div class="pos-card">
-        <div class="pos-label">Position Size</div>
+        <div class="pos-label">Suggested Exposure</div>
         <div class="pos-icon" aria-hidden="true">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
         <div class="pos-text" id="pos-text">—</div>
-        <div class="pos-sub">Press risk</div>
+        <div class="pos-sub">Drawdown-timed</div>
       </div>
     </div>
 
@@ -146,9 +146,10 @@
           <span style="font-size:16px;font-weight:800;" id="total-score-bottom">—</span>
         </div>
         <div style="margin-top:8px;font-size:9px;color:var(--muted);line-height:1.7;">
-          <span style="color:var(--green);">●</span> 80+: YES (press risk)<br>
-          <span style="color:var(--yellow);">●</span> 60–79: CAUTION (selective)<br>
-          <span style="color:var(--red);">●</span> &lt;60: NO (preserve capital)
+          <span style="color:var(--green);">●</span> 70+: RISK-ON (full / standard exposure)<br>
+          <span style="color:var(--yellow);">●</span> 55–69: SELECTIVE (moderate exposure)<br>
+          <span style="color:var(--orange);">●</span> 40–54: DE-RISK (reduced exposure)<br>
+          <span style="color:var(--red);">●</span> &lt;40: RISK-OFF (defensive / flat)
         </div>
 
         <div class="sparkline-wrap">

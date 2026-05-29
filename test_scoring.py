@@ -462,17 +462,16 @@ def test_utilities() -> None:
     ok("clamp(100) == 100",  scoring.clamp(100) == 100)
 
     decision, color, position = scoring.decision_for_score(90)
-    ok("score 90 → 'STRONG YES'", decision == "STRONG YES")
+    ok("score 90 → 'RISK-ON'", decision == "RISK-ON")
 
     decision, color, position = scoring.decision_for_score(72)
-    ok("score 72 → 'YES'", decision == "YES")
+    ok("score 72 → 'CONSTRUCTIVE'", decision == "CONSTRUCTIVE")
 
     decision, color, position = scoring.decision_for_score(56)
-    ok("score 56 → 'CAUTION'", decision == "CAUTION")
+    ok("score 56 → 'SELECTIVE'", decision == "SELECTIVE")
 
     decision, color, position = scoring.decision_for_score(20)
-    ok("score 20 → contains 'WAIT' or 'NO'",
-       "WAIT" in decision or "NO" in decision)
+    ok("score 20 → 'RISK-OFF'", decision == "RISK-OFF")
 
     ok("decision_for_score returns 3 values",
        len(scoring.decision_for_score(50)) == 3)
@@ -516,25 +515,25 @@ _DATA_QUALITY_OK = {"valid": True, "message": "OK"}
 def test_vix_floor_graduated() -> None:
     print("\n[graduated VIX floor — _apply_overrides]")
 
-    # VIX 37: reduce size, cap at 57 (CAUTION / half size)
+    # VIX 37: reduce size, cap at 57 (SELECTIVE / moderate exposure)
     total, _, safety, _, decision, _, _ = scoring._apply_overrides(
         80, _make_pillars(vix_level=37.0), _DATA_QUALITY_OK)
     ok("VIX 37 → score capped at 57", total == 57)
-    ok("VIX 37 → decision CAUTION (half size)", decision == "CAUTION")
+    ok("VIX 37 → decision SELECTIVE (moderate exposure)", decision == "SELECTIVE")
 
-    # VIX 45: defined-risk entries allowed, cap at 47 (NO not STRONG NO)
+    # VIX 45: defined-risk entries allowed, cap at 47 (DE-RISK not RISK-OFF)
     total, _, safety, reasons, decision, _, _ = scoring._apply_overrides(
         80, _make_pillars(vix_level=45.0), _DATA_QUALITY_OK)
     ok("VIX 45 → score capped at 47 (not 39)", total == 47)
-    ok("VIX 45 → decision is NO (not STRONG NO)", decision == "NO")
+    ok("VIX 45 → decision is DE-RISK (not RISK-OFF)", decision == "DE-RISK")
     ok("VIX 45 → override reason mentions 'defined risk'",
        any("defined" in r.lower() for r in reasons))
 
-    # VIX 52: extreme crisis, cap at 39 (STRONG NO)
+    # VIX 52: extreme crisis, cap at 39 (RISK-OFF)
     total, _, _, reasons, decision, _, _ = scoring._apply_overrides(
         80, _make_pillars(vix_level=52.0), _DATA_QUALITY_OK)
     ok("VIX 52 → score capped at 39", total == 39)
-    ok("VIX 52 → decision STRONG NO", decision == "STRONG NO")
+    ok("VIX 52 → decision RISK-OFF", decision == "RISK-OFF")
 
     # VIX 20: no VIX override triggered
     total, _, safety, reasons, _, _, _ = scoring._apply_overrides(

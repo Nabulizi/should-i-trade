@@ -1,8 +1,10 @@
 # Should I Trade? — Market Quality Terminal v5
 
-A single-page, self-hosted dashboard that answers one question before every trading session: **is the market environment good enough to trade actively?**
+A single-page, self-hosted **risk / de-risk gauge** for the session: it reads the market regime and tells you **how much market exposure the current environment is worth.**
 
 No subscriptions, no API keys, no cloud dependencies — all data comes from free public sources.
+
+> **What the score is (and isn't).** A 2005–2026 walk-forward backtest showed the composite Market Quality Score is a **drawdown/exposure timer, not a forward-return predictor.** A "stay-long-when-score-is-high, de-risk-when-low" rule beat buy-and-hold on risk-adjusted return out-of-sample (Sharpe 1.07 vs 0.94) and cut max drawdown from ~−32% to ~−12% (2016–26). It does **not** predict which days will be profitable — read it as a risk dial, not a green light. The engage line is **55**, not 70.
 
 ---
 
@@ -20,7 +22,7 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 |---|---|
 | **Market Quality Score** | 0–100 composite score across 5 weighted pillars |
 | **5-Pillar Breakdown** | Volatility · Trend · Breadth · Momentum · Macro |
-| **Decision Badge** | STRONG YES / YES / CAUTION / NO / WAIT — clear session recommendation |
+| **Risk Posture Badge** | RISK-ON / CONSTRUCTIVE / SELECTIVE / DE-RISK / RISK-OFF — exposure recommendation for the session |
 | **Trading Desk Roundtable** | 5 rule-based AI personas (Technician, Macro, Risk, Quant, Desk Head) |
 | **Score Sparkline** | 12-hour rolling history chart with persistent storage |
 | **Economic Calendar** | FOMC & key econ event proximity alerts (through Dec 2027) |
@@ -118,15 +120,17 @@ Data flows: `data.py` fetches from Yahoo Finance (primary), falling back to Stoo
 
 > Weights are defined in `config.py` and can be adjusted without touching logic files.
 
-### Decision Thresholds
+### Risk-Posture Thresholds
 
-| Score | Decision | Recommended Size |
+The score is a regime/exposure dial. The **engage line is 55** (validated as the efficient long/flat cut), not 70.
+
+| Score | Posture | Suggested Exposure |
 |---|---|---|
-| ≥ 85 | **STRONG YES** 🟢 | Full size |
-| 70–84 | **YES** 🟢 | Standard size |
-| 55–69 | **CAUTION** 🟡 | Half size |
-| 40–54 | **NO** 🟠 | Minimal |
-| < 40 | **WAIT** 🔴 | Stay flat |
+| ≥ 85 | **RISK-ON** 🟢 | Full |
+| 70–84 | **CONSTRUCTIVE** 🟢 | Standard |
+| 55–69 | **SELECTIVE** 🟡 | Moderate — engage selectively |
+| 40–54 | **DE-RISK** 🟠 | Reduced |
+| < 40 | **RISK-OFF** 🔴 | Defensive / flat |
 
 ---
 
