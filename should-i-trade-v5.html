@@ -158,13 +158,13 @@
             <span id="spark-range">—</span>
           </div>
           <svg class="sparkline" id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none"></svg>
-          <div class="spark-legend" id="spark-legend">
-            <div class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)"><div class="spark-leg-dot" style="background:#e0e8f0"></div>Total</div>
-            <div class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)"><div class="spark-leg-dot" style="background:#00b0ff"></div>Vol</div>
-            <div class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)"><div class="spark-leg-dot" style="background:#00e676"></div>Trend</div>
-            <div class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)"><div class="spark-leg-dot" style="background:#ffd740"></div>Breadth</div>
-            <div class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)"><div class="spark-leg-dot" style="background:#ff9100"></div>Mom</div>
-            <div class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)"><div class="spark-leg-dot" style="background:#7c4dff"></div>Macro</div>
+          <div class="spark-legend" id="spark-legend" role="group" aria-label="Toggle sparkline series">
+            <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#e0e8f0"></div>Total</button>
+            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00b0ff"></div>Vol</button>
+            <button class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00e676"></div>Trend</button>
+            <button class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ffd740"></div>Breadth</button>
+            <button class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ff9100"></div>Mom</button>
+            <button class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#7c4dff"></div>Macro</button>
           </div>
         </div>
       </div>

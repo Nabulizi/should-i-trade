@@ -115,8 +115,8 @@
   .tag.green  { background: rgba(0,230,118,0.15);  color: var(--green); }
   .tag.yellow { background: rgba(255,215,64,0.15); color: var(--yellow); }
   .tag.orange { background: rgba(255,145,0,0.15);  color: var(--orange); }
-  .tag.red    { background: rgba(255,23,68,0.15);  color: var(--red); }
-  .tag.gray   { background: rgba(90,112,128,0.15); color: var(--muted); }
+  .tag.red    { background: rgba(255,23,68,0.10);  color: #ff4d73; }
+  .tag.gray   { background: rgba(90,112,128,0.12); color: var(--muted2); }
 
   /* "Why" expandable */
   .why-toggle { margin-top: auto; padding-top: 10px; font-size: 9px; color: var(--muted2); cursor: pointer; text-align: center; letter-spacing: 1px; text-transform: uppercase; border-top: 1px solid var(--border); padding-bottom: 2px; user-select: none; }
@@ -149,7 +149,7 @@
   .future-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 3px; }
   .future-sym { font-size: 10px; font-weight: 800; }
   .future-px { color: var(--muted2); font-size: 9px; white-space: nowrap; }
-  .future-name { color: var(--muted); font-size: 8px; letter-spacing: 0.5px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .future-name { color: var(--muted2); font-size: 8px; letter-spacing: 0.5px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .future-chg { font-size: 11px; font-weight: 800; text-align: right; }
   .future-chg.up { color: var(--green); }
   .future-chg.dn { color: var(--red); }
@@ -263,7 +263,7 @@
   .econ-badge.red    { color: var(--red);    border-color: rgba(255,23,68,0.4);   background: rgba(255,23,68,0.07); }
   .econ-badge.orange { color: var(--orange); border-color: rgba(255,145,0,0.35);  background: rgba(255,145,0,0.06); }
   .econ-badge.yellow { color: var(--yellow); border-color: rgba(255,215,64,0.3); }
-  .econ-badge.gray   { color: var(--muted);  border-color: var(--border2); }
+  .econ-badge.gray   { color: var(--muted2); border-color: var(--border2); }
 
   /* ── SETTINGS DRAWER ── */
   .settings-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; }
@@ -282,16 +282,16 @@
 
   /* ── SPARKLINE LEGEND ── */
   .spark-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
-  .spark-leg-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--muted); cursor: pointer; user-select: none; }
+  .spark-leg-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text); cursor: pointer; user-select: none; background: none; border: none; padding: 0; font-family: inherit; }
   .spark-leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .spark-leg-item.dimmed { opacity: 0.3; }
+  .spark-leg-item.dimmed { color: var(--muted); }
 
 
   /* ── PILLAR PROGRESSIVE DISCLOSURE ── */
   .pillar-sep { border-top: 1px solid rgba(255,255,255,0.05); margin: 5px 0 3px; }
   .detail-rows { display: none; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 4px; padding-top: 2px; }
   .detail-rows.open { display: block; }
-  .detail-toggle { font-size: 9px; color: var(--muted); cursor: pointer; padding: 4px 0 0; letter-spacing: 0.5px; user-select: none; text-align: center; }
+  .detail-toggle { font-size: 9px; color: var(--muted); cursor: pointer; padding: 4px 0; min-height: 24px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.5px; user-select: none; text-align: center; margin-bottom: 4px; }
   .detail-toggle:hover { color: var(--accent2); }
 
   /* ── SECTOR RS CHIPS ── */

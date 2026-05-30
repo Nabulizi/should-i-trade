@@ -464,7 +464,7 @@ function renderBars(elId, data) {
   $(elId).innerHTML = entries.map(([sym, v]) => {
     const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
     const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
-    const c  = v.change_pct >= 0 ? 'var(--green)' : 'var(--red)';
+    const c  = 'var(--text)';
     return `<div class="sector-row">
       <span class="sector-name">${esc(v.name)}</span>
       <div class="sector-bar-wrap">
@@ -794,6 +794,7 @@ let _sparkHistory = [];
 function toggleSparkLine(key, el) {
   SPARK_LINES[key] = !SPARK_LINES[key];
   el.classList.toggle('dimmed', !SPARK_LINES[key]);
+  el.setAttribute('aria-pressed', SPARK_LINES[key] ? 'true' : 'false');
   drawSparkline();
 }
 
