@@ -191,6 +191,7 @@
   .watch-stat:hover, .watch-stat.active { border-color: var(--accent); background: rgba(0,176,255,0.06); }
   .watch-stat .num { font-size: 18px; font-weight: 800; line-height: 1.1; }
   .watch-stat .lbl { color: var(--muted); font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 2px; }
+  .watch-stat.active .lbl { color: var(--muted2); }
   .watch-selected-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: var(--muted); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
   .watch-filter-list { max-height: 260px; overflow-y: auto; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); }
   .watch-row { display: grid; grid-template-columns: 68px 52px 52px 44px 1fr 36px; align-items: center; gap: 6px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
@@ -260,6 +261,7 @@
   .econ-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
   .econ-label { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-right: 4px; }
   .econ-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; border: 1px solid var(--border2); }
+  .econ-badge-sub { color: var(--muted2); font-weight: 400; }
   .econ-badge.red    { color: var(--red);    border-color: rgba(255,23,68,0.4);   background: rgba(255,23,68,0.07); }
   .econ-badge.orange { color: var(--orange); border-color: rgba(255,145,0,0.35);  background: rgba(255,145,0,0.06); }
   .econ-badge.yellow { color: var(--yellow); border-color: rgba(255,215,64,0.3); }

@@ -100,7 +100,7 @@ function renderHeader(d) {
   const visible = events.filter(e => e.days_until <= 14);
   const earn = d.earnings || {};
   const earnBadge = (earn.in_season || earn.days_until <= 14)
-    ? `<span class="econ-badge ${esc(earn.color)}">🏦 ${esc(earn.label)} <span style="opacity:0.6">${esc(earn.detail || '')}</span></span>`
+    ? `<span class="econ-badge ${esc(earn.color)}">🏦 ${esc(earn.label)} <span class="econ-badge-sub">${esc(earn.detail || '')}</span></span>`
     : '';
   const staleBadge = d.econ_calendar_stale
     ? `<span class="econ-badge orange">⚠ ECON CALENDAR outdated — update _ECON_CALENDAR in data.py</span>`
@@ -108,7 +108,7 @@ function renderHeader(d) {
   if (visible.length || earnBadge || staleBadge) {
     $('econ-row').style.display = 'flex';
     $('econ-badges').innerHTML = staleBadge + earnBadge + visible.map(e =>
-      `<span class="econ-badge ${esc(e.color)}">${esc(e.type)} · ${esc(e.name)} <span style="opacity:0.6">${esc(e.urgency)}</span></span>`
+      `<span class="econ-badge ${esc(e.color)}">${esc(e.type)} · ${esc(e.name)} <span class="econ-badge-sub">${esc(e.urgency)}</span></span>`
     ).join(' ');
   } else {
     $('econ-row').style.display = 'none';
