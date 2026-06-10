@@ -464,7 +464,7 @@ function renderBars(elId, data) {
   const entries = Object.entries(data || {}).sort((a, b) => b[1].change_pct - a[1].change_pct);
   if (!entries.length) { $(elId).innerHTML = '<div style="color:var(--muted);font-size:10px;">No data</div>'; return; }
   const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
-  $(elId).innerHTML = entries.map(([sym, v]) => {
+  $(elId).innerHTML = entries.map(([, v]) => {
     const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
     const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
     const c  = 'var(--text)';
@@ -614,18 +614,23 @@ async function initWatchlistDropdown() {
     sel.innerHTML = files.map(f =>
       `<option value="${esc(f)}"${f === def ? ' selected' : ''}>${esc(f.replace(/\.txt$/i, ''))}</option>`
     ).join('');
-  } catch(e) { /* dropdown stays hidden */ }
+  } catch { /* dropdown stays hidden */ }
 }
 
 function onWatchlistChange() { loadWatchlistHealth(); }
 
-/* ── CUSTOM WEIGHTS (localStorage) ────────────────────── */
+/* ── CUSTOM WEIGHTS (localStorage; what-if only) ──────── */
 const DEFAULT_WEIGHTS = { volatility: 15, trend: 30, breadth: 25, momentum: 20, macro: 10 };
+const WEIGHT_KEYS = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
 function loadWeights() {
-  try { return JSON.parse(localStorage.getItem('pillarWeights')) || DEFAULT_WEIGHTS; }
+  try {
+    const stored = JSON.parse(localStorage.getItem('pillarWeights')) || {};
+    return { ...DEFAULT_WEIGHTS, ...stored };
+  }
   catch { return { ...DEFAULT_WEIGHTS }; }
 }
 function saveWeightsLS(w) { localStorage.setItem('pillarWeights', JSON.stringify(w)); }
+function isDefaultWeights(w) { return WEIGHT_KEYS.every(k => Number(w[k]) === DEFAULT_WEIGHTS[k]); }
 
 const FALLBACK_DECISION_BANDS = [
   { min: 85, decision: 'RISK-ON', color: 'green', position: 'FULL EXPOSURE' },
@@ -646,10 +651,10 @@ function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
   };
 }
 
-function applyCustomWeights(data) {
+function buildWeightScenario(data) {
   const w = loadWeights();
   if (data.data_quality?.valid === false) {
-    return { ...data, _weights: w };
+    return { ...data, _weights: w, _customWeights: !isDefaultWeights(w) };
   }
 
   const p = data.pillars;
@@ -666,7 +671,7 @@ function applyCustomWeights(data) {
   }
 
   const verdict = decisionForScore(total, data.decision_bands);
-  return { ...data, total_score: total, ...verdict, _weights: w };
+  return { ...data, total_score: total, ...verdict, _weights: w, _customWeights: !isDefaultWeights(w) };
 }
 
 /* ── SETTINGS DRAWER ───────────────────────────────────── */
@@ -698,9 +703,7 @@ function applyWeights() {
   keys.forEach(([k, full]) => { w[full] = parseInt($(`ws-${k}`).value); });
   saveWeightsLS(w);
   if (_lastData) {
-    const updated = applyCustomWeights(_lastData);
-    renderHero(updated);
-    renderWeights(updated);
+    renderWeights(buildWeightScenario(_lastData));
   }
   toggleSettings();
 }
@@ -713,9 +716,7 @@ function resetWeights() {
   });
   $('weight-sum-warn').style.display = 'none';
   if (_lastData) {
-    const updated = applyCustomWeights(_lastData);
-    renderHero(updated);
-    renderWeights(updated);
+    renderWeights(buildWeightScenario(_lastData));
   }
 }
 
@@ -735,12 +736,16 @@ function initTheme() {
 /* ── EXPORT / COPY ─────────────────────────────────────── */
 function copySnapshot() {
   if (!_lastData) return;
-  const d = applyCustomWeights(_lastData);
+  const d = _lastData;
+  const scenario = buildWeightScenario(_lastData);
   const p = d.pillars;
   const now = new Date().toLocaleString();
   const lines = [
     `=== Should I Trade? — ${now} ===`,
     `Decision: ${d.decision}  |  Score: ${d.total_score}/100  |  Size: ${d.position_size}`,
+    ...(scenario._customWeights ? [
+      `Custom-weight what-if: ${scenario.decision}  |  Score: ${scenario.total_score}/100  |  Size: ${scenario.position_size}`,
+    ] : []),
     ``,
     `Pillars:`,
     `  Volatility : ${p.volatility.score}/100`,
@@ -767,11 +772,10 @@ function copySnapshot() {
 
 /* ── WEIGHTS ───────────────────────────────────────────── */
 function renderWeights(d) {
-  const order = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
   const names = { volatility: 'Volatility', trend: 'Trend', breadth: 'Breadth', momentum: 'Momentum', macro: 'Macro' };
   const weights = d._weights || loadWeights();
 
-  $('score-weights').innerHTML = order.map(k => {
+  $('score-weights').innerHTML = WEIGHT_KEYS.map(k => {
     const sc = d.pillars[k].score;
     const w = weights[k];
     const c = scoreColor(sc);
@@ -785,6 +789,10 @@ function renderWeights(d) {
     </div>`;
   }).join('');
 
+  const label = $('weight-total-label');
+  if (label) label.textContent = d._customWeights ? 'WHAT-IF SCORE' : 'OFFICIAL SCORE';
+  const note = $('weight-scenario-note');
+  if (note) note.style.display = d._customWeights ? 'block' : 'none';
   $('total-score-bottom').textContent = `${d.total_score}/100`;
   $('total-score-bottom').style.color = scoreColor(d.total_score);
 }
@@ -848,7 +856,7 @@ async function renderSparkline() {
       return;
     }
     drawSparkline();
-  } catch(e) {
+  } catch {
     $('sparkline').innerHTML = '';
   }
 }
@@ -987,20 +995,20 @@ async function load(isManual = false) {
     if (raw.error) throw new Error(raw.error);
     _lastData = raw;
 
-    const data = applyCustomWeights(raw);
+    const weightScenario = buildWeightScenario(raw);
 
     // Batch all DOM mutations in one animation frame to avoid layout thrashing
     requestAnimationFrame(() => {
       renderTicker(raw.ticker || []);
       renderHeader(raw);
-      renderHero(data);
+      renderHero(raw);
       renderFuturesTape(raw.futures_tape);
       renderPillars(raw);
       renderConflicts(raw);
       renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
       renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
-      renderExecution(data);
-      renderWeights(data);
+      renderExecution(raw);
+      renderWeights(weightScenario);
       // Show/hide sparkline paused indicator based on data quality
       const paused = $('spark-paused');
       if (paused) paused.style.display = raw.data_quality?.valid === false ? 'inline' : 'none';
@@ -1104,9 +1112,12 @@ function _maybeAlert(score, decision) {
   if (prev === null) return;   // suppress on first load — no "change" yet
   const emoji = zone === 'RISK-ON' ? '🟢' : zone === 'CONSTRUCTIVE' ? '🟩' :
                 zone === 'SELECTIVE'    ? '🟡' : zone === 'DE-RISK'  ? '🟠' : '🔴';
+  const iconSvg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">${emoji}</text></svg>`
+  );
   new Notification(`Should I Trade? → ${zone}`, {
     body: `Score ${score} • ${decision || zone}\nWas: ${prev}`,
-    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">${emoji}</text></svg>',
+    icon: `data:image/svg+xml,${iconSvg}`,
     tag:  'sit-score-alert',  // collapses duplicate rapid flips
   });
 }
@@ -1129,7 +1140,7 @@ function connectSSE() {
       if (_lastAlertZone === null && msg.previous_score != null) {
         _lastAlertZone = _scoreZone(msg.previous_score);
       }
-    } catch(_) {}
+    } catch {}
     // Only trigger if not already mid-refresh and countdown isn't imminent (< 3s)
     const left = _nextRefreshAt ? Math.max(0, _nextRefreshAt - Date.now()) : Infinity;
     if (left > 3000) load(false);
@@ -1199,4 +1210,13 @@ if (!globalThis.__TESTING__) {
 }
 
 // ── Exports for unit testing ───────────────────────────────────────────────
-export { scoreColor, colorClass, decisionForScore, chgStr, FALLBACK_DECISION_BANDS };
+export {
+  scoreColor,
+  colorClass,
+  decisionForScore,
+  chgStr,
+  FALLBACK_DECISION_BANDS,
+  DEFAULT_WEIGHTS,
+  buildWeightScenario,
+  isDefaultWeights,
+};

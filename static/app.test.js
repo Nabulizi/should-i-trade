@@ -1,11 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect } from 'vitest';
 import {
   scoreColor,
   colorClass,
   decisionForScore,
   chgStr,
   FALLBACK_DECISION_BANDS,
+  DEFAULT_WEIGHTS,
+  buildWeightScenario,
+  isDefaultWeights,
 } from './app.js';
+
+beforeEach(() => {
+  localStorage.clear();
+});
 
 // ── scoreColor ────────────────────────────────────────────────────────────
 describe('scoreColor', () => {
@@ -147,5 +154,63 @@ describe('FALLBACK_DECISION_BANDS', () => {
       expect(band).toHaveProperty('color');
       expect(band).toHaveProperty('position');
     });
+  });
+});
+
+// ── custom weight scenarios ──────────────────────────────────────────────
+describe('custom weight scenarios', () => {
+  const dashboard = {
+    total_score: 65,
+    decision: 'SELECTIVE',
+    decision_color: 'yellow',
+    position_size: 'MODERATE EXPOSURE',
+    safety_max_score: null,
+    data_quality: { valid: true },
+    decision_bands: FALLBACK_DECISION_BANDS,
+    pillars: {
+      volatility: { score: 20 },
+      trend: { score: 90 },
+      breadth: { score: 80 },
+      momentum: { score: 75 },
+      macro: { score: 10 },
+    },
+  };
+
+  it('recognizes default weights', () => {
+    expect(isDefaultWeights(DEFAULT_WEIGHTS)).toBe(true);
+    expect(isDefaultWeights({ ...DEFAULT_WEIGHTS, macro: 15 })).toBe(false);
+  });
+
+  it('builds a what-if scenario without mutating the official dashboard payload', () => {
+    localStorage.setItem('pillarWeights', JSON.stringify({
+      volatility: 50,
+      trend: 10,
+      breadth: 20,
+      momentum: 10,
+      macro: 10,
+    }));
+
+    const scenario = buildWeightScenario(dashboard);
+
+    expect(scenario._customWeights).toBe(true);
+    expect(scenario.total_score).not.toBe(dashboard.total_score);
+    expect(dashboard.total_score).toBe(65);
+    expect(dashboard.decision).toBe('SELECTIVE');
+  });
+
+  it('keeps data-unavailable scenarios pinned to the official no-trade payload', () => {
+    localStorage.setItem('pillarWeights', JSON.stringify({ ...DEFAULT_WEIGHTS, volatility: 50 }));
+    const unavailable = {
+      ...dashboard,
+      total_score: 0,
+      decision: 'DATA UNAVAILABLE',
+      data_quality: { valid: false },
+    };
+
+    const scenario = buildWeightScenario(unavailable);
+
+    expect(scenario.total_score).toBe(0);
+    expect(scenario.decision).toBe('DATA UNAVAILABLE');
+    expect(scenario._customWeights).toBe(true);
   });
 });

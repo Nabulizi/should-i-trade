@@ -10,6 +10,10 @@ No subscriptions, no API keys, no cloud dependencies — all data comes from fre
 
 > **What the score is (and isn't).** A 2005–2026 walk-forward backtest showed the composite Market Quality Score is a **drawdown/exposure timer, not a forward-return predictor.** A "stay-long-when-score-is-high, de-risk-when-low" rule beat buy-and-hold on risk-adjusted return out-of-sample (Sharpe 1.07 vs 0.94) and cut max drawdown from ~−32% to ~−12% (2016–26). It does **not** predict which days will be profitable — read it as a risk dial, not a green light. The engage line is **55**, not 70.
 
+> See [Backtest Methodology](docs/backtest-methodology.md) for reproduction commands, assumptions, and limitations.
+
+> **Risk disclaimer.** This is an educational market-regime dashboard, not financial advice, investment advice, or a trading system. You are responsible for position sizing, execution, and losses.
+
 ---
 
 ## Screenshot
@@ -170,6 +174,7 @@ The score is a regime/exposure dial. The **engage line is 55** (validated as the
 | `GET /api/watchlist-health` | — | Watchlist symbol scores (cached 5min) |
 | `GET /api/history-scores` | — | Rolling 12-hour score history |
 | `GET /api/analysis` | — | Trading desk roundtable result |
+| `GET /api/stream` | SSE | Server-sent dashboard refresh events |
 | `GET /health` | — | Server uptime, cache state, history count |
 | `GET /metrics` | — | Request/hit/miss/error counters |
 
@@ -261,11 +266,15 @@ Update `_ECON_CALENDAR` and `_FOMC_2026_2027` in `data.py` annually.
 ## Running Tests
 
 ```bash
-python3 test_fixes.py    # 48 infrastructure + security regression tests
-python3 test_scoring.py  # 75 scoring pillar unit tests (fully offline)
+python3 test_fixes.py    # infrastructure + security regression suite
+python3 test_scoring.py  # scoring pillar unit tests (fully offline)
+python3 test_data.py     # data-layer + circuit-breaker tests
+python3 test_contracts.py # dashboard payload schema contract tests
+python3 test_analysis.py # roundtable persona tests
+npm test                 # frontend unit tests
 ```
 
-CI runs both suites automatically on every push via GitHub Actions (Python 3.10, 3.11, 3.12).
+CI runs Python tests on 3.10, 3.11, and 3.12, plus JS lint/tests on Node 20.
 
 ---
 

@@ -13,6 +13,7 @@ via unittest.mock so no network calls are made.
 """
 from __future__ import annotations
 import sys, time, unittest
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 
 # ── isolate config imports so tests work regardless of CWD ────────────────
@@ -315,6 +316,36 @@ class TestQuoteShapeContracts(unittest.TestCase):
     def test_quote_prices_are_numeric(self):
         self.assertIsInstance(GOOD_QUOTE["price"],      float)
         self.assertIsInstance(GOOD_QUOTE["changePct"],  float)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. Calendar freshness
+# ═══════════════════════════════════════════════════════════════════════════
+class TestCalendarFreshness(unittest.TestCase):
+    """Fail before hand-maintained economic/FOMC calendars silently expire."""
+
+    MIN_FUTURE_DAYS = 90
+
+    def _days_until(self, date_str: str) -> int:
+        last = datetime.strptime(date_str, "%Y-%m-%d").date()
+        today = datetime.now(timezone.utc).date()
+        return (last - today).days
+
+    def test_economic_calendar_has_future_coverage(self):
+        days = self._days_until(data._ECON_CALENDAR_LAST)
+        self.assertGreaterEqual(
+            days,
+            self.MIN_FUTURE_DAYS,
+            f"_ECON_CALENDAR expires in {days} days; extend data.py before it goes stale.",
+        )
+
+    def test_fomc_calendar_has_future_coverage(self):
+        days = self._days_until(data._FOMC_LAST)
+        self.assertGreaterEqual(
+            days,
+            self.MIN_FUTURE_DAYS,
+            f"_FOMC_2026_2027 expires in {days} days; extend data.py before it goes stale.",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

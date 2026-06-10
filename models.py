@@ -23,12 +23,15 @@ class Quote(TypedDict, total=False):
     """
 
     price: float | None
+    prevClose: float | None
+    change1d: float | None
     changePct: float | None
     open: float | None
     high: float | None
     low: float | None
     volume: int | None
     source: str
+    trade_date: Any
 
 
 # ── Scoring ───────────────────────────────────────────────────────────────────
@@ -46,23 +49,63 @@ class PillarResult(TypedDict):
     reasons: list[str]
 
 
+class DashboardPillarResult(PillarResult):
+    """Pillar payload embedded in the dashboard response."""
+
+    weight: int
+
+
+class DecisionBand(TypedDict):
+    """Score band metadata returned to the frontend."""
+
+    min: int
+    decision: str
+    color: str
+    position: str
+    action: str
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
-class DashboardResult(TypedDict):
-    """Full payload returned by ``compute_dashboard()`` in scoring.py."""
+class _DashboardResultRequired(TypedDict):
+    """Required payload returned by ``compute_dashboard()`` in scoring.py."""
 
-    score: int
+    total_score: int
+    raw_total_score: int
+    safety_max_score: int | None
     decision: str
     decision_color: str
-    position: str
-    pillars: dict[str, PillarResult]
-    data_quality: dict[str, Any]
+    position_size: str
+    action_hint: str
     market_state: dict[str, Any]
     fomc: dict[str, Any]
-    econ: list[dict[str, Any]]
     opex: dict[str, Any]
-    seasonality: dict[str, Any]
-    earnings_season: dict[str, Any]
+    season: dict[str, Any]
+    earnings: dict[str, Any]
+    econ_events: list[dict[str, Any]]
+    econ_calendar_stale: bool
+    fomc_calendar_stale: bool
     conflicts: list[dict[str, Any]]
-    roundtable: list[dict[str, Any]]
-    ts: float
+    override_reasons: list[str]
+    pillars: dict[str, DashboardPillarResult]
+    ticker: list[dict[str, Any]]
+    futures_tape: dict[str, Any]
+    fear_greed_stock: dict[str, Any]
+    fear_greed_crypto: dict[str, Any]
+    spy_streak: dict[str, Any]
+    timestamp: str
+    data_sources: dict[str, str]
+    data_coverage: dict[str, Any]
+    data_quality: dict[str, Any]
+    decision_bands: list[DecisionBand]
+
+
+class DashboardResult(_DashboardResultRequired, total=False):
+    """Full dashboard payload.
+
+    ``server.py`` adds these optional runtime fields after ``compute_dashboard()``
+    returns, before serializing the JSON response.
+    """
+
+    score_delta: int | None
+    stale: bool

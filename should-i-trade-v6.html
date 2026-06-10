@@ -82,7 +82,7 @@
             </div>
           </div>
           <div class="score-label">Total Score</div>
-          <div class="score-caveat">drawdown timer · not a return signal</div>
+          <div class="score-caveat">not advice · not a return signal</div>
           <div class="score-freshness" id="score-freshness"></div>
           <div class="streak-badge-wrap" style="display:none"></div>
         </div>
@@ -145,8 +145,11 @@
         <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Scoring Weights</span> <button class="btn" style="font-size:9px;padding:2px 6px" onclick="toggleSettings()"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Edit</button></div>
         <div id="score-weights"></div>
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
-          <span style="color:var(--muted);font-size:10px;">TOTAL SCORE</span>
+          <span id="weight-total-label" style="color:var(--muted);font-size:10px;">OFFICIAL SCORE</span>
           <span style="font-size:16px;font-weight:800;" id="total-score-bottom">—</span>
+        </div>
+        <div id="weight-scenario-note" style="display:none;margin-top:6px;font-size:9px;color:var(--muted);line-height:1.6;">
+          What-if only. The hero decision, alerts, conflicts, history, and roundtable use backend weights.
         </div>
         <div style="margin-top:8px;font-size:9px;color:var(--muted);line-height:1.7;">
           <span style="color:var(--green);">●</span> 70+: RISK-ON (full / standard exposure)<br>
@@ -231,7 +234,7 @@
         <button class="btn" onclick="applyWeights()" style="color:var(--green);border-color:rgba(0,230,118,0.4)">✓ Apply</button>
         <button class="btn" onclick="resetWeights()">↺ Reset</button>
       </div>
-      <div class="settings-info">Weights are saved locally and persist across sessions. Scores shown are recalculated in the browser from the pillar values returned by the backend.</div>
+      <div class="settings-info">Weights are saved locally and persist across sessions. They only affect the what-if score in the Scoring Weights card; the main dashboard decision remains backend-scored.</div>
     </div>
 
     <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">

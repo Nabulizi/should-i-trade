@@ -41,7 +41,7 @@ server.py (ThreadingHTTPServer, port 8765)
   ├─ /api/dashboard   → scoring.compute_dashboard()   [60s cache]
   ├─ /api/analysis    → analysis.roundtable() or ai_synthesis (Gemini)
   ├─ /api/watchlist-health → watchlist.compute_watchlist_health() [5min cache]
-  ├─ /api/events      → SSE broadcast of score updates
+  ├─ /api/stream      → SSE broadcast of score updates
   └─ /health, /metrics
        ↕
 data.py   Yahoo Finance v8 (primary) → Stooq CSV → CoinGecko/Binance (BTC fallback)
