@@ -6,6 +6,8 @@ A single-page, self-hosted **risk / de-risk gauge** for the session: it reads th
 
 No subscriptions, no API keys, no cloud dependencies — all data comes from free public sources.
 
+> **Live demo:** [should-i-trade.onrender.com](https://should-i-trade.onrender.com) — or self-host in one command (see Quick Start).
+
 > **What the score is (and isn't).** A 2005–2026 walk-forward backtest showed the composite Market Quality Score is a **drawdown/exposure timer, not a forward-return predictor.** A "stay-long-when-score-is-high, de-risk-when-low" rule beat buy-and-hold on risk-adjusted return out-of-sample (Sharpe 1.07 vs 0.94) and cut max drawdown from ~−32% to ~−12% (2016–26). It does **not** predict which days will be profitable — read it as a risk dial, not a green light. The engage line is **55**, not 70.
 
 ---
@@ -14,7 +16,7 @@ No subscriptions, no API keys, no cloud dependencies — all data comes from fre
 
 ![Dashboard screenshot](docs/screenshot.png)
 
-> Live dashboard running at `http://localhost:8765`
+> Live dashboard running at `http://localhost:8765` — or try the **[live demo](https://should-i-trade.onrender.com)**
 
 The dashboard shows a composite **Market Quality Score (0–100)**, five scoring pillars, a trading decision recommendation, and a multi-persona AI roundtable discussion — all updated automatically every 60 seconds.
 
