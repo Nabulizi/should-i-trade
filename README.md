@@ -145,6 +145,8 @@ Data flows: `data.py` fetches from Yahoo Finance (primary), falling back to Stoo
 
 > Weights are defined in `config.py` and can be adjusted without touching logic files.
 
+> **Correlation note (22-year backtest):** Breadth↔Momentum share significant signal (r=0.70) and Vol↔Breadth correlate at r=0.71 — the composite has ~3 effective independent inputs, not 5. Macro is the only truly orthogonal pillar. The score still works as a drawdown timer; just don't interpret the 5 bars as 5 independent votes.
+
 ### Risk-Posture Thresholds
 
 The score is a regime/exposure dial. The **engage line is 55** (validated as the efficient long/flat cut), not 70.
