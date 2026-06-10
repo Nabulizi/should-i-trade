@@ -10,13 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 python3 server.py
 
 # Run all Python tests
-python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_contracts.py && python3 test_analysis.py && python3 test_smoke.py
+python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_contracts.py && python3 test_backtest_report.py && python3 test_analysis.py && python3 test_smoke.py
 
 # Run a single test file
 python3 test_scoring.py
 
 # Syntax check all Python files
-python -m py_compile server.py scoring.py data.py analysis.py ai_synthesis.py watchlist.py
+python -m py_compile server.py scoring.py data.py analysis.py ai_synthesis.py watchlist.py models.py backtest_report.py
 ```
 
 ### JavaScript (frontend)

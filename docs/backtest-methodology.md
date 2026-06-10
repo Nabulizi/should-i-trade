@@ -12,8 +12,9 @@ composite score is most useful as a drawdown/exposure timer:
 - Higher scores did not reliably predict which individual days would be
   profitable.
 - A rule that stayed long SPY when the score cleared the engagement threshold
-  and de-risked when it did not improved risk-adjusted results versus
-  buy-and-hold in the documented out-of-sample window.
+  and de-risked when it did not materially reduced drawdown versus buy-and-hold,
+  with lower exposure and lower absolute return in the documented validation
+  window.
 - The validated engagement threshold is 55, not 70.
 
 Keep this claim attached to the exact implementation in `backtest.py` and the
@@ -35,6 +36,16 @@ python3 backtest.py --refresh
 
 The script writes per-day results to `backtest_results.csv`, which is ignored by
 git because it is generated output.
+
+Then generate the committed human-readable evidence report:
+
+```bash
+python3 backtest_report.py
+```
+
+By default this reads `backtest_results.csv` and writes
+`docs/backtest-report.md`. The report generator is offline and deterministic, so
+it is safe to run in CI-style environments when the CSV already exists.
 
 ## Replay Design
 
@@ -106,5 +117,6 @@ Recommended commit discipline:
 
 1. Run the Python and JS test suites.
 2. Run `python3 backtest.py`.
-3. Compare headline metrics against the previous run.
-4. Update README claims only when the new evidence still supports them.
+3. Run `python3 backtest_report.py`.
+4. Compare headline metrics against the previous run.
+5. Update README claims only when the new evidence still supports them.

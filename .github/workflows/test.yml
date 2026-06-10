@@ -46,10 +46,10 @@ jobs:
       - name: Run analysis / roundtable persona tests (test_analysis.py)
         run: python test_analysis.py
 
-      - name: Type-check core modules (mypy)
+      - name: Type-check typed contracts and report tooling (mypy)
         run: |
           pip install --quiet mypy
-          mypy models.py --ignore-missing-imports --no-error-summary
+          mypy models.py backtest_report.py --ignore-missing-imports --no-error-summary
 
       - name: Integration smoke tests (test_smoke.py)
         run: python test_smoke.py

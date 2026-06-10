@@ -8,9 +8,9 @@ No subscriptions, no API keys, no cloud dependencies — all data comes from fre
 
 > **Live demo:** [should-i-trade.onrender.com](https://should-i-trade.onrender.com) — or self-host in one command (see Quick Start).
 
-> **What the score is (and isn't).** A 2005–2026 walk-forward backtest showed the composite Market Quality Score is a **drawdown/exposure timer, not a forward-return predictor.** A "stay-long-when-score-is-high, de-risk-when-low" rule beat buy-and-hold on risk-adjusted return out-of-sample (Sharpe 1.07 vs 0.94) and cut max drawdown from ~−32% to ~−12% (2016–26). It does **not** predict which days will be profitable — read it as a risk dial, not a green light. The engage line is **55**, not 70.
+> **What the score is (and isn't).** A 2005–2026 walk-forward backtest showed the composite Market Quality Score is a **drawdown/exposure timer, not a forward-return predictor.** In the 2016+ validation window, a "long SPY when score ≥55, otherwise flat" rule cut max drawdown from ~−32% to ~−14% with ~69% exposure, but it lagged buy-and-hold on total return and Sharpe. It does **not** predict which days will be profitable — read it as a risk dial, not a green light. The engage line is **55**, not 70.
 
-> See [Backtest Methodology](docs/backtest-methodology.md) for reproduction commands, assumptions, and limitations.
+> See [Backtest Methodology](docs/backtest-methodology.md) and the generated [Backtest Report](docs/backtest-report.md) for reproduction commands, assumptions, results, and limitations.
 
 > **Risk disclaimer.** This is an educational market-regime dashboard, not financial advice, investment advice, or a trading system. You are responsible for position sizing, execution, and losses.
 
@@ -66,6 +66,14 @@ Then open **http://localhost:8765** in your browser. The first load takes ~7–8
 
 > The server auto-opens the browser on startup. Re-open manually if needed.
 
+### First-Run Orientation
+
+- The headline score is the backend's official Market Quality Score. Custom weights in the UI are what-if only and never rewrite the saved/live score.
+- Read the score as an exposure dial: **55** is the validated engagement line, **70** is constructive, and **85** is the strongest risk-on band.
+- If the data-quality banner appears, treat the decision as disabled or stale until live market inputs recover.
+- The first full refresh is slower than later refreshes because the 60-second cache is empty.
+- To use Watchlist Health, place a TradingView-format `.txt` export in `watchlists/` and refresh `/api/watchlist-health`.
+
 ---
 
 ## Project Structure
@@ -79,6 +87,7 @@ should-i-trade/
 ├── ai_synthesis.py        # Optional Gemini-powered roundtable (falls back to analysis.py)
 ├── watchlist.py           # TradingView watchlist import + symbol health scorer
 ├── backtest.py            # Walk-forward replay: IC, decile, regime & strategy tests
+├── backtest_report.py     # Offline Markdown report generator for backtest_results.csv
 ├── backtest_experiment.py # Scratchpad for weight/threshold experiments
 ├── config.py              # ← All user-tunable settings (port, TTLs, weights, WL thresholds)
 ├── config_local.py        # (git-ignored) your local secrets, e.g. GEMINI_API_KEY
@@ -93,7 +102,11 @@ should-i-trade/
 ├── test_scoring.py        # Scoring pillar unit tests
 ├── test_data.py           # Data layer + circuit-breaker tests
 ├── test_analysis.py       # Roundtable persona tests
+├── test_backtest_report.py # Backtest report generator tests
 ├── test_fixes.py          # Script-style infra regression suite (python3 test_fixes.py)
+├── docs/
+│   ├── backtest-methodology.md # Backtest design, assumptions, update protocol
+│   └── backtest-report.md      # Generated human-readable replay report
 ├── .github/workflows/     # CI: Python 3.10–3.12 matrix + JS lint/tests
 ├── requirements.txt       # Notes only — core app needs no pip packages
 └── history.json           # Auto-generated at runtime; score history for sparkline
@@ -270,11 +283,24 @@ python3 test_fixes.py    # infrastructure + security regression suite
 python3 test_scoring.py  # scoring pillar unit tests (fully offline)
 python3 test_data.py     # data-layer + circuit-breaker tests
 python3 test_contracts.py # dashboard payload schema contract tests
+python3 test_backtest_report.py # offline generated-report contract tests
 python3 test_analysis.py # roundtable persona tests
 npm test                 # frontend unit tests
 ```
 
 CI runs Python tests on 3.10, 3.11, and 3.12, plus JS lint/tests on Node 20.
+
+## Backtest Reporting
+
+The historical replay is intentionally split into two steps:
+
+```bash
+python3 backtest.py        # networked replay; writes backtest_results.csv
+python3 backtest_report.py # offline report; writes docs/backtest-report.md
+```
+
+Commit report updates only after checking that the methodology, README claims,
+and generated report all tell the same story.
 
 ---
 
