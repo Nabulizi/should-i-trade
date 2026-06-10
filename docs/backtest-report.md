@@ -1,5 +1,7 @@
 # Backtest Report
 
+_Generated 2026-06-10 · engine edc22bb_
+
 This report is generated from the per-day replay output produced by `backtest.py`.
 It supports the product claim that the Market Quality Score is a risk/exposure dial, not a day-by-day return predictor.
 
@@ -7,6 +9,7 @@ It supports the product claim that the Market Quality Score is a risk/exposure d
 
 - Full sample: 5,373 trading days from 2005-01-03 to 2026-05-12.
 - Validation window (2016-01-04 to 2026-05-12): Score >= 55 produced +131.1% total return with 0.86 Sharpe, -14.3% max drawdown, and 69% market exposure.
+- A constant 69%-SPY baseline (same risk budget, no timing) returned +188.8% with 0.96 Sharpe — the fair benchmark for the timing rule.
 - Same-window buy & hold: +340.3% total return with 0.96 Sharpe and -31.7% max drawdown.
 - Forward-return IC remains low (-0.078 at 5 days), so the score should not be marketed as a precise return forecast.
 
@@ -31,13 +34,16 @@ Spearman correlation between the total score and forward SPY returns.
 
 ## 5-Day Return By Decision Band
 
-| Band | Days | Mean | Median | Hit Rate | Std Dev |
-|---|---:|---:|---:|---:|---:|
-| RISK-ON | 919 | +0.20% | +0.38% | 62.7% | 1.47% |
-| CONSTRUCTIVE | 1,422 | +0.09% | +0.26% | 56.9% | 1.62% |
-| SELECTIVE | 1,078 | +0.25% | +0.41% | 61.1% | 1.78% |
-| DE-RISK | 893 | +0.30% | +0.62% | 61.0% | 2.60% |
-| RISK-OFF | 1,061 | +0.40% | +0.61% | 59.5% | 3.84% |
+Mean/Std (last column) is mean return divided by standard deviation — a volatility-adjusted signal quality score.
+Values above +0.15 indicate the band has a meaningful directional edge relative to its own noise.
+
+| Band | Days | Mean | Median | Hit Rate | Std Dev | Mean/Std |
+|---|---:|---:|---:|---:|---:|---:|
+| RISK-ON | 919 | +0.20% | +0.38% | 62.7% | 1.47% | +0.134 |
+| CONSTRUCTIVE | 1,422 | +0.09% | +0.26% | 56.9% | 1.62% | +0.053 |
+| SELECTIVE | 1,078 | +0.25% | +0.41% | 61.1% | 1.78% | +0.140 |
+| DE-RISK | 893 | +0.30% | +0.62% | 61.0% | 2.60% | +0.117 |
+| RISK-OFF | 1,061 | +0.40% | +0.61% | 59.5% | 3.84% | +0.104 |
 
 ## Score Deciles
 
@@ -74,12 +80,15 @@ Spearman correlation between the total score and forward SPY returns.
 
 ## Strategy Comparison - Full Sample
 
-Non-overlapping 5-trading-day holds. A strategy is long SPY for the next block only when the score clears its threshold.
+Non-overlapping 5-trading-day holds. Each timing strategy is paired with a constant-fraction SPY baseline
+that holds the same market exposure with no timing skill. Beat the matched baseline to demonstrate alpha.
 
 | Strategy | Total Return | CAGR | Sharpe | Max Drawdown | Exposure |
 |---|---:|---:|---:|---:|---:|
 | Score >= 70 (CONSTRUCTIVE+) | +62.2% | +2.29% | 0.38 | -18.3% | 41% |
+| Constant 41% SPY (matched benchmark) | +167.5% | +4.72% | 0.69 | -26.1% | 41% |
 | Score >= 55 (SELECTIVE+) | +229.0% | +5.74% | 0.69 | -21.4% | 63% |
+| Constant 63% SPY (matched benchmark) | +328.8% | +7.07% | 0.69 | -37.6% | 63% |
 | Buy & hold | +808.3% | +10.90% | 0.69 | -54.2% | 100% |
 
 ## Strategy Comparison - Validation Window (2016-01-04 to 2026-05-12)
@@ -87,7 +96,9 @@ Non-overlapping 5-trading-day holds. A strategy is long SPY for the next block o
 | Strategy | Total Return | CAGR | Sharpe | Max Drawdown | Exposure |
 |---|---:|---:|---:|---:|---:|
 | Score >= 70 (CONSTRUCTIVE+) | +78.0% | +5.74% | 0.77 | -13.2% | 46% |
+| Constant 46% SPY (matched benchmark) | +106.4% | +7.26% | 0.96 | -15.7% | 46% |
 | Score >= 55 (SELECTIVE+) | +131.1% | +8.45% | 0.86 | -14.3% | 69% |
+| Constant 69% SPY (matched benchmark) | +188.8% | +10.81% | 0.96 | -22.9% | 69% |
 | Buy & hold | +340.3% | +15.43% | 0.96 | -31.7% | 100% |
 
 ## Product Interpretation

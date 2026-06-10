@@ -13,8 +13,11 @@ Run:
 from __future__ import annotations
 
 import csv
+import hashlib
 import math
+import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Callable, Iterable, Literal, TypedDict
 
@@ -66,6 +69,18 @@ class StrategyResult(TypedDict):
     total_blocks: int
 
 
+def _engine_hash() -> str:
+    """Return first 7 chars of HEAD commit hash, or 'unknown'."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"],
+            capture_output=True, text=True, timeout=3,
+        )
+        return result.stdout.strip() if result.returncode == 0 else "unknown"
+    except Exception:
+        return "unknown"
+
+
 class BandSummary(TypedDict):
     band: str
     n: int
@@ -73,6 +88,7 @@ class BandSummary(TypedDict):
     median: float
     hit_rate: float
     std: float
+    mean_std: float
 
 
 class DecileSummary(TypedDict):
@@ -224,19 +240,59 @@ def _pillar_value(row: BacktestRow, key: PillarKey) -> float:
     return row["total"]
 
 
+def _matched_exposure_strategy(rows: list[BacktestRow], timing_result: StrategyResult) -> StrategyResult:
+    """Constant-fraction SPY baseline that matches the timing strategy's exposure.
+
+    Instead of comparing 63%-invested timing against 100% buy-and-hold (unfair
+    due to risk budget differences), this buys a fixed fraction every block so
+    its total market exposure equals the timing strategy's. Same risk budget,
+    no skill required.
+    """
+    exposure_frac = timing_result["exposure_pct"] / 100.0
+    label = f"Constant {timing_result['exposure_pct']:.0f}% SPY (matched benchmark)"
+    equity = 1.0
+    curve = [equity]
+    blocks: list[float] = []
+    for i in range(0, len(rows), 5):
+        row = rows[i]
+        block_return = (row["fwd5"] / 100) * exposure_frac
+        equity *= 1 + block_return
+        blocks.append(block_return)
+        curve.append(equity)
+    years = len(rows) / 252.0
+    total_blocks = len(blocks)
+    invested_blocks = total_blocks  # always invested (at reduced fraction)
+    cagr = (equity ** (1 / years) - 1) if years > 0 and equity > 0 else float("nan")
+    sd = _std(blocks)
+    sharpe = (_mean(blocks) / sd * math.sqrt(252 / 5)) if sd and sd > 0 else float("nan")
+    return {
+        "label": label,
+        "total_return_pct": (equity - 1) * 100,
+        "cagr_pct": cagr * 100,
+        "sharpe": sharpe,
+        "max_drawdown_pct": max_drawdown(curve) * 100,
+        "exposure_pct": timing_result["exposure_pct"],
+        "invested_blocks": invested_blocks,
+        "total_blocks": total_blocks,
+    }
+
+
 def band_rows(rows: list[BacktestRow]) -> list[BandSummary]:
     out: list[BandSummary] = []
     for band in DECISION_ORDER:
         vals = [r["fwd5"] for r in rows if r["decision"] == band]
         if not vals:
             continue
+        mean = _mean(vals)
+        std = _std(vals)
         out.append({
             "band": band,
             "n": len(vals),
-            "mean": _mean(vals),
+            "mean": mean,
             "median": _median(vals),
             "hit_rate": 100 * sum(1 for x in vals if x > 0) / len(vals),
-            "std": _std(vals),
+            "std": std,
+            "mean_std": mean / std if std > 0 else float("nan"),
         })
     return out
 
@@ -328,12 +384,17 @@ def strategy(rows: list[BacktestRow], label: str,
 
 
 def strategy_rows(rows: list[BacktestRow]) -> list[StrategyResult]:
+    constructive = strategy(rows, f"Score >= {FULL_RISK_MIN} (CONSTRUCTIVE+)",
+                            lambda r: r["total"] >= FULL_RISK_MIN)
+    selective = strategy(rows, f"Score >= {ENGAGE_MIN} (SELECTIVE+)",
+                         lambda r: r["total"] >= ENGAGE_MIN)
+    buy_hold = strategy(rows, "Buy & hold", lambda r: True)
     return [
-        strategy(rows, f"Score >= {FULL_RISK_MIN} (CONSTRUCTIVE+)",
-                 lambda r: r["total"] >= FULL_RISK_MIN),
-        strategy(rows, f"Score >= {ENGAGE_MIN} (SELECTIVE+)",
-                 lambda r: r["total"] >= ENGAGE_MIN),
-        strategy(rows, "Buy & hold", lambda r: True),
+        constructive,
+        _matched_exposure_strategy(rows, constructive),
+        selective,
+        _matched_exposure_strategy(rows, selective),
+        buy_hold,
     ]
 
 
@@ -363,15 +424,20 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
     validation_strategies = strategy_rows(validation_rows) if len(validation_rows) >= 30 else []
     headline_strategies = validation_strategies or full_sample_strategies
     headline_rows = validation_rows if validation_strategies else rows
-    engage = headline_strategies[1]
-    buy_hold = headline_strategies[2]
+    # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=buy&hold
+    engage = headline_strategies[2]
+    matched_engage = headline_strategies[3]
+    buy_hold = headline_strategies[4]
     headline_label = (
         f"Validation window ({headline_rows[0]['date']} to {headline_rows[-1]['date']})"
         if validation_strategies else "Full sample"
     )
+    generated_stamp = f"_Generated {date.today().isoformat()} · engine {_engine_hash()}_"
 
     lines = [
         "# Backtest Report",
+        "",
+        generated_stamp,
         "",
         "This report is generated from the per-day replay output produced by `backtest.py`.",
         "It supports the product claim that the Market Quality Score is a risk/exposure dial, not a day-by-day return predictor.",
@@ -382,6 +448,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         f"- {headline_label}: Score >= {ENGAGE_MIN} produced {_fmt_pct(engage['total_return_pct'], 1)} total return with "
         f"{engage['sharpe']:.2f} Sharpe, {_fmt_pct(engage['max_drawdown_pct'], 1)} max drawdown, and "
         f"{engage['exposure_pct']:.0f}% market exposure.",
+        f"- A constant {matched_engage['exposure_pct']:.0f}%-SPY baseline (same risk budget, no timing) returned "
+        f"{_fmt_pct(matched_engage['total_return_pct'], 1)} with {matched_engage['sharpe']:.2f} Sharpe — the fair benchmark for the timing rule.",
         f"- Same-window buy & hold: {_fmt_pct(buy_hold['total_return_pct'], 1)} total return with "
         f"{buy_hold['sharpe']:.2f} Sharpe and {_fmt_pct(buy_hold['max_drawdown_pct'], 1)} max drawdown.",
         f"- Forward-return IC remains low ({_fmt_num(ics[5])} at 5 days), so the score should not be marketed as a precise return forecast.",
@@ -409,13 +477,17 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         "",
         "## 5-Day Return By Decision Band",
         "",
-        "| Band | Days | Mean | Median | Hit Rate | Std Dev |",
-        "|---|---:|---:|---:|---:|---:|",
+        "Mean/Std (last column) is mean return divided by standard deviation — a volatility-adjusted signal quality score.",
+        "Values above +0.15 indicate the band has a meaningful directional edge relative to its own noise.",
+        "",
+        "| Band | Days | Mean | Median | Hit Rate | Std Dev | Mean/Std |",
+        "|---|---:|---:|---:|---:|---:|---:|",
     ])
     for band in bands:
+        mean_std_str = f"{band['mean_std']:+.3f}" if not math.isnan(band['mean_std']) else "n/a"
         lines.append(
             f"| {band['band']} | {band['n']:,} | {_fmt_pct(band['mean'])} | "
-            f"{_fmt_pct(band['median'])} | {band['hit_rate']:.1f}% | {band['std']:.2f}% |"
+            f"{_fmt_pct(band['median'])} | {band['hit_rate']:.1f}% | {band['std']:.2f}% | {mean_std_str} |"
         )
 
     lines.extend([
@@ -457,7 +529,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         "",
         "## Strategy Comparison - Full Sample",
         "",
-        "Non-overlapping 5-trading-day holds. A strategy is long SPY for the next block only when the score clears its threshold.",
+        "Non-overlapping 5-trading-day holds. Each timing strategy is paired with a constant-fraction SPY baseline",
+        "that holds the same market exposure with no timing skill. Beat the matched baseline to demonstrate alpha.",
         "",
         "| Strategy | Total Return | CAGR | Sharpe | Max Drawdown | Exposure |",
         "|---|---:|---:|---:|---:|---:|",
