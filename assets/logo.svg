@@ -1,0 +1,24 @@
+<svg width="520" height="120" viewBox="0 0 520 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Should I Trade? — Market Quality Terminal">
+  <!-- background card -->
+  <rect x="0" y="0" width="520" height="120" rx="12" fill="#020617"/>
+  <rect x="0.5" y="0.5" width="519" height="119" rx="11.5" fill="none" stroke="#1a2530"/>
+
+  <!-- score gauge mark -->
+  <g transform="translate(60,60)">
+    <!-- track -->
+    <circle r="38" fill="none" stroke="#1a2530" stroke-width="9"/>
+    <!-- score arc: ~72/100, rotated to start at 12 o'clock -->
+    <circle r="38" fill="none" stroke="#00e676" stroke-width="9" stroke-linecap="round"
+            stroke-dasharray="171.8 238.8" transform="rotate(-90)"/>
+    <!-- gauge needle / trend tick -->
+    <polyline points="-16,8 -5,-4 3,3 17,-13" fill="none" stroke="#00b0ff"
+              stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="17" cy="-13" r="3.5" fill="#00b0ff"/>
+  </g>
+
+  <!-- wordmark -->
+  <g font-family="'Fira Code', 'SF Mono', Menlo, monospace">
+    <text x="120" y="56" font-size="26" font-weight="700" letter-spacing="1" fill="#e0e8f0">SHOULD I TRADE<tspan fill="#00b0ff">?</tspan></text>
+    <text x="121" y="82" font-size="12" letter-spacing="4" fill="#7e94a9">MARKET QUALITY TERMINAL · V6</text>
+  </g>
+</svg>
