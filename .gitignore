@@ -9,6 +9,7 @@ __pycache__/
 # Secrets & local agent config
 .env
 .env.*
+config_local.py
 .claude/
 
 # Backtest cache & generated results

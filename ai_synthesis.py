@@ -10,7 +10,7 @@ Chain: Technician -> Macro (sees Technician) -> Risk (sees both) ->
 
 Falls back to the full rule-based roundtable on any failure.
 
-API key: GEMINI_API_KEY env var or config.py
+API key: GEMINI_API_KEY env var or git-ignored config_local.py
 Free key (1 500 req/day): https://aistudio.google.com
 """
 

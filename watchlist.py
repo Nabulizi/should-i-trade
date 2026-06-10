@@ -12,6 +12,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as
 from typing import Any
 
 from data import get_quote, get_history
+from config import (
+    WL_MA20_NEAR_PCT, WL_MA50_NEAR_PCT, WL_EXTENDED_RSI, WL_EXTENDED_DIST,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -173,9 +176,9 @@ def _why_text(bucket: str, above20: bool, above50: bool, above200: bool,
         parts.append("above 20/50/200d" if above20 and above50 and above200 else "trend stack improving")
     elif bucket == "pullback":
         near = []
-        if dist_20 is not None and abs(dist_20) <= 3.5:
+        if dist_20 is not None and abs(dist_20) <= WL_MA20_NEAR_PCT:
             near.append("20d")
-        if dist_50 is not None and abs(dist_50) <= 4.0:
+        if dist_50 is not None and abs(dist_50) <= WL_MA50_NEAR_PCT:
             near.append("50d")
         parts.append(f"near {'/'.join(near)}" if near else "pulling into support")
     elif bucket == "bear_regime":
@@ -238,9 +241,10 @@ def _classify(symbol: str, tv_symbol: str, asset_type: str,
         score -= 12
     score = max(0, min(100, int(score)))
 
-    near_20 = bool(price and ma20 and abs(price / ma20 - 1) <= 0.035)
-    near_50 = bool(price and ma50 and abs(price / ma50 - 1) <= 0.04)
-    extended = bool((rsi and rsi >= 72) or (price and ma20 and price > ma20 * 1.08))
+    near_20 = bool(price and ma20 and abs(price / ma20 - 1) <= WL_MA20_NEAR_PCT / 100)
+    near_50 = bool(price and ma50 and abs(price / ma50 - 1) <= WL_MA50_NEAR_PCT / 100)
+    extended = bool((rsi and rsi >= WL_EXTENDED_RSI)
+                    or (price and ma20 and price > ma20 * (1 + WL_EXTENDED_DIST)))
 
     if not q or not clean_closes:
         bucket, label = "unavailable", "No Data"

@@ -177,8 +177,12 @@ def _do_recompute() -> dict:
     # Record in history only when live data is trustworthy.
     if data.get("data_quality", {}).get("valid", True):
         now_ts = time.time()
+        # Label the snapshot in ET to match every other timestamp in the UI.
+        # (Previously used time.gmtime() — sparkline labels were silently UTC.)
+        et_time = (data.get("market_state") or {}).get("et_time", "")
+        ts_label = et_time.replace(" ET", "") if et_time else time.strftime("%H:%M", time.gmtime())
         snapshot = {
-            "ts":  time.strftime("%H:%M", time.gmtime()),
+            "ts":  ts_label,
             "total": data["total_score"],
             "v":  data["pillars"]["volatility"]["score"],
             "tr": data["pillars"]["trend"]["score"],

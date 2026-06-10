@@ -67,12 +67,25 @@ MIN_SECTOR_HISTORY_POINTS = 64
 # drawdown/exposure timer, not a forward-return predictor. Labels describe how
 # much market risk the current regime is worth; the "engage" line is 55, not 70.
 DECISION_BANDS = [
-    {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "FULL EXPOSURE"},
-    {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "STANDARD EXPOSURE"},
-    {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MODERATE EXPOSURE"},
-    {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "REDUCED EXPOSURE"},
-    {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "DEFENSIVE / FLAT"},
+    {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "FULL EXPOSURE",
+     "action": "Full exposure — low-drawdown regime, press the bid on A/B setups"},
+    {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "STANDARD EXPOSURE",
+     "action": "Standard exposure — constructive regime, run your normal game"},
+    {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MODERATE EXPOSURE",
+     "action": "Moderate exposure — engage selectively, A+ setups, tight stops"},
+    {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "REDUCED EXPOSURE",
+     "action": "Reduced exposure — de-risk, very selective or sit out"},
+    {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "DEFENSIVE / FLAT",
+     "action": "Defensive — drawdown risk elevated, no new longs"},
 ]
+
+
+def action_for_score(total: int) -> str:
+    """Plain-language 'what do I actually do' hint for a composite score."""
+    for band in DECISION_BANDS:
+        if total >= band["min"]:
+            return band["action"]
+    return DECISION_BANDS[-1]["action"]
 
 # ─── scoring thresholds ────────────────────────────────────────────────────
 # Volatility pillar
@@ -122,11 +135,8 @@ CHAR_BBW_CHOPPY         = 3.0
 BREADTH_ABOVE200_BULL   = 73   # % of sectors above 200d MA → broad bull
 BREADTH_ABOVE200_WEAK   = 36   # % below this → structural weakness
 
-# Watchlist scoring (in watchlist.py, duplicated here for reference)
-WL_MA20_NEAR_PCT  = 3.5  # within 3.5% of 20d MA → "near"
-WL_MA50_NEAR_PCT  = 4.0  # within 4.0% of 50d MA → "near"
-WL_EXTENDED_RSI   = 72   # RSI above → extended
-WL_EXTENDED_DIST  = 0.08 # price > MA20 * (1 + this) → extended
+# Watchlist scoring thresholds live in config.py (WL_*) and are consumed by
+# watchlist.py — kept in one place so they can't silently drift.
 
 
 def decision_for_score(total: int) -> tuple[str, str, str]:
@@ -1578,6 +1588,8 @@ def compute_dashboard() -> DashboardResult:
         "raw_total_score": raw_total,
         "safety_max_score": safety_max,
         "decision": decision, "decision_color": dc, "position_size": pos,
+        "action_hint": (action_for_score(total) if data_quality["valid"]
+                        else "Exposure off — live market data is unavailable"),
         "market_state": mstate,
         "fomc":         fomc,
         "opex":         instruments["opex"],
