@@ -35,7 +35,7 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 | **Watchlist Health** | Scores your personal watchlist symbols (TradingView format supported) |
 | **Health & Metrics** | `/health` and `/metrics` endpoints for monitoring |
 | **Rate Limiting** | 30 req/min per IP — protects against runaway polling |
-| **Responsive UI** | Works on laptop screens down to ~600px wide |
+| **Responsive UI** | Works on mobile (≥320px) — simplified layout at ≤480px |
 | **Zero API keys** | Yahoo Finance → Stooq → CoinGecko → Binance (all free) |
 
 ---

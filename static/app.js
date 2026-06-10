@@ -94,6 +94,8 @@ function renderHeader(d) {
   }
 
   $('data-ts').textContent = d.timestamp ? `updated ${d.timestamp}` : '';
+  const freshEl = document.getElementById('score-freshness');
+  if (freshEl) freshEl.textContent = d.timestamp ? `as of ${d.timestamp}` : '';
 
   // Econ events row — includes earnings season flag
   const events = d.econ_events || [];
