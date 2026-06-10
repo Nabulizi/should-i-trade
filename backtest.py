@@ -306,7 +306,12 @@ def max_drawdown(equity: list[float]) -> float:
 
 
 # ── main ──────────────────────────────────────────────────────────────────
-BANDS = ["STRONG YES", "YES", "CAUTION", "NO", "STRONG NO"]
+# Derive bands from the LIVE engine so a decision-label rename can never
+# silently break the replay (the old hardcoded "YES"/"CAUTION" list did
+# exactly that when bands were renamed to RISK-ON/…/RISK-OFF).
+BANDS = [b["decision"] for b in scoring.DECISION_BANDS]
+ENGAGE_MIN = 55      # "engage" line per README — SELECTIVE and above
+FULL_RISK_MIN = 70   # CONSTRUCTIVE and above
 
 
 def run(refresh: bool = False):
@@ -428,7 +433,7 @@ def _report(rows: list[dict]):
         if len(sub) < 20:
             continue
         bh = _mean([r["fwd5"] for r in sub])
-        inv = [r["fwd5"] for r in sub if r["decision"] in ("YES", "STRONG YES", "CAUTION")]
+        inv = [r["fwd5"] for r in sub if r["total"] >= ENGAGE_MIN]
         filt = (sum(inv) / len(sub)) if sub else 0.0  # avg incl. flat (out) days
         expo = 100 * len(inv) / len(sub)
         ic = spearman([r["total"] for r in sub], [r["fwd5"] for r in sub])
@@ -446,13 +451,40 @@ def _report(rows: list[dict]):
         bh = _mean([r["fwd5"] for r in sub])
         print(f"     {label:<18} n={len(sub):>5}  IC-5d={ic:>+.3f}  B&H mean5={bh:>+.3f}%")
 
+    # 3e) Pillar cross-correlation — how many independent signals do we really have?
+    print("\n[3e] PILLAR SCORE CROSS-CORRELATION  (Pearson, daily scores)")
+    print("     High values mean pillars co-move (shared beta regime) —")
+    print("     the composite has fewer independent degrees of freedom than 5.")
+    pk = [("v", "Vol"), ("tr", "Trend"), ("br", "Brdth"), ("mo", "Mom"), ("ma", "Macro")]
+    print("     " + " " * 7 + "".join(f"{nm:>7}" for _, nm in pk))
+    for key_i, name_i in pk:
+        cells = []
+        for key_j, _ in pk:
+            c = pearson([r[key_i] for r in rows], [r[key_j] for r in rows])
+            cells.append(f"{c:>+7.2f}")
+        print(f"     {name_i:<7}" + "".join(cells))
+
     # 4) Strategy vs buy & hold (5-day non-overlapping rebalances)
-    print("\n[4] STRATEGY TEST — long SPY only when decision ∈ {YES, STRONG YES}")
+    print(f"\n[4] STRATEGY TEST — long SPY only when score clears a band floor")
     print("    vs buy-&-hold. Non-overlapping 5-day holding periods.")
-    for label, cond in [("Score≥70 (YES+)", lambda r: r["decision"] in ("YES", "STRONG YES")),
-                        ("Score≥55 (CAUTION+)", lambda r: r["decision"] in ("YES", "STRONG YES", "CAUTION"))]:
+    for label, cond in [(f"Score≥{FULL_RISK_MIN} (CONSTRUCTIVE+)", lambda r: r["total"] >= FULL_RISK_MIN),
+                        (f"Score≥{ENGAGE_MIN} (SELECTIVE+)",    lambda r: r["total"] >= ENGAGE_MIN)]:
         _strategy(rows, cond, label)
     _strategy(rows, lambda r: True, "Buy & Hold")
+
+
+def pearson(xs: list[float], ys: list[float]) -> float:
+    """Pearson correlation, stdlib only."""
+    n = min(len(xs), len(ys))
+    if n < 2:
+        return float("nan")
+    xs, ys = xs[:n], ys[:n]
+    mx, my = _mean(xs), _mean(ys)
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    vx  = sum((x - mx) ** 2 for x in xs)
+    vy  = sum((y - my) ** 2 for y in ys)
+    denom = math.sqrt(vx * vy)
+    return cov / denom if denom else float("nan")
 
 
 def _strategy(rows, cond, label):
