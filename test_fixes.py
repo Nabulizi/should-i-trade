@@ -2,7 +2,15 @@
 test_fixes.py — Regression tests for the fix/production-hardening branch.
 Tests run without network access; server started on a spare port.
 """
-import gzip, json, os, sys, tempfile, threading, time, urllib.request
+import gzip, json, os, sys, tempfile, threading, time, unittest, urllib.request
+
+# This file is a script-style regression suite (run directly: python3 test_fixes.py,
+# as CI does). It executes checks at module level, so importing it via
+# `unittest discover` would run everything at import time and report 0 tests.
+# Skip cleanly when imported rather than executed.
+if __name__ != "__main__":
+    raise unittest.SkipTest(
+        "test_fixes.py is a script-style suite — run directly: python3 test_fixes.py")
 
 # ── helpers ────────────────────────────────────────────────────────────────
 PASS = "✅"

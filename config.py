@@ -50,7 +50,12 @@ GEMINI_API_KEY: str = ""
 """Google Gemini API key for AI-powered Desk Head synthesis (free tier).
    Get a free key at https://aistudio.google.com  (1 500 req/day, no credit card).
    Leave empty to use the rule-based fallback — everything still works.
-   Can also be set via the GEMINI_API_KEY environment variable (takes priority)."""
+
+   ⚠ Do NOT paste your key here — this file is tracked by git.
+   Set it via the GEMINI_API_KEY environment variable (takes priority),
+   or create a git-ignored config_local.py next to this file containing:
+       GEMINI_API_KEY = "your-key-here"
+"""
 
 # ── Circuit Breaker (data.py) ─────────────────────────────────────────────────
 
@@ -64,3 +69,27 @@ CB_RESET_SECS: int = 60
 
 SSE_KEEPALIVE_SECS: int = 30
 """How often the SSE stream sends a keepalive comment to prevent proxy timeouts."""
+
+# ── Watchlist Scoring Thresholds ─────────────────────────────────────────────
+# Used by watchlist.py to classify symbols as "near MA" or "extended".
+
+WL_MA20_NEAR_PCT: float = 3.5
+"""Symbol counts as 'near' its 20d MA when within this % distance."""
+
+WL_MA50_NEAR_PCT: float = 4.0
+"""Symbol counts as 'near' its 50d MA when within this % distance."""
+
+WL_EXTENDED_RSI: float = 72
+"""RSI(14) above this marks a symbol as extended."""
+
+WL_EXTENDED_DIST: float = 0.08
+"""Price more than this fraction above the 20d MA marks a symbol as extended."""
+
+# ── Local Overrides (git-ignored) ─────────────────────────────────────────────
+# Put machine-specific secrets/settings (e.g. GEMINI_API_KEY) in a
+# config_local.py next to this file. It is listed in .gitignore so a pasted
+# API key can never be committed by accident.
+try:
+    from config_local import *  # type: ignore[import-not-found]  # noqa: F401,F403,E402
+except ImportError:
+    pass

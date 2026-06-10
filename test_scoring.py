@@ -23,10 +23,21 @@ for _fn in [
     "yf_last_bar_date",
 ]:
     setattr(_data_stub, _fn, lambda *a, **kw: None)
+
+# Install the stub ONLY for the duration of the scoring import, then restore
+# whatever was there before. Permanently clobbering sys.modules["data"] breaks
+# other test modules under `unittest discover` (e.g. test_data.py patches
+# attributes like data.yf_quote that the stub doesn't have).
+_orig_data_mod = sys.modules.get("data")
 sys.modules["data"] = _data_stub
 
 sys.path.insert(0, os.path.dirname(__file__))
 import scoring  # noqa: E402  (must come after stub)
+
+if _orig_data_mod is not None:
+    sys.modules["data"] = _orig_data_mod
+else:
+    sys.modules.pop("data", None)  # scoring keeps its own refs to the stub
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 

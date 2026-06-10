@@ -1,4 +1,6 @@
-# Should I Trade? — Market Quality Terminal v5
+<p align="center"><img src="assets/logo.svg" alt="Should I Trade? — Market Quality Terminal" width="520"></p>
+
+# Should I Trade? — Market Quality Terminal v6
 
 A single-page, self-hosted **risk / de-risk gauge** for the session: it reads the market regime and tells you **how much market exposure the current environment is worth.**
 
@@ -9,6 +11,11 @@ No subscriptions, no API keys, no cloud dependencies — all data comes from fre
 ---
 
 ## Screenshot
+
+<!-- TODO: drop a real capture at docs/screenshot.png (dark theme, market open):
+     1. python3 server.py   2. wait for first score   3. full-window capture
+     4. save as docs/screenshot.png — the line below will render it. -->
+![Dashboard screenshot](docs/screenshot.png)
 
 > Live dashboard running at `http://localhost:8765`
 
@@ -40,7 +47,10 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 
 ### Requirements
 - **Python 3.10+** (uses union type hints `X | Y` and `match` statements)
-- No third-party packages (standard library only)
+- **Core app: standard library only** — no pip install needed to run
+- Optional: `pip install google-genai` + a free Gemini key enables the AI Desk Head
+  (everything else works without it — rule-based roundtable is the fallback)
+- Optional (dev only): Node 20 for JS lint/tests (`npm ci && npm test`)
 
 ### Run
 ```bash
@@ -59,19 +69,35 @@ Then open **http://localhost:8765** in your browser. The first load takes ~7–8
 
 ```
 should-i-trade/
-├── server.py              # HTTP server, routing, caching, history persistence
+├── server.py              # HTTP server, routing, caching, SSE, history persistence
 ├── scoring.py             # 5-pillar scoring engine (0–100 per pillar, weighted composite)
-├── data.py                # Market data fetchers (Yahoo Finance + fallbacks)
+├── data.py                # Market data fetchers (Yahoo Finance + fallbacks, circuit breakers)
 ├── analysis.py            # Rule-based multi-persona trading desk roundtable
-├── watchlist.py           # Watchlist symbol health scorer
-├── config.py              # ← All user-tunable settings (port, TTLs, weights)
+├── ai_synthesis.py        # Optional Gemini-powered roundtable (falls back to analysis.py)
+├── watchlist.py           # TradingView watchlist import + symbol health scorer
+├── backtest.py            # Walk-forward replay: IC, decile, regime & strategy tests
+├── backtest_experiment.py # Scratchpad for weight/threshold experiments
+├── config.py              # ← All user-tunable settings (port, TTLs, weights, WL thresholds)
+├── config_local.py        # (git-ignored) your local secrets, e.g. GEMINI_API_KEY
 ├── models.py              # TypedDict schemas (Quote, PillarResult, DashboardResult)
-├── should-i-trade-v5.html # Single-page dashboard UI (vanilla JS, no frameworks)
-├── requirements.txt       # Notes only — no pip packages required
-├── test_fixes.py          # Infrastructure regression tests (48 assertions)
-├── test_scoring.py        # Scoring pillar unit tests (75 assertions)
+├── should-i-trade-v5.html # Single-page dashboard shell
+├── static/
+│   ├── app.js             # Dashboard rendering (vanilla JS, no frameworks)
+│   ├── app.css            # Terminal theme (dark + light), responsive ≥600px
+│   └── app.test.js        # Vitest unit tests for the JS helpers
+├── assets/logo.svg        # Project mark
+├── watchlists/            # Drop TradingView .txt exports here
+├── test_scoring.py        # Scoring pillar unit tests
+├── test_data.py           # Data layer + circuit-breaker tests
+├── test_analysis.py       # Roundtable persona tests
+├── test_fixes.py          # Script-style infra regression suite (python3 test_fixes.py)
+├── .github/workflows/     # CI: Python 3.10–3.12 matrix + JS lint/tests
+├── requirements.txt       # Notes only — core app needs no pip packages
 └── history.json           # Auto-generated at runtime; score history for sparkline
 ```
+
+Run the full Python suite with `python3 -m unittest discover` (test_fixes.py
+is script-style and skips itself under discovery — run it directly as CI does).
 
 ---
 
@@ -199,6 +225,17 @@ PILLAR_WEIGHTS = {      # must sum to 1.0
     "macro":      0.10,
 }
 ```
+
+**Secrets stay out of git.** For machine-specific values (e.g. `GEMINI_API_KEY`
+for the optional AI Desk Head), create a `config_local.py` next to `config.py`
+— it is git-ignored and overrides any value in `config.py`:
+
+```python
+# config_local.py  (never committed)
+GEMINI_API_KEY = "your-key-here"
+```
+
+The `GEMINI_API_KEY` environment variable still takes priority over both files.
 
 ---
 
