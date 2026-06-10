@@ -77,7 +77,7 @@ should-i-trade/
 ├── config.py              # ← All user-tunable settings (port, TTLs, weights, WL thresholds)
 ├── config_local.py        # (git-ignored) your local secrets, e.g. GEMINI_API_KEY
 ├── models.py              # TypedDict schemas (Quote, PillarResult, DashboardResult)
-├── should-i-trade-v5.html # Single-page dashboard shell
+├── should-i-trade-v6.html # Single-page dashboard shell
 ├── static/
 │   ├── app.js             # Dashboard rendering (vanilla JS, no frameworks)
 │   ├── app.css            # Terminal theme (dark + light), responsive ≥600px
@@ -161,7 +161,7 @@ The score is a regime/exposure dial. The **engage line is 55** (validated as the
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `GET /` | — | Serves `should-i-trade-v5.html` |
+| `GET /` | — | Serves `should-i-trade-v6.html` |
 | `GET /api/dashboard` | — | Full scoring payload (JSON, cached 60s) |
 | `GET /api/watchlist-health` | — | Watchlist symbol scores (cached 5min) |
 | `GET /api/history-scores` | — | Rolling 12-hour score history |

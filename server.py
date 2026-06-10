@@ -32,7 +32,7 @@ IS_PRODUCTION = bool(os.environ.get("PORT") or os.environ.get("RENDER"))
 logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-HTML_FILE = "should-i-trade-v5.html"
+HTML_FILE = "should-i-trade-v6.html"
 HISTORY_FILE = os.path.join(SCRIPT_DIR, "history.json")
 # In production, allow all origins (public dashboard, no auth).
 # Locally, restrict to dev URL.
@@ -513,7 +513,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # ── html routes ────────────────────────────────────────────────────
-        if path in ("/", "/index.html", "/v5", "/v5/"):
+        if path in ("/", "/index.html", "/v5", "/v5/", "/v6", "/v6/"):
             self._file(os.path.join(SCRIPT_DIR, HTML_FILE))
             return
 
@@ -527,7 +527,8 @@ class Handler(BaseHTTPRequestHandler):
         if os.path.isfile(static_path):
             ext = path.rsplit(".", 1)[-1]
             types = {"html": "text/html", "js": "application/javascript",
-                     "css": "text/css", "json": "application/json"}
+                     "css": "text/css", "json": "application/json",
+                     "svg": "image/svg+xml", "png": "image/png", "ico": "image/x-icon"}
             self._file(static_path, types.get(ext, "application/octet-stream"))
             return
 

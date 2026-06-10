@@ -121,7 +121,7 @@ def _is_safe(path_str):
     resolved = os.path.realpath(joined)
     return resolved.startswith(os.path.realpath(SCRIPT_DIR) + os.sep)
 
-check("Normal path allowed",          _is_safe("/should-i-trade-v5.html"))
+check("Normal path allowed",          _is_safe("/should-i-trade-v6.html"))
 check("../etc/passwd blocked",         not _is_safe("/../../../etc/passwd"))
 check("..%2F..%2F blocked (decoded)",  not _is_safe("/../"))
 check("Nested traversal blocked",      not _is_safe("/static/../../etc/hosts"))

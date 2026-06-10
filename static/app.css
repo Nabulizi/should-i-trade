@@ -376,6 +376,24 @@
     .watch-cols { grid-template-columns: 1fr; }
     .futures-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
+  @media (max-width: 480px) {
+    /* Hide non-essential header chrome — keep logo, mkt badge, action buttons */
+    .subtitle, .fomc-badge, .countdown, #refresh-dot, .ts { display: none; }
+    .ticker-wrap { display: none; }
+    .header { padding: 8px 12px; gap: 6px; }
+    .header-left { gap: 10px; }
+    .header-right { gap: 6px; }
+    .main { padding: 8px; gap: 8px; }
+    .hero { gap: 8px; }
+    .decision-card, .pos-card, .score-wrap-card { padding: 12px; }
+    .hero-mid { padding: 10px 12px; gap: 16px; }
+    .pillars-mini { gap: 8px; }
+    .pillar-mini .pm-score { font-size: 18px; }
+    .score-num .val { font-size: 22px; }
+    .card { padding: 10px; }
+    .pillars-row { gap: 8px; }
+    .bottom-row { gap: 8px; }
+  }
   /* ── ICON LABEL HELPER ── */
   .icon-label { display: inline-flex; align-items: center; gap: 5px; }
 

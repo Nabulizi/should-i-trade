@@ -35,7 +35,7 @@ The app is a single-page market quality dashboard that answers "Should I trade t
 
 ```
 Browser
-  └─ should-i-trade-v5.html + static/app.js (vanilla JS, SSE-driven)
+  └─ should-i-trade-v6.html + static/app.js (vanilla JS, SSE-driven)
        ↕ HTTP/SSE
 server.py (ThreadingHTTPServer, port 8765)
   ├─ /api/dashboard   → scoring.compute_dashboard()   [60s cache]
