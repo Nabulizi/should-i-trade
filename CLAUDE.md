@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 python3 server.py
 
 # Run all Python tests
-python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_analysis.py
+python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_contracts.py && python3 test_analysis.py && python3 test_smoke.py
 
 # Run a single test file
 python3 test_scoring.py

@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Verify syntax (all Python files)
-        run: python -m py_compile server.py data.py scoring.py analysis.py watchlist.py config.py models.py backtest.py ai_synthesis.py
+        run: python -m py_compile server.py data.py scoring.py analysis.py watchlist.py config.py models.py backtest.py backtest_report.py ai_synthesis.py
 
       - name: Unittest discovery (guards test isolation)
         run: python -m unittest discover -v 2>&1 | tail -5 && python -m unittest discover
@@ -40,8 +40,19 @@ jobs:
       - name: Run payload contract tests (test_contracts.py)
         run: python test_contracts.py
 
+      - name: Run backtest report tests (test_backtest_report.py)
+        run: python test_backtest_report.py
+
       - name: Run analysis / roundtable persona tests (test_analysis.py)
         run: python test_analysis.py
+
+      - name: Type-check core modules (mypy)
+        run: |
+          pip install --quiet mypy
+          mypy models.py --ignore-missing-imports --no-error-summary
+
+      - name: Integration smoke tests (test_smoke.py)
+        run: python test_smoke.py
 
       - name: Set up Node
         if: matrix.python-version == '3.12'
