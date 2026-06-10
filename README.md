@@ -80,7 +80,7 @@ should-i-trade/
 ├── should-i-trade-v6.html # Single-page dashboard shell
 ├── static/
 │   ├── app.js             # Dashboard rendering (vanilla JS, no frameworks)
-│   ├── app.css            # Terminal theme (dark + light), responsive ≥600px
+│   ├── app.css            # Terminal theme (dark + light), responsive ≥320px
 │   └── app.test.js        # Vitest unit tests for the JS helpers
 ├── assets/logo.svg        # Project mark
 ├── watchlists/            # Drop TradingView .txt exports here
