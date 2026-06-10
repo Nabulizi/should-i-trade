@@ -12,9 +12,6 @@ No subscriptions, no API keys, no cloud dependencies — all data comes from fre
 
 ## Screenshot
 
-<!-- TODO: drop a real capture at docs/screenshot.png (dark theme, market open):
-     1. python3 server.py   2. wait for first score   3. full-window capture
-     4. save as docs/screenshot.png — the line below will render it. -->
 ![Dashboard screenshot](docs/screenshot.png)
 
 > Live dashboard running at `http://localhost:8765`
