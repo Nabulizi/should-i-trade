@@ -70,7 +70,14 @@ class StrategyResult(TypedDict):
 
 
 def _engine_hash() -> str:
-    """Return first 7 chars of HEAD commit hash, or 'unknown'."""
+    """Return first 7 chars of HEAD commit hash, or 'unknown'.
+
+    Deliberate tradeoff: this is provenance metadata only and never affects
+    report math or test assertions. It has a hard 3-second timeout and
+    degrades to 'unknown' outside a git checkout (CI, zip extracts, etc.).
+    The subprocess call is intentional — injecting the hash via env var or
+    build artifact was considered but adds more moving parts than it solves.
+    """
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short=7", "HEAD"],

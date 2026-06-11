@@ -74,6 +74,10 @@ class TestBacktestReport(unittest.TestCase):
         self.assertIn("Score >= 55 (SELECTIVE+)", report)
         self.assertIn("Buy & hold", report)
         self.assertIn("risk/exposure dial", report)
+        # New sections — removing any of these fails CI
+        self.assertIn("matched benchmark", report)
+        self.assertIn("Mean/Std", report)
+        self.assertIn("Generated", report)
 
     def test_strategy_score_55_has_less_than_full_exposure(self):
         with tempfile.TemporaryDirectory() as td:
@@ -99,6 +103,89 @@ class TestBacktestReport(unittest.TestCase):
             self.assertEqual(written, output_path)
             self.assertTrue(output_path.exists())
             self.assertIn("## Information Coefficient", output_path.read_text(encoding="utf-8"))
+
+    def test_matched_benchmark_sharpe_equals_buy_and_hold_sharpe(self):
+        """Constant scaling leaves mean/std invariant, so matched Sharpe == B&H Sharpe."""
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+
+        strats = backtest_report.strategy_rows(rows)
+        # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=bnh
+        buy_hold_sharpe = strats[4]["sharpe"]
+        for matched_idx in (1, 3):
+            self.assertAlmostEqual(
+                strats[matched_idx]["sharpe"], buy_hold_sharpe, places=9,
+                msg=f"Matched benchmark at index {matched_idx} Sharpe should equal B&H Sharpe",
+            )
+
+    def test_matched_benchmark_exposure_equals_timing_strategy_exposure(self):
+        """The matched baseline holds exactly the same exposure fraction as the timing rule."""
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+
+        strats = backtest_report.strategy_rows(rows)
+        self.assertAlmostEqual(strats[0]["exposure_pct"], strats[1]["exposure_pct"], places=6)
+        self.assertAlmostEqual(strats[2]["exposure_pct"], strats[3]["exposure_pct"], places=6)
+
+    def test_matched_benchmark_drawdown_shallower_than_full_buy_and_hold(self):
+        """A de-leveraged constant-fraction baseline can never draw down deeper than 100% B&H."""
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+
+        strats = backtest_report.strategy_rows(rows)
+        buy_hold_dd = strats[4]["max_drawdown_pct"]  # negative number
+        for matched_idx in (1, 3):
+            self.assertGreater(
+                strats[matched_idx]["max_drawdown_pct"], buy_hold_dd,
+                msg=f"Matched benchmark at index {matched_idx} should draw down less than 100% B&H",
+            )
+
+    def test_cross_window_matched_fractions_differ(self):
+        """Matched benchmark recomputes exposure per window, not globally.
+
+        Low-score rows (exposure ~0% for Score>=55) are placed before 2016-01-01
+        and high-score rows (exposure ~100%) after. The matched fraction in the
+        validation window must differ from the full-sample fraction.
+        """
+        # Build a CSV with low scores pre-2016 and high scores post-2016.
+        pre = "\n".join(
+            f"2015-01-{d:02d},30,30,DE-RISK,False,30,28,30,29,45,10.0,-1.0,-0.5,-1.0,-2.0"
+            for d in range(2, 32)
+        )
+        post = "\n".join(
+            f"2016-01-{d:02d},80,80,CONSTRUCTIVE,True,82,80,78,80,70,68.0,1.0,0.5,1.5,2.5"
+            for d in range(2, 32)
+        )
+        csv_data = (
+            "date,total,raw_total,decision,above_200,v,tr,br,mo,ma,"
+            "rsi2,dist20,fwd1,fwd5,fwd20\n" + pre + "\n" + post
+        )
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "split.csv"
+            path.write_text(csv_data, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+
+        full_strats = backtest_report.strategy_rows(rows)
+        validation_rows = [r for r in rows if r["date"] >= "2016-01-01"]
+        val_strats = backtest_report.strategy_rows(validation_rows)
+
+        full_selective_exposure = full_strats[2]["exposure_pct"]
+        val_selective_exposure = val_strats[2]["exposure_pct"]
+
+        self.assertNotAlmostEqual(
+            full_selective_exposure, val_selective_exposure, places=1,
+            msg="Cross-window exposures should differ when pre/post 2016 score distributions differ",
+        )
+        # Matched baselines must track their own window's timing strategy
+        self.assertAlmostEqual(full_strats[2]["exposure_pct"], full_strats[3]["exposure_pct"], places=6)
+        self.assertAlmostEqual(val_strats[2]["exposure_pct"], val_strats[3]["exposure_pct"], places=6)
 
 
 if __name__ == "__main__":
