@@ -200,11 +200,11 @@ function renderHero(d) {
   const regime  = d.pillars?.trend?.details?.regime || null;
   const posture = d.action_hint
                 || (invalidData ? 'Exposure off — live market data is unavailable'
-                : s >= 85 ? 'Full exposure — low-drawdown regime, press the bid on A/B setups'
-                : s >= 70 ? 'Standard exposure — constructive regime, run your normal game'
-                : s >= 55 ? 'Moderate exposure — engage selectively, A+ setups, tight stops'
-                : s >= 40 ? 'Reduced exposure — de-risk, very selective or sit out'
-                :           'Defensive — drawdown risk elevated, no new longs');
+                : s >= 85 ? 'Full exposure — calm, trending tape, press the bid on A/B setups'
+                : s >= 70 ? 'Standard exposure — constructive tape, run your normal game'
+                : s >= 55 ? 'Moderate exposure — mixed tape, engage selectively, A+ setups, tight stops'
+                : s >= 40 ? 'Reduced exposure — choppy tape, very selective or sit out'
+                :           'Defensive — stressed tape, protect capital, no new longs');
   const confLevel = invalidData ? 0 : s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
   const confColor = invalidData ? 'var(--red)' : s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
   const confSegs  = [1,2,3,4,5].map(i =>

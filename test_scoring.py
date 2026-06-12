@@ -757,6 +757,37 @@ def test_day_streak() -> None:
        scoring._day_streak([])["days"] == 0)
 
 
+def test_claim_hygiene() -> None:
+    """Bans performance claims that docs/backtest-report.md falsified."""
+    print("\nClaim hygiene:")
+    banned = [
+        "low-drawdown regime",
+        "drawdown timer",
+        "drawdown/exposure timer",
+        "drawdown risk elevated",
+        "validated engagement line",
+        "STRONG YES",
+    ]
+    root = os.path.dirname(os.path.abspath(__file__))
+    surfaces = [
+        "scoring.py",
+        "README.md",
+        os.path.join("docs", "backtest-methodology.md"),
+        "CLAUDE.md",
+        os.path.join("static", "app.js"),
+        "should-i-trade-v6.html",
+    ]
+    for rel in surfaces:
+        with open(os.path.join(root, rel), encoding="utf-8") as f:
+            text = f.read()
+        for phrase in banned:
+            ok(f"{rel}: no {phrase!r}", phrase not in text)
+    for band in scoring.DECISION_BANDS:
+        ok(f"{band['decision']} action non-empty", bool(band["action"]))
+        ok(f"{band['decision']} action fits badge (<90 chars)",
+           len(band["action"]) < 90)
+
+
 # ─── runner ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -772,6 +803,7 @@ if __name__ == "__main__":
     test_run_pillars_splice_wiring()
     test_hyg_lqd_spread()
     test_day_streak()
+    test_claim_hygiene()
 
     total = _PASS + _FAIL
     print(f"\n{'=' * 55}")

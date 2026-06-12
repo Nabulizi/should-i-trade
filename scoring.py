@@ -63,20 +63,22 @@ CRITICAL_HISTORY_REQUIREMENTS = {
 }
 MIN_SECTOR_HISTORY_SYMBOLS = 8
 MIN_SECTOR_HISTORY_POINTS = 64
-# De-risk gauge: a 2005-2026 walk-forward backtest showed the composite is a
-# drawdown/exposure timer, not a forward-return predictor. Labels describe how
-# much market risk the current regime is worth; the "engage" line is 55, not 70.
+# Market-conditions gauge: the 2005-2026 replay (docs/backtest-report.md) shows
+# the composite describes the current regime but has no demonstrated timing
+# edge over same-exposure baselines. Labels describe conditions and a suggested
+# exposure posture; they are not validated trade signals. 55/70/85 are
+# descriptive bands, not proven thresholds.
 DECISION_BANDS = [
     {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "FULL EXPOSURE",
-     "action": "Full exposure — low-drawdown regime, press the bid on A/B setups"},
+     "action": "Full exposure — calm, trending tape, press the bid on A/B setups"},
     {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "STANDARD EXPOSURE",
-     "action": "Standard exposure — constructive regime, run your normal game"},
+     "action": "Standard exposure — constructive tape, run your normal game"},
     {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MODERATE EXPOSURE",
-     "action": "Moderate exposure — engage selectively, A+ setups, tight stops"},
+     "action": "Moderate exposure — mixed tape, engage selectively, A+ setups, tight stops"},
     {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "REDUCED EXPOSURE",
-     "action": "Reduced exposure — de-risk, very selective or sit out"},
+     "action": "Reduced exposure — choppy tape, very selective or sit out"},
     {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "DEFENSIVE / FLAT",
-     "action": "Defensive — drawdown risk elevated, no new longs"},
+     "action": "Defensive — stressed tape, protect capital, no new longs"},
 ]
 
 
