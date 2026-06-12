@@ -168,7 +168,7 @@ Data flows: `data.py` fetches from Yahoo Finance (primary), falling back to Stoo
 
 ### Risk-Posture Thresholds
 
-The score is a regime/exposure dial. The **engage line is 55** (validated as the efficient long/flat cut), not 70.
+The score is a conditions/exposure dial. The **engage line is 55** (the tested engagement threshold), not 70.
 
 | Score | Posture | Suggested Exposure |
 |---|---|---|
