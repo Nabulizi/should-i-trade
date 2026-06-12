@@ -338,7 +338,7 @@ def _year_section(rows: list[BacktestRow], selective: StrategyResult) -> list[st
         f"The Score >= {ENGAGE_MIN} rule beat its matched benchmark in "
         f"**{beats} of {len(years)} years**.",
         "",
-        "| Year | Days | Mean Score | Score >= 55 | Matched Const. | Vol-Target | Buy & Hold | Beat benchmark? |",
+        f"| Year | Days | Mean Score | Score >= {ENGAGE_MIN} | Matched Const. | Vol-Target | Buy & Hold | Beat benchmark? |",
         "|---|---:|---:|---:|---:|---:|---:|:---:|",
     ]
     for y in years:
