@@ -318,9 +318,14 @@ def block_bootstrap_ci(rows: list[BacktestRow],
 
 def ic_statistic(horizon: int) -> Callable[[list[BacktestRow]], float]:
     """Spearman IC of total score vs forward return at the given horizon."""
-    key = {1: "fwd1", 5: "fwd5", 20: "fwd20"}[horizon]
     def stat(rows: list[BacktestRow]) -> float:
-        return spearman([r["total"] for r in rows], [r[key] for r in rows])
+        if horizon == 1:
+            fwds = [r["fwd1"] for r in rows]
+        elif horizon == 5:
+            fwds = [r["fwd5"] for r in rows]
+        else:
+            fwds = [r["fwd20"] for r in rows]
+        return spearman([r["total"] for r in rows], fwds)
     return stat
 
 
