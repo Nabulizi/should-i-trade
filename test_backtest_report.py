@@ -241,6 +241,22 @@ class TestBacktestReport(unittest.TestCase):
         self.assertIn("20 bps", report)
         self.assertIn("exposure flips", report)
 
+    def test_new_sections_render_in_order(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertLess(report.index("## Strategy Comparison - Full Sample"),
+                        report.index("## Year-By-Year"))
+        self.assertLess(report.index("## Year-By-Year"),
+                        report.index("## Statistical Significance"))
+        self.assertLess(report.index("## Statistical Significance"),
+                        report.index("## Transaction Cost Sensitivity"))
+        self.assertLess(report.index("## Transaction Cost Sensitivity"),
+                        report.index("## Product Interpretation"))
+
 
 if __name__ == "__main__":
     unittest.main()

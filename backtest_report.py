@@ -34,7 +34,6 @@ from backtest_stats import (
     decile_spread_statistic,
     ic_statistic,
     max_drawdown,
-    pearson,
     simulate_with_exposures,
     spearman,
     vol_target_strategy,
@@ -487,7 +486,7 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         f"{engage['exposure_pct']:.0f}% market exposure.",
         f"- A constant {matched_engage['exposure_pct']:.0f}%-SPY baseline (same risk budget, no timing) returned "
         f"{_fmt_pct(matched_engage['total_return_pct'], 1)} with {matched_engage['sharpe']:.2f} Sharpe — the fair benchmark for the timing rule.",
-        f"- A no-pillar vol-target baseline at the same exposure returned "
+        f"- A same-window, no-pillar vol-target baseline at the same exposure returned "
         f"{_fmt_pct(vol_target['total_return_pct'], 1)} with {vol_target['sharpe']:.2f} Sharpe and "
         f"{_fmt_pct(vol_target['max_drawdown_pct'], 1)} max drawdown — the score must beat this "
         f"to justify the five-pillar machinery.",

@@ -1,6 +1,6 @@
 # Backtest Report
 
-_Generated 2026-06-12 · engine d5637e8_
+_Generated 2026-06-12 · engine b3b6d6b_
 
 This report is generated from the per-day replay output produced by `backtest.py`.
 It supports the product claim that the Market Quality Score is a risk/exposure dial, not a day-by-day return predictor.
@@ -10,7 +10,7 @@ It supports the product claim that the Market Quality Score is a risk/exposure d
 - Full sample: 5,373 trading days from 2005-01-03 to 2026-05-12.
 - Validation window (2016-01-04 to 2026-05-12): Score >= 55 produced +131.1% total return with 0.86 Sharpe, -14.3% max drawdown, and 69% market exposure.
 - A constant 69%-SPY baseline (same risk budget, no timing) returned +188.8% with 0.96 Sharpe — the fair benchmark for the timing rule.
-- A no-pillar vol-target baseline at the same exposure returned +153.9% with 1.06 Sharpe and -11.1% max drawdown — the score must beat this to justify the five-pillar machinery.
+- A same-window, no-pillar vol-target baseline at the same exposure returned +153.9% with 1.06 Sharpe and -11.1% max drawdown — the score must beat this to justify the five-pillar machinery.
 - At 10 bps per exposure change (263 flips), the full-sample Score >= 55 total return drops to +152.9%.
 - Same-window buy & hold: +340.3% total return with 0.96 Sharpe and -31.7% max drawdown.
 - Forward-return IC remains low (-0.078 at 5 days), so the score should not be marketed as a precise return forecast.
