@@ -13,18 +13,37 @@ Run:
 from __future__ import annotations
 
 import csv
-import hashlib
 import math
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Callable, Iterable, Literal, TypedDict
+from typing import Callable, Literal, TypedDict
 
+from backtest_stats import (
+    BacktestRow,
+    StrategyResult,
+    _mean,
+    _median,
+    _std,
+    band_mean_statistic,
+    block_bootstrap_ci,
+    calibrate_vol_exposures,
+    count_flips,
+    decile_mean_statistic,
+    decile_spread_statistic,
+    ic_statistic,
+    max_drawdown,
+    simulate_with_exposures,
+    spearman,
+    vol_target_strategy,
+    yearly_table,
+)
 
 DEFAULT_INPUT = Path("backtest_results.csv")
 DEFAULT_OUTPUT = Path("docs/backtest-report.md")
 HORIZONS = (1, 5, 20)
+COST_LEVELS_BPS = (0.0, 5.0, 10.0, 20.0)
 ENGAGE_MIN = 55
 FULL_RISK_MIN = 70
 VALIDATION_START = "2016-01-01"
@@ -38,35 +57,6 @@ PILLARS: tuple[tuple[PillarKey, str], ...] = (
     ("ma", "Macro"),
     ("total", "TOTAL"),
 )
-
-
-class BacktestRow(TypedDict):
-    date: str
-    total: float
-    raw_total: float
-    decision: str
-    above_200: bool
-    v: float
-    tr: float
-    br: float
-    mo: float
-    ma: float
-    rsi2: float | None
-    dist20: float | None
-    fwd1: float
-    fwd5: float
-    fwd20: float
-
-
-class StrategyResult(TypedDict):
-    label: str
-    total_return_pct: float
-    cagr_pct: float
-    sharpe: float
-    max_drawdown_pct: float
-    exposure_pct: float
-    invested_blocks: int
-    total_blocks: int
 
 
 def _engine_hash() -> str:
@@ -150,74 +140,6 @@ def load_rows(path: Path | str) -> list[BacktestRow]:
     return rows
 
 
-def _mean(xs: Iterable[float]) -> float:
-    vals = list(xs)
-    return sum(vals) / len(vals) if vals else float("nan")
-
-
-def _median(xs: Iterable[float]) -> float:
-    vals = sorted(xs)
-    if not vals:
-        return float("nan")
-    mid = len(vals) // 2
-    if len(vals) % 2:
-        return vals[mid]
-    return (vals[mid - 1] + vals[mid]) / 2
-
-
-def _std(xs: Iterable[float]) -> float:
-    vals = list(xs)
-    if len(vals) < 2:
-        return float("nan")
-    avg = _mean(vals)
-    return math.sqrt(sum((x - avg) ** 2 for x in vals) / (len(vals) - 1))
-
-
-def _rank(xs: list[float]) -> list[float]:
-    order = sorted(range(len(xs)), key=lambda i: xs[i])
-    ranks = [0.0] * len(xs)
-    i = 0
-    while i < len(order):
-        j = i
-        while j + 1 < len(order) and xs[order[j + 1]] == xs[order[i]]:
-            j += 1
-        avg_rank = (i + j) / 2.0 + 1
-        for k in range(i, j + 1):
-            ranks[order[k]] = avg_rank
-        i = j + 1
-    return ranks
-
-
-def pearson(xs: list[float], ys: list[float]) -> float:
-    n = min(len(xs), len(ys))
-    if n < 3:
-        return float("nan")
-    a = xs[:n]
-    b = ys[:n]
-    ma = _mean(a)
-    mb = _mean(b)
-    cov = sum((x - ma) * (y - mb) for x, y in zip(a, b))
-    va = sum((x - ma) ** 2 for x in a)
-    vb = sum((y - mb) ** 2 for y in b)
-    return cov / math.sqrt(va * vb) if va and vb else float("nan")
-
-
-def spearman(xs: list[float], ys: list[float]) -> float:
-    return pearson(_rank(xs), _rank(ys))
-
-
-def max_drawdown(equity: list[float]) -> float:
-    if not equity:
-        return float("nan")
-    peak = equity[0]
-    mdd = 0.0
-    for value in equity:
-        peak = max(peak, value)
-        if peak:
-            mdd = min(mdd, value / peak - 1)
-    return mdd
-
-
 def information_coefficients(rows: list[BacktestRow]) -> dict[int, float]:
     scores = [r["total"] for r in rows]
     return {h: spearman(scores, [_forward_return(r, h) for r in rows]) for h in HORIZONS}
@@ -255,33 +177,9 @@ def _matched_exposure_strategy(rows: list[BacktestRow], timing_result: StrategyR
     its total market exposure equals the timing strategy's. Same risk budget,
     no skill required.
     """
-    exposure_frac = timing_result["exposure_pct"] / 100.0
     label = f"Constant {timing_result['exposure_pct']:.0f}% SPY (matched benchmark)"
-    equity = 1.0
-    curve = [equity]
-    blocks: list[float] = []
-    for i in range(0, len(rows), 5):
-        row = rows[i]
-        block_return = (row["fwd5"] / 100) * exposure_frac
-        equity *= 1 + block_return
-        blocks.append(block_return)
-        curve.append(equity)
-    years = len(rows) / 252.0
-    total_blocks = len(blocks)
-    invested_blocks = total_blocks  # always invested (at reduced fraction)
-    cagr = (equity ** (1 / years) - 1) if years > 0 and equity > 0 else float("nan")
-    sd = _std(blocks)
-    sharpe = (_mean(blocks) / sd * math.sqrt(252 / 5)) if sd and sd > 0 else float("nan")
-    return {
-        "label": label,
-        "total_return_pct": (equity - 1) * 100,
-        "cagr_pct": cagr * 100,
-        "sharpe": sharpe,
-        "max_drawdown_pct": max_drawdown(curve) * 100,
-        "exposure_pct": timing_result["exposure_pct"],
-        "invested_blocks": invested_blocks,
-        "total_blocks": total_blocks,
-    }
+    exposure_frac = timing_result["exposure_pct"] / 100.0
+    return simulate_with_exposures(rows, [exposure_frac] * len(rows), label)
 
 
 def band_rows(rows: list[BacktestRow]) -> list[BandSummary]:
@@ -401,8 +299,114 @@ def strategy_rows(rows: list[BacktestRow]) -> list[StrategyResult]:
         _matched_exposure_strategy(rows, constructive),
         selective,
         _matched_exposure_strategy(rows, selective),
+        vol_target_strategy(rows, selective["exposure_pct"]),
         buy_hold,
     ]
+
+
+def _year_section(rows: list[BacktestRow], selective: StrategyResult) -> list[str]:
+    matched_fraction = selective["exposure_pct"] / 100.0
+    vol_exposures = calibrate_vol_exposures(rows, selective["exposure_pct"])
+    years = yearly_table(rows, ENGAGE_MIN, matched_fraction, vol_exposures)
+    beats = sum(1 for y in years if y["beat_benchmark"])
+    lines = [
+        "",
+        "## Year-By-Year",
+        "",
+        f"Calendar-year returns. Matched-benchmark fraction and vol-target calibration are "
+        f"full-sample ({selective['exposure_pct']:.0f}% exposure), so rows are comparable down "
+        "each column. Block boundaries reset at year start (approximation).",
+        "",
+        f"The Score >= {ENGAGE_MIN} rule beat its matched benchmark in "
+        f"**{beats} of {len(years)} years**.",
+        "",
+        f"| Year | Days | Avg Exposure | Score >= {ENGAGE_MIN} Ret | Score >= {ENGAGE_MIN} Max DD | Matched Ret | Matched Max DD | Vol-Target Ret | Buy & Hold Ret | Beat benchmark? |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|",
+    ]
+    for y in years:
+        lines.append(
+            f"| {y['year']} | {y['days']:,} | {y['timing_exposure_pct']:.0f}% | "
+            f"{_fmt_pct(y['timing_return_pct'], 1)} | {_fmt_pct(y['timing_max_drawdown_pct'], 1)} | "
+            f"{_fmt_pct(y['matched_return_pct'], 1)} | {_fmt_pct(y['matched_max_drawdown_pct'], 1)} | "
+            f"{_fmt_pct(y['vol_target_return_pct'], 1)} | {_fmt_pct(y['buy_hold_return_pct'], 1)} | "
+            f"{'✓' if y['beat_benchmark'] else '✗'} |"
+        )
+    return lines
+
+
+def _ci_row(label: str, point: float, lo: float, hi: float,
+            fmt: Callable[[float], str]) -> str:
+    if math.isnan(lo) or math.isnan(hi):
+        return f"| {label} | {fmt(point)} | n/a | n/a |"
+    excluded = "yes" if (lo > 0 or hi < 0) else "no"
+    return f"| {label} | {fmt(point)} | [{fmt(lo)}, {fmt(hi)}] | {excluded} |"
+
+
+def _significance_section(rows: list[BacktestRow]) -> list[str]:
+    lines = [
+        "",
+        "## Statistical Significance",
+        "",
+        "Moving-block bootstrap (block 21 days, seeded, 95% CI). \"Zero excluded: no\" means",
+        "the value is statistically indistinguishable from noise at this sample size.",
+        "",
+        "| Statistic | Point | 95% CI | Zero excluded |",
+        "|---|---:|---:|:---:|",
+    ]
+    try:
+        for horizon in HORIZONS:
+            point, lo, hi = block_bootstrap_ci(rows, ic_statistic(horizon))
+            lines.append(_ci_row(f"IC ({horizon}d)", point, lo, hi, _fmt_num))
+
+        for band in DECISION_ORDER:
+            if not any(r["decision"] == band for r in rows):
+                continue
+            point, lo, hi = block_bootstrap_ci(rows, band_mean_statistic(band))
+            lines.append(_ci_row(f"Mean 5D, {band}", point, lo, hi, _fmt_pct))
+
+        for decile in range(1, 11):
+            point, lo, hi = block_bootstrap_ci(rows, decile_mean_statistic(decile))
+            lines.append(_ci_row(f"Mean 5D, score decile {decile}", point, lo, hi, _fmt_pct))
+
+        point, lo, hi = block_bootstrap_ci(rows, decile_spread_statistic)
+        lines.append(_ci_row("Decile 1 - Decile 10 spread (5D)", point, lo, hi, _fmt_pct))
+    except ValueError:
+        lines.append("| (sample too small for block bootstrap) | n/a | n/a | n/a |")
+    return lines
+
+
+def _cost_section(rows: list[BacktestRow], selective: StrategyResult) -> list[str]:
+    timing_exposures = [1.0 if r["total"] >= ENGAGE_MIN else 0.0 for r in rows]
+    matched_fraction = selective["exposure_pct"] / 100.0
+    constant_exposures = [matched_fraction] * len(rows)
+    vol_exposures = calibrate_vol_exposures(rows, selective["exposure_pct"])
+    flips = count_flips(timing_exposures)
+    lines = [
+        "",
+        "## Transaction Cost / Slippage Sensitivity",
+        "",
+        "Costs/slippage are charged on each change in exposure (including initial entry):",
+        "cost = |delta exposure| x bps / 10,000. The constant benchmark pays once at",
+        "inception; the vol-target baseline pays on its smaller continuous adjustments.",
+        "",
+        f"The Score >= {ENGAGE_MIN} rule made **{flips} exposure flips** over this sample.",
+        "",
+        "| Strategy | 0 bps | 5 bps | 10 bps | 20 bps |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    variants = (
+        (f"Score >= {ENGAGE_MIN} (SELECTIVE+)", timing_exposures),
+        (f"Constant {selective['exposure_pct']:.0f}% SPY", constant_exposures),
+        (f"Vol-target {selective['exposure_pct']:.0f}%", vol_exposures),
+    )
+    for label, exposures in variants:
+        cells = []
+        for bps in COST_LEVELS_BPS:
+            result = simulate_with_exposures(rows, exposures, label, cost_bps=bps)
+            sharpe = "n/a" if math.isnan(result["sharpe"]) else f"{result['sharpe']:.2f}"
+            cells.append(f"{_fmt_pct(result['total_return_pct'], 1)} (S {sharpe})")
+        lines.append(f"| {label} | " + " | ".join(cells) + " |")
+    return lines
 
 
 def _fmt_pct(value: float, digits: int = 2) -> str:
@@ -431,15 +435,26 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
     validation_strategies = strategy_rows(validation_rows) if len(validation_rows) >= 30 else []
     headline_strategies = validation_strategies or full_sample_strategies
     headline_rows = validation_rows if validation_strategies else rows
-    # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=buy&hold
+    # indices: 0=constructive, 1=matched-constructive, 2=selective,
+    #          3=matched-selective, 4=vol-target, 5=buy&hold
     engage = headline_strategies[2]
     matched_engage = headline_strategies[3]
-    buy_hold = headline_strategies[4]
+    vol_target = headline_strategies[4]
+    buy_hold = headline_strategies[5]
+    matched_return_gap = engage["total_return_pct"] - matched_engage["total_return_pct"]
+    matched_sharpe_gap = engage["sharpe"] - matched_engage["sharpe"]
+    vol_return_gap = engage["total_return_pct"] - vol_target["total_return_pct"]
+    vol_sharpe_gap = engage["sharpe"] - vol_target["sharpe"]
+    matched_dd_benefit = engage["max_drawdown_pct"] - matched_engage["max_drawdown_pct"]
     headline_label = (
         f"Validation window ({headline_rows[0]['date']} to {headline_rows[-1]['date']})"
         if validation_strategies else "Full sample"
     )
     generated_stamp = f"_Generated {date.today().isoformat()} · engine {_engine_hash()}_"
+    timing_exposures = [1.0 if r["total"] >= ENGAGE_MIN else 0.0 for r in rows]
+    flips = count_flips(timing_exposures)
+    costed = simulate_with_exposures(
+        rows, timing_exposures, "costed", cost_bps=10.0)
 
     lines = [
         "# Backtest Report",
@@ -447,7 +462,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         generated_stamp,
         "",
         "This report is generated from the per-day replay output produced by `backtest.py`.",
-        "It supports the product claim that the Market Quality Score is a risk/exposure dial, not a day-by-day return predictor.",
+        "It tests whether the Market Quality Score adds timing value after fair same-exposure baselines.",
+        "Product copy should stay conservative unless the timing rule clears those baselines out of sample.",
         "",
         "## Executive Readout",
         "",
@@ -457,6 +473,15 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         f"{engage['exposure_pct']:.0f}% market exposure.",
         f"- A constant {matched_engage['exposure_pct']:.0f}%-SPY baseline (same risk budget, no timing) returned "
         f"{_fmt_pct(matched_engage['total_return_pct'], 1)} with {matched_engage['sharpe']:.2f} Sharpe — the fair benchmark for the timing rule.",
+        f"- Timing edge versus constant exposure: {_fmt_pct(matched_return_gap, 1)} total-return points and "
+        f"{matched_sharpe_gap:+.2f} Sharpe. Drawdown difference: {_fmt_pct(matched_dd_benefit, 1)} "
+        "(positive means the timing rule drew down less).",
+        f"- A same-window, no-pillar vol-target baseline at the same exposure returned "
+        f"{_fmt_pct(vol_target['total_return_pct'], 1)} with {vol_target['sharpe']:.2f} Sharpe and "
+        f"{_fmt_pct(vol_target['max_drawdown_pct'], 1)} max drawdown. Timing edge versus vol-target: "
+        f"{_fmt_pct(vol_return_gap, 1)} total-return points and {vol_sharpe_gap:+.2f} Sharpe.",
+        f"- At 10 bps per exposure change ({flips} flips), the full-sample Score >= {ENGAGE_MIN} "
+        f"total return drops to {_fmt_pct(costed['total_return_pct'], 1)}.",
         f"- Same-window buy & hold: {_fmt_pct(buy_hold['total_return_pct'], 1)} total return with "
         f"{buy_hold['sharpe']:.2f} Sharpe and {_fmt_pct(buy_hold['max_drawdown_pct'], 1)} max drawdown.",
         f"- Forward-return IC remains low ({_fmt_num(ics[5])} at 5 days), so the score should not be marketed as a precise return forecast.",
@@ -564,18 +589,25 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
                 f"{_fmt_pct(strategy_result['max_drawdown_pct'], 1)} | {strategy_result['exposure_pct']:.0f}% |"
             )
 
+    lines.extend(_year_section(rows, full_sample_strategies[2]))
+
+    lines.extend(_significance_section(rows))
+
+    lines.extend(_cost_section(rows, full_sample_strategies[2]))
+
     lines.extend([
         "",
         "## Product Interpretation",
         "",
-        "- Keep the UI language centered on exposure quality and drawdown control.",
-        "- Treat 55 as the validated engagement line; 70 is a stronger constructive regime, not the first usable signal.",
+        "- Keep the UI language centered on market conditions, exposure quality, and drawdown control.",
+        "- If the score does not beat constant-exposure and vol-target baselines, describe it as a conditions dashboard rather than a timing edge.",
+        "- Treat 55 as the current tested engagement line; 70 is a stronger constructive regime, not the first usable signal.",
         "- Avoid claims that the score predicts individual profitable days.",
         "- Rerun the replay and regenerate this report whenever scoring formulas, weights, thresholds, or safety overrides change.",
         "",
         "## Limitations",
         "",
-        "- No trading costs, slippage, taxes, or execution delays.",
+        "- Costs are modeled as linear bps on exposure changes only; no market impact, borrow, taxes, or execution delay.",
         "- SPY close-to-close returns only; no intraday fills, stops, or position management.",
         "- Calendar overlays are neutralized in the replay methodology.",
         "- Historical data vendor revisions can change results.",

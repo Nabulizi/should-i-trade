@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Verify syntax (all Python files)
-        run: python -m py_compile server.py data.py scoring.py analysis.py watchlist.py config.py models.py backtest.py backtest_report.py ai_synthesis.py
+        run: python -m py_compile server.py data.py scoring.py analysis.py watchlist.py config.py models.py backtest.py backtest_report.py ai_synthesis.py backtest_stats.py
 
       - name: Unittest discovery (guards test isolation)
         run: python -m unittest discover -v 2>&1 | tail -5 && python -m unittest discover
@@ -43,13 +43,16 @@ jobs:
       - name: Run backtest report tests (test_backtest_report.py)
         run: python test_backtest_report.py
 
+      - name: Run backtest stats tests (test_backtest_stats.py)
+        run: python test_backtest_stats.py
+
       - name: Run analysis / roundtable persona tests (test_analysis.py)
         run: python test_analysis.py
 
       - name: Type-check typed contracts and report tooling (mypy)
         run: |
           pip install --quiet mypy
-          mypy models.py backtest_report.py --ignore-missing-imports --no-error-summary
+          mypy models.py backtest_report.py backtest_stats.py --ignore-missing-imports --no-error-summary
 
       - name: Integration smoke tests (test_smoke.py)
         run: python test_smoke.py

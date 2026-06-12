@@ -73,7 +73,7 @@ class TestBacktestReport(unittest.TestCase):
         self.assertIn("## Strategy Comparison", report)
         self.assertIn("Score >= 55 (SELECTIVE+)", report)
         self.assertIn("Buy & hold", report)
-        self.assertIn("risk/exposure dial", report)
+        self.assertIn("same-exposure baselines", report)
         # New sections — removing any of these fails CI
         self.assertIn("matched benchmark", report)
         self.assertIn("Mean/Std", report)
@@ -112,8 +112,8 @@ class TestBacktestReport(unittest.TestCase):
             rows = backtest_report.load_rows(path)
 
         strats = backtest_report.strategy_rows(rows)
-        # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=bnh
-        buy_hold_sharpe = strats[4]["sharpe"]
+        # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=vol-target, 5=bnh
+        buy_hold_sharpe = strats[5]["sharpe"]
         for matched_idx in (1, 3):
             self.assertAlmostEqual(
                 strats[matched_idx]["sharpe"], buy_hold_sharpe, places=9,
@@ -139,12 +139,26 @@ class TestBacktestReport(unittest.TestCase):
             rows = backtest_report.load_rows(path)
 
         strats = backtest_report.strategy_rows(rows)
-        buy_hold_dd = strats[4]["max_drawdown_pct"]  # negative number
+        buy_hold_dd = strats[5]["max_drawdown_pct"]  # negative number
         for matched_idx in (1, 3):
             self.assertGreater(
                 strats[matched_idx]["max_drawdown_pct"], buy_hold_dd,
                 msg=f"Matched benchmark at index {matched_idx} should draw down less than 100% B&H",
             )
+
+    def test_strategy_rows_include_vol_target_baseline(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+
+        strats = backtest_report.strategy_rows(rows)
+        self.assertEqual(len(strats), 6)
+        self.assertIn("Vol-target", strats[4]["label"])
+        self.assertEqual(strats[5]["label"], "Buy & hold")
+        # Exposure-matched to the Score>=55 rule within calibration tolerance.
+        self.assertAlmostEqual(
+            strats[4]["exposure_pct"], strats[2]["exposure_pct"], delta=0.5)
 
     def test_cross_window_matched_fractions_differ(self):
         """Matched benchmark recomputes exposure per window, not globally.
@@ -186,6 +200,62 @@ class TestBacktestReport(unittest.TestCase):
         # Matched baselines must track their own window's timing strategy
         self.assertAlmostEqual(full_strats[2]["exposure_pct"], full_strats[3]["exposure_pct"], places=6)
         self.assertAlmostEqual(val_strats[2]["exposure_pct"], val_strats[3]["exposure_pct"], places=6)
+
+
+    def test_report_contains_year_by_year_section(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Year-By-Year", report)
+        self.assertIn("| 2024 |", report)
+        self.assertIn("Beat benchmark", report)
+
+    def test_report_contains_significance_section(self):
+        lines = FIXTURE_CSV.strip().split("\n")
+        header, data = lines[0], lines[1:]
+        shifted = [row.replace("2024-", "2025-", 1) for row in data]
+        big_csv = "\n".join([header] + data + shifted) + "\n"
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(big_csv, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Statistical Significance", report)
+        self.assertIn("95% CI", report)
+        self.assertIn("Decile 1 - Decile 10", report)
+        self.assertIn("zero excluded", report.lower())
+
+
+    def test_report_contains_cost_sensitivity_section(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Transaction Cost / Slippage Sensitivity", report)
+        self.assertIn("20 bps", report)
+        self.assertIn("exposure flips", report)
+
+    def test_new_sections_render_in_order(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertLess(report.index("## Strategy Comparison - Full Sample"),
+                        report.index("## Year-By-Year"))
+        self.assertLess(report.index("## Year-By-Year"),
+                        report.index("## Statistical Significance"))
+        self.assertLess(report.index("## Statistical Significance"),
+                        report.index("## Transaction Cost / Slippage Sensitivity"))
+        self.assertLess(report.index("## Transaction Cost / Slippage Sensitivity"),
+                        report.index("## Product Interpretation"))
 
 
 if __name__ == "__main__":
