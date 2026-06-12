@@ -22,8 +22,8 @@ from data import (
     opex_proximity, seasonality, earnings_season, fetch_futures_tape,
     yf_last_bar_date,
 )
-from config import PILLAR_WEIGHTS
-from models import PillarResult, DashboardResult
+from config import PILLAR_WEIGHTS, VOL_TARGET_K, VOL_TARGET_WINDOW
+from models import PillarResult, DashboardResult, VolTargetInfo
 
 # ─── configuration ─────────────────────────────────────────────────────────
 
@@ -1369,6 +1369,29 @@ def _fetch_instruments() -> dict:
     }
 
 
+def vol_target_exposure(closes: list[float]) -> VolTargetInfo | None:
+    """Evidence-backed exposure dial: clamp(VOL_TARGET_K / realized vol, 0..100%).
+
+    closes: chronological adjusted closes (most recent last); needs at least
+    VOL_TARGET_WINDOW + 1 points. Returns None when history is insufficient,
+    contains non-positive prices, or volatility is zero. Vol units match the
+    backtest calibration: PERCENT daily returns (see config.VOL_TARGET_K).
+    """
+    if not closes or len(closes) < VOL_TARGET_WINDOW + 1:
+        return None
+    tail = closes[-(VOL_TARGET_WINDOW + 1):]
+    if any(c is None or c <= 0 for c in tail):
+        return None
+    rets = [(tail[i] / tail[i - 1] - 1) * 100 for i in range(1, len(tail))]
+    mean = sum(rets) / len(rets)
+    var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
+    vol = var ** 0.5
+    if vol <= 0:
+        return None
+    exposure = min(100.0, max(0.0, 100.0 * VOL_TARGET_K / vol))
+    return {"exposure_pct": round(exposure, 1), "realized_vol_pct": round(vol, 1)}
+
+
 def _day_streak(closes: list[float]) -> dict:
     """Count consecutive trading days SPY closed in the same direction.
 
@@ -1614,6 +1637,7 @@ def compute_dashboard() -> DashboardResult:
         "fear_greed_stock":  instruments["fng_stock"],
         "fear_greed_crypto": instruments["fng_crypto"],
         "spy_streak":        spy_streak,
+        "vol_target":        vol_target_exposure(spy_closes_spliced),
         "timestamp":         mstate["et_time"],
         "data_sources": {
             "vix": "CBOE",
