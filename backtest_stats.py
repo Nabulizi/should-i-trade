@@ -228,3 +228,52 @@ def vol_target_strategy(rows: list[BacktestRow], target_exposure_pct: float,
     exposures = calibrate_vol_exposures(rows, target_exposure_pct)
     label = f"Vol-target {target_exposure_pct:.0f}% (no pillars, matched benchmark)"
     return simulate_with_exposures(rows, exposures, label, cost_bps)
+
+
+class YearRow(TypedDict):
+    year: str
+    days: int
+    mean_score: float
+    timing_return_pct: float
+    matched_return_pct: float
+    vol_target_return_pct: float
+    buy_hold_return_pct: float
+    beat_benchmark: bool
+
+
+def yearly_table(rows: list[BacktestRow], engage_min: float,
+                 matched_fraction: float,
+                 vol_exposures: list[float]) -> list[YearRow]:
+    """Per-calendar-year strategy returns. matched_fraction and vol_exposures
+    come from the FULL-SAMPLE calibration so year rows are comparable down
+    the column. Block boundaries reset at each year start (approximation,
+    disclosed in the report).
+    """
+    if len(vol_exposures) != len(rows):
+        raise ValueError("vol_exposures must align with rows")
+    out: list[YearRow] = []
+    i = 0
+    while i < len(rows):
+        year = rows[i]["date"][:4]
+        j = i
+        while j < len(rows) and rows[j]["date"][:4] == year:
+            j += 1
+        chunk = rows[i:j]
+        chunk_vol = vol_exposures[i:j]
+        timing_exposures = [1.0 if r["total"] >= engage_min else 0.0 for r in chunk]
+        timing = simulate_with_exposures(chunk, timing_exposures, "timing")
+        matched = simulate_with_exposures(chunk, [matched_fraction] * len(chunk), "matched")
+        vol = simulate_with_exposures(chunk, chunk_vol, "vol")
+        buy_hold = simulate_with_exposures(chunk, [1.0] * len(chunk), "bh")
+        out.append({
+            "year": year,
+            "days": len(chunk),
+            "mean_score": _mean([r["total"] for r in chunk]),
+            "timing_return_pct": timing["total_return_pct"],
+            "matched_return_pct": matched["total_return_pct"],
+            "vol_target_return_pct": vol["total_return_pct"],
+            "buy_hold_return_pct": buy_hold["total_return_pct"],
+            "beat_benchmark": timing["total_return_pct"] > matched["total_return_pct"],
+        })
+        i = j
+    return out

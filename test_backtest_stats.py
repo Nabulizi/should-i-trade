@@ -141,5 +141,42 @@ class TestVolTarget(unittest.TestCase):
         self.assertAlmostEqual(result["exposure_pct"], 60.0, delta=0.5)
 
 
+class TestYearlyTable(unittest.TestCase):
+
+    def _two_year_rows(self):
+        # 2020: scores below 55 (timing flat). 2021: scores above 55 (timing long).
+        rows_2020 = make_rows(40, total=40.0, fwd5=1.0, start="2020-01-01")
+        rows_2021 = make_rows(40, total=80.0, fwd5=2.0, start="2021-01-01")
+        return rows_2020 + rows_2021
+
+    def test_years_days_and_returns(self):
+        rows = self._two_year_rows()
+        vol_exposures = [0.6] * len(rows)
+        table = backtest_stats.yearly_table(rows, 55.0, 0.6, vol_exposures)
+        self.assertEqual([y["year"] for y in table], ["2020", "2021"])
+        self.assertEqual([y["days"] for y in table], [40, 40])
+        # 2020: timing never invested -> 0% return; B&H compounds 8 blocks of +1%.
+        self.assertAlmostEqual(table[0]["timing_return_pct"], 0.0, places=9)
+        self.assertAlmostEqual(table[0]["buy_hold_return_pct"], (1.01 ** 8 - 1) * 100, places=9)
+        # 2021: timing fully invested -> equals B&H for the year.
+        self.assertAlmostEqual(
+            table[1]["timing_return_pct"], table[1]["buy_hold_return_pct"], places=9)
+
+    def test_beat_benchmark_flag(self):
+        rows = self._two_year_rows()
+        vol_exposures = [0.6] * len(rows)
+        table = backtest_stats.yearly_table(rows, 55.0, 0.6, vol_exposures)
+        # 2020: timing 0% vs matched 0.6*1% per block -> did not beat.
+        self.assertFalse(table[0]["beat_benchmark"])
+        # 2021: timing 2% vs matched 1.2% per block -> beat.
+        self.assertTrue(table[1]["beat_benchmark"])
+
+    def test_mean_score_per_year(self):
+        rows = self._two_year_rows()
+        table = backtest_stats.yearly_table(rows, 55.0, 0.6, [0.6] * len(rows))
+        self.assertAlmostEqual(table[0]["mean_score"], 40.0, places=9)
+        self.assertAlmostEqual(table[1]["mean_score"], 80.0, places=9)
+
+
 if __name__ == "__main__":
     unittest.main()
