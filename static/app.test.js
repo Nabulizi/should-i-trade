@@ -8,6 +8,7 @@ import {
   DEFAULT_WEIGHTS,
   buildWeightScenario,
   isDefaultWeights,
+  volTargetLine,
 } from './app.js';
 
 beforeEach(() => {
@@ -212,5 +213,21 @@ describe('custom weight scenarios', () => {
     expect(scenario.total_score).toBe(0);
     expect(scenario.decision).toBe('DATA UNAVAILABLE');
     expect(scenario._customWeights).toBe(true);
+  });
+});
+
+// ── volTargetLine ─────────────────────────────────────────────────────────
+describe('volTargetLine', () => {
+  it('renders the rounded exposure percentage and the evidence label', () => {
+    const html = volTargetLine({ exposure_pct: 72.4, realized_vol_pct: 0.7 });
+    expect(html).toContain('~72% exposure');
+    expect(html).toContain('vol-target-line');
+    expect(html).toContain('beat the score');
+  });
+
+  it('returns an empty string for null, undefined, or malformed input', () => {
+    expect(volTargetLine(null)).toBe('');
+    expect(volTargetLine(undefined)).toBe('');
+    expect(volTargetLine({})).toBe('');
   });
 });
