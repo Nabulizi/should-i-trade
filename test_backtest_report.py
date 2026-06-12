@@ -112,8 +112,8 @@ class TestBacktestReport(unittest.TestCase):
             rows = backtest_report.load_rows(path)
 
         strats = backtest_report.strategy_rows(rows)
-        # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=bnh
-        buy_hold_sharpe = strats[4]["sharpe"]
+        # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=vol-target, 5=bnh
+        buy_hold_sharpe = strats[5]["sharpe"]
         for matched_idx in (1, 3):
             self.assertAlmostEqual(
                 strats[matched_idx]["sharpe"], buy_hold_sharpe, places=9,
@@ -139,12 +139,26 @@ class TestBacktestReport(unittest.TestCase):
             rows = backtest_report.load_rows(path)
 
         strats = backtest_report.strategy_rows(rows)
-        buy_hold_dd = strats[4]["max_drawdown_pct"]  # negative number
+        buy_hold_dd = strats[5]["max_drawdown_pct"]  # negative number
         for matched_idx in (1, 3):
             self.assertGreater(
                 strats[matched_idx]["max_drawdown_pct"], buy_hold_dd,
                 msg=f"Matched benchmark at index {matched_idx} should draw down less than 100% B&H",
             )
+
+    def test_strategy_rows_include_vol_target_baseline(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+
+        strats = backtest_report.strategy_rows(rows)
+        self.assertEqual(len(strats), 6)
+        self.assertIn("Vol-target", strats[4]["label"])
+        self.assertEqual(strats[5]["label"], "Buy & hold")
+        # Exposure-matched to the Score>=55 rule within calibration tolerance.
+        self.assertAlmostEqual(
+            strats[4]["exposure_pct"], strats[2]["exposure_pct"], delta=0.5)
 
     def test_cross_window_matched_fractions_differ(self):
         """Matched benchmark recomputes exposure per window, not globally.

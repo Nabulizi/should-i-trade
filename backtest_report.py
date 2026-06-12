@@ -30,6 +30,7 @@ from backtest_stats import (
     max_drawdown,
     pearson,
     spearman,
+    vol_target_strategy,
 )
 
 DEFAULT_INPUT = Path("backtest_results.csv")
@@ -314,6 +315,7 @@ def strategy_rows(rows: list[BacktestRow]) -> list[StrategyResult]:
         _matched_exposure_strategy(rows, constructive),
         selective,
         _matched_exposure_strategy(rows, selective),
+        vol_target_strategy(rows, selective["exposure_pct"]),
         buy_hold,
     ]
 
@@ -344,10 +346,12 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
     validation_strategies = strategy_rows(validation_rows) if len(validation_rows) >= 30 else []
     headline_strategies = validation_strategies or full_sample_strategies
     headline_rows = validation_rows if validation_strategies else rows
-    # indices: 0=constructive, 1=matched-constructive, 2=selective, 3=matched-selective, 4=buy&hold
+    # indices: 0=constructive, 1=matched-constructive, 2=selective,
+    #          3=matched-selective, 4=vol-target, 5=buy&hold
     engage = headline_strategies[2]
     matched_engage = headline_strategies[3]
-    buy_hold = headline_strategies[4]
+    vol_target = headline_strategies[4]
+    buy_hold = headline_strategies[5]
     headline_label = (
         f"Validation window ({headline_rows[0]['date']} to {headline_rows[-1]['date']})"
         if validation_strategies else "Full sample"
@@ -370,6 +374,10 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         f"{engage['exposure_pct']:.0f}% market exposure.",
         f"- A constant {matched_engage['exposure_pct']:.0f}%-SPY baseline (same risk budget, no timing) returned "
         f"{_fmt_pct(matched_engage['total_return_pct'], 1)} with {matched_engage['sharpe']:.2f} Sharpe — the fair benchmark for the timing rule.",
+        f"- A no-pillar vol-target baseline at the same exposure returned "
+        f"{_fmt_pct(vol_target['total_return_pct'], 1)} with {vol_target['sharpe']:.2f} Sharpe and "
+        f"{_fmt_pct(vol_target['max_drawdown_pct'], 1)} max drawdown — the score must beat this "
+        f"to justify the five-pillar machinery.",
         f"- Same-window buy & hold: {_fmt_pct(buy_hold['total_return_pct'], 1)} total return with "
         f"{buy_hold['sharpe']:.2f} Sharpe and {_fmt_pct(buy_hold['max_drawdown_pct'], 1)} max drawdown.",
         f"- Forward-return IC remains low ({_fmt_num(ics[5])} at 5 days), so the score should not be marketed as a precise return forecast.",
