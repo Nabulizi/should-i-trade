@@ -117,3 +117,57 @@ def max_drawdown(equity: list[float]) -> float:
         if peak:
             mdd = min(mdd, value / peak - 1)
     return mdd
+
+
+def simulate_with_exposures(rows: list[BacktestRow], exposures: list[float],
+                            label: str, cost_bps: float = 0.0) -> StrategyResult:
+    """Non-overlapping 5-day block simulation with a per-row exposure series.
+
+    The exposure used for each block is the value at the block's first row.
+    cost_bps is charged on every change in block exposure, including the
+    initial entry from cash: cost = |new - old| * cost_bps / 10_000.
+    """
+    if len(exposures) != len(rows):
+        raise ValueError("exposures must have one entry per row")
+    equity = 1.0
+    curve = [equity]
+    blocks: list[float] = []
+    block_exposures: list[float] = []
+    invested_blocks = 0
+    prev_exposure = 0.0
+    for i in range(0, len(rows), BLOCK_DAYS):
+        exposure = exposures[i]
+        block_return = exposure * rows[i]["fwd5"] / 100
+        block_return -= abs(exposure - prev_exposure) * cost_bps / 10_000
+        if exposure > 0:
+            invested_blocks += 1
+        equity *= 1 + block_return
+        blocks.append(block_return)
+        block_exposures.append(exposure)
+        curve.append(equity)
+        prev_exposure = exposure
+    years = len(rows) / 252.0
+    cagr = (equity ** (1 / years) - 1) if years > 0 and equity > 0 else float("nan")
+    sd = _std(blocks)
+    sharpe = (_mean(blocks) / sd * math.sqrt(252 / BLOCK_DAYS)) if sd and sd > 0 else float("nan")
+    return {
+        "label": label,
+        "total_return_pct": (equity - 1) * 100,
+        "cagr_pct": cagr * 100,
+        "sharpe": sharpe,
+        "max_drawdown_pct": max_drawdown(curve) * 100,
+        "exposure_pct": 100 * _mean(block_exposures),
+        "invested_blocks": invested_blocks,
+        "total_blocks": len(blocks),
+    }
+
+
+def count_flips(exposures: list[float], block_days: int = BLOCK_DAYS) -> int:
+    """Number of block-boundary exposure changes, counting the initial entry."""
+    prev = 0.0
+    flips = 0
+    for i in range(0, len(exposures), block_days):
+        if exposures[i] != prev:
+            flips += 1
+        prev = exposures[i]
+    return flips
