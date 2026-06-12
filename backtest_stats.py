@@ -323,8 +323,10 @@ def ic_statistic(horizon: int) -> Callable[[list[BacktestRow]], float]:
             fwds = [r["fwd1"] for r in rows]
         elif horizon == 5:
             fwds = [r["fwd5"] for r in rows]
-        else:
+        elif horizon == 20:
             fwds = [r["fwd20"] for r in rows]
+        else:
+            raise ValueError(f"Unsupported horizon: {horizon}")
         return spearman([r["total"] for r in rows], fwds)
     return stat
 

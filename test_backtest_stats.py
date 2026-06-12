@@ -232,6 +232,11 @@ class TestStatistics(unittest.TestCase):
         rows = make_rows(100, total=list(range(100)), fwd5=fwd5)
         self.assertAlmostEqual(backtest_stats.decile_spread_statistic(rows), 3.0, places=9)
 
+    def test_ic_statistic_rejects_unsupported_horizon(self):
+        rows = make_rows(50)
+        with self.assertRaises(ValueError):
+            backtest_stats.ic_statistic(10)(rows)
+
 
 if __name__ == "__main__":
     unittest.main()
