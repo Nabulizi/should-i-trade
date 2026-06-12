@@ -185,6 +185,13 @@ class DataQuality(TypedDict):
     message: str
 
 
+class VolTargetInfo(TypedDict):
+    """Evidence-backed vol-target exposure dial (see docs/backtest-report.md)."""
+
+    exposure_pct: float
+    realized_vol_pct: float
+
+
 class _DashboardResultRequired(TypedDict):
     """Required payload returned by ``compute_dashboard()`` in scoring.py."""
 
@@ -211,6 +218,7 @@ class _DashboardResultRequired(TypedDict):
     fear_greed_stock: FearGreed
     fear_greed_crypto: FearGreed
     spy_streak: SpyStreak
+    vol_target: VolTargetInfo | None
     timestamp: str
     data_sources: DataSources
     data_coverage: DataCoverage

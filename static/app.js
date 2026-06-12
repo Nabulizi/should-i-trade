@@ -218,6 +218,7 @@ function renderHero(d) {
   ctx.innerHTML = `
     ${regime ? `<div class="dc-row"><span class="dc-label">Regime</span>${regimeTag}</div>` : ''}
     <div class="dc-posture">${posture}</div>
+    ${volTargetLine(d.vol_target)}
     <div class="dc-row"><span class="dc-label">Confidence</span><div class="confidence-bar">${confSegs}</div></div>
   `;
 
@@ -649,6 +650,16 @@ function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
     decision_color: band.color,
     position_size: band.position
   };
+}
+
+// Evidence-backed exposure dial (see docs/backtest-report.md): the no-pillar
+// vol-target baseline that beat the score-timing rule. Pure HTML-string
+// renderer so it is unit-testable; returns '' to hide the line when the
+// payload field is null or malformed.
+function volTargetLine(volTarget) {
+  if (!volTarget || typeof volTarget.exposure_pct !== 'number') return '';
+  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol-target</span>` +
+    `<span>~${Math.round(volTarget.exposure_pct)}% exposure — no-pillar baseline that beat the score in the 2005–2026 backtest</span></div>`;
 }
 
 function buildWeightScenario(data) {
@@ -1219,4 +1230,5 @@ export {
   DEFAULT_WEIGHTS,
   buildWeightScenario,
   isDefaultWeights,
+  volTargetLine,
 };
