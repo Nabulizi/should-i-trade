@@ -70,7 +70,7 @@ watchlist.py  TradingView-format watchlist health scoring
 - **Volatility** (15%): VIX level/trend/percentile, term structure (VIX9D/VIX3M), SKEW, option flow
 - **Macro** (10%): 10Y yield, DXY, yield curve, HYG credit, BTC, GLD, FOMC proximity
 
-Decision thresholds: ≥85 STRONG YES → 70 YES → 55 CAUTION → 40 NO → <40 WAIT.
+Decision bands: ≥85 RISK-ON → 70 CONSTRUCTIVE → 55 SELECTIVE → 40 DE-RISK → <40 RISK-OFF (descriptive bands, not validated thresholds).
 
 ### Caching & reliability patterns
 - Thread-safe global caches with locks; stale-while-revalidate background refresh
