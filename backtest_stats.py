@@ -171,3 +171,60 @@ def count_flips(exposures: list[float], block_days: int = BLOCK_DAYS) -> int:
             flips += 1
         prev = exposures[i]
     return flips
+
+
+def realized_vol_series(rows: list[BacktestRow],
+                        window: int = VOL_WINDOW) -> list[float | None]:
+    """Trailing realized vol of daily returns, None during warmup.
+
+    fwd1[j] is the day-j-close to day-j+1-close return, so the window for
+    row i is fwd1[i-window:i] - fully known by day i's close (no lookahead).
+    """
+    daily = [r["fwd1"] for r in rows]
+    out: list[float | None] = [None] * len(rows)
+    for i in range(window, len(rows)):
+        out[i] = _std(daily[i - window:i])
+    return out
+
+
+def calibrate_vol_exposures(rows: list[BacktestRow], target_exposure_pct: float,
+                            window: int = VOL_WINDOW,
+                            tolerance_pp: float = 0.5) -> list[float]:
+    """Per-row exposures clamp(k / vol, 0, 1), k bisected so the average
+    block exposure matches target_exposure_pct. Warmup rows (and zero-vol
+    rows) hold the target exposure so all strategies cover the same dates.
+    """
+    vols = realized_vol_series(rows, window)
+    target = target_exposure_pct / 100.0
+
+    def exposures_for(k: float) -> list[float]:
+        return [
+            target if v is None or v <= 0 else min(1.0, k / v)
+            for v in vols
+        ]
+
+    def avg_block_exposure(k: float) -> float:
+        exps = exposures_for(k)
+        return _mean([exps[i] for i in range(0, len(rows), BLOCK_DAYS)])
+
+    lo, hi = 0.0, 1000.0
+    if avg_block_exposure(hi) < target - tolerance_pp / 100:
+        raise ValueError("target exposure unreachable for this vol series")
+    for _ in range(80):
+        mid = (lo + hi) / 2
+        if avg_block_exposure(mid) < target:
+            lo = mid
+        else:
+            hi = mid
+    k = (lo + hi) / 2
+    if abs(avg_block_exposure(k) - target) > tolerance_pp / 100:
+        raise ValueError("vol-exposure calibration did not converge")
+    return exposures_for(k)
+
+
+def vol_target_strategy(rows: list[BacktestRow], target_exposure_pct: float,
+                        cost_bps: float = 0.0) -> StrategyResult:
+    """Exposure-matched, no-pillar volatility-targeting baseline."""
+    exposures = calibrate_vol_exposures(rows, target_exposure_pct)
+    label = f"Vol-target {target_exposure_pct:.0f}% (no pillars, matched benchmark)"
+    return simulate_with_exposures(rows, exposures, label, cost_bps)

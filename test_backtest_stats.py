@@ -97,5 +97,49 @@ class TestCountFlips(unittest.TestCase):
         self.assertEqual(backtest_stats.count_flips([0.0] * 20), 0)
 
 
+class TestVolTarget(unittest.TestCase):
+
+    def test_realized_vol_warmup_is_none_then_trailing_std(self):
+        rows = make_rows(30, fwd1=[1.0, -1.0] * 15)
+        vols = backtest_stats.realized_vol_series(rows)
+        self.assertTrue(all(v is None for v in vols[:backtest_stats.VOL_WINDOW]))
+        # Trailing 20 of alternating +1/-1 has a known sample std.
+        import statistics
+        expected = statistics.stdev([1.0, -1.0] * 10)
+        self.assertAlmostEqual(vols[backtest_stats.VOL_WINDOW], expected, places=9)
+
+    def test_realized_vol_has_no_lookahead(self):
+        base = make_rows(60, fwd1=[0.5, -0.4, 0.9, -0.2] * 15)
+        vols_before = backtest_stats.realized_vol_series(base)
+        mutated = [dict(r) for r in base]
+        mutated[45]["fwd1"] = 99.0  # shock a future return
+        vols_after = backtest_stats.realized_vol_series(mutated)
+        # vols at index i use fwd1[i-20:i]; indices <= 45 must be unaffected.
+        for i in range(46):
+            self.assertEqual(vols_before[i], vols_after[i])
+
+    def test_constant_vol_yields_constant_exposure(self):
+        rows = make_rows(100, fwd1=[1.0, -1.0] * 50)
+        exposures = backtest_stats.calibrate_vol_exposures(rows, 60.0)
+        post_warmup = exposures[backtest_stats.VOL_WINDOW:]
+        self.assertTrue(all(abs(e - post_warmup[0]) < 1e-9 for e in post_warmup))
+
+    def test_calibration_hits_target_exposure(self):
+        # Two vol regimes: calm first half, stormy second half.
+        fwd1 = [0.2, -0.2] * 25 + [2.0, -2.0] * 25
+        rows = make_rows(100, fwd1=fwd1)
+        exposures = backtest_stats.calibrate_vol_exposures(rows, 60.0)
+        block_exposures = [exposures[i] for i in range(0, 100, backtest_stats.BLOCK_DAYS)]
+        avg = sum(block_exposures) / len(block_exposures)
+        self.assertAlmostEqual(avg, 0.60, delta=0.005)
+        self.assertTrue(all(0.0 <= e <= 1.0 for e in exposures))
+
+    def test_vol_target_strategy_returns_labeled_result(self):
+        rows = make_rows(100, fwd1=[0.3, -0.2] * 50, fwd5=[0.5, -0.1] * 50)
+        result = backtest_stats.vol_target_strategy(rows, 60.0)
+        self.assertIn("Vol-target 60%", result["label"])
+        self.assertAlmostEqual(result["exposure_pct"], 60.0, delta=0.5)
+
+
 if __name__ == "__main__":
     unittest.main()
