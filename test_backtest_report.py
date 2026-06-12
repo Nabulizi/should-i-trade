@@ -230,5 +230,17 @@ class TestBacktestReport(unittest.TestCase):
         self.assertIn("zero excluded", report.lower())
 
 
+    def test_report_contains_cost_sensitivity_section(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Transaction Cost Sensitivity", report)
+        self.assertIn("20 bps", report)
+        self.assertIn("exposure flips", report)
+
+
 if __name__ == "__main__":
     unittest.main()

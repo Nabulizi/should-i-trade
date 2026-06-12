@@ -30,10 +30,12 @@ from backtest_stats import (
     band_mean_statistic,
     block_bootstrap_ci,
     calibrate_vol_exposures,
+    count_flips,
     decile_spread_statistic,
     ic_statistic,
     max_drawdown,
     pearson,
+    simulate_with_exposures,
     spearman,
     vol_target_strategy,
     yearly_table,
@@ -42,6 +44,7 @@ from backtest_stats import (
 DEFAULT_INPUT = Path("backtest_results.csv")
 DEFAULT_OUTPUT = Path("docs/backtest-report.md")
 HORIZONS = (1, 5, 20)
+COST_LEVELS_BPS = (0.0, 5.0, 10.0, 20.0)
 ENGAGE_MIN = 55
 FULL_RISK_MIN = 70
 VALIDATION_START = "2016-01-01"
@@ -392,6 +395,40 @@ def _significance_section(rows: list[BacktestRow]) -> list[str]:
     return lines
 
 
+def _cost_section(rows: list[BacktestRow], selective: StrategyResult) -> list[str]:
+    timing_exposures = [1.0 if r["total"] >= ENGAGE_MIN else 0.0 for r in rows]
+    matched_fraction = selective["exposure_pct"] / 100.0
+    constant_exposures = [matched_fraction] * len(rows)
+    vol_exposures = calibrate_vol_exposures(rows, selective["exposure_pct"])
+    flips = count_flips(timing_exposures)
+    lines = [
+        "",
+        "## Transaction Cost Sensitivity",
+        "",
+        "Costs are charged on each change in exposure (including initial entry):",
+        "cost = |delta exposure| x bps / 10,000. The constant benchmark pays once at",
+        "inception; the vol-target baseline pays on its smaller continuous adjustments.",
+        "",
+        f"The Score >= {ENGAGE_MIN} rule made **{flips} exposure flips** over this sample.",
+        "",
+        "| Strategy | 0 bps | 5 bps | 10 bps | 20 bps |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    variants = (
+        (f"Score >= {ENGAGE_MIN} (SELECTIVE+)", timing_exposures),
+        (f"Constant {selective['exposure_pct']:.0f}% SPY", constant_exposures),
+        (f"Vol-target {selective['exposure_pct']:.0f}%", vol_exposures),
+    )
+    for label, exposures in variants:
+        cells = []
+        for bps in COST_LEVELS_BPS:
+            result = simulate_with_exposures(rows, exposures, label, cost_bps=bps)
+            sharpe = "n/a" if math.isnan(result["sharpe"]) else f"{result['sharpe']:.2f}"
+            cells.append(f"{_fmt_pct(result['total_return_pct'], 1)} (S {sharpe})")
+        lines.append(f"| {label} | " + " | ".join(cells) + " |")
+    return lines
+
+
 def _fmt_pct(value: float, digits: int = 2) -> str:
     if math.isnan(value):
         return "n/a"
@@ -429,6 +466,10 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         if validation_strategies else "Full sample"
     )
     generated_stamp = f"_Generated {date.today().isoformat()} · engine {_engine_hash()}_"
+    timing_exposures = [1.0 if r["total"] >= ENGAGE_MIN else 0.0 for r in rows]
+    flips = count_flips(timing_exposures)
+    costed = simulate_with_exposures(
+        rows, timing_exposures, "costed", cost_bps=10.0)
 
     lines = [
         "# Backtest Report",
@@ -450,6 +491,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         f"{_fmt_pct(vol_target['total_return_pct'], 1)} with {vol_target['sharpe']:.2f} Sharpe and "
         f"{_fmt_pct(vol_target['max_drawdown_pct'], 1)} max drawdown — the score must beat this "
         f"to justify the five-pillar machinery.",
+        f"- At 10 bps per exposure change ({flips} flips), the full-sample Score >= {ENGAGE_MIN} "
+        f"total return drops to {_fmt_pct(costed['total_return_pct'], 1)}.",
         f"- Same-window buy & hold: {_fmt_pct(buy_hold['total_return_pct'], 1)} total return with "
         f"{buy_hold['sharpe']:.2f} Sharpe and {_fmt_pct(buy_hold['max_drawdown_pct'], 1)} max drawdown.",
         f"- Forward-return IC remains low ({_fmt_num(ics[5])} at 5 days), so the score should not be marketed as a precise return forecast.",
@@ -561,6 +604,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
 
     lines.extend(_significance_section(rows))
 
+    lines.extend(_cost_section(rows, full_sample_strategies[2]))
+
     lines.extend([
         "",
         "## Product Interpretation",
@@ -572,7 +617,7 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         "",
         "## Limitations",
         "",
-        "- No trading costs, slippage, taxes, or execution delays.",
+        "- Costs are modeled as linear bps on exposure changes only; no market impact, borrow, taxes, or execution delay.",
         "- SPY close-to-close returns only; no intraday fills, stops, or position management.",
         "- Calendar overlays are neutralized in the replay methodology.",
         "- Historical data vendor revisions can change results.",
