@@ -178,5 +178,60 @@ class TestYearlyTable(unittest.TestCase):
         self.assertAlmostEqual(table[1]["mean_score"], 80.0, places=9)
 
 
+class TestBootstrap(unittest.TestCase):
+
+    def test_deterministic_across_runs(self):
+        rows = make_rows(100, total=list(range(100)), fwd5=[0.4, -0.3] * 50)
+        stat = backtest_stats.ic_statistic(5)
+        a = backtest_stats.block_bootstrap_ci(rows, stat, n_resamples=200)
+        b = backtest_stats.block_bootstrap_ci(rows, stat, n_resamples=200)
+        self.assertEqual(a, b)
+
+    def test_constant_series_zero_width_ci(self):
+        rows = make_rows(100, fwd5=0.7)
+        stat = lambda rs: sum(r["fwd5"] for r in rs) / len(rs)
+        point, lo, hi = backtest_stats.block_bootstrap_ci(rows, stat, n_resamples=200)
+        self.assertAlmostEqual(point, 0.7, places=9)
+        self.assertAlmostEqual(lo, 0.7, places=9)
+        self.assertAlmostEqual(hi, 0.7, places=9)
+
+    def test_strong_signal_excludes_zero(self):
+        rows = make_rows(100, fwd5=[0.8, 1.2] * 50)
+        stat = lambda rs: sum(r["fwd5"] for r in rs) / len(rs)
+        point, lo, hi = backtest_stats.block_bootstrap_ci(rows, stat, n_resamples=200)
+        self.assertGreater(lo, 0.0)
+        self.assertLessEqual(lo, point)
+        self.assertGreaterEqual(hi, point)
+
+    def test_too_few_rows_raise(self):
+        rows = make_rows(10)
+        with self.assertRaises(ValueError):
+            backtest_stats.block_bootstrap_ci(rows, lambda rs: 0.0)
+
+
+class TestStatistics(unittest.TestCase):
+
+    def test_ic_statistic_perfect_monotone_signal(self):
+        # Score 0..99 and fwd5 0..99 -> Spearman IC exactly +1.
+        rows = make_rows(100, total=list(range(100)),
+                         fwd5=[float(x) for x in range(100)])
+        self.assertAlmostEqual(backtest_stats.ic_statistic(5)(rows), 1.0, places=9)
+
+    def test_band_mean_statistic_filters_band(self):
+        rows = (make_rows(30, decision="RISK-ON", fwd5=1.0)
+                + make_rows(30, decision="RISK-OFF", fwd5=-2.0, start="2020-03-01"))
+        self.assertAlmostEqual(
+            backtest_stats.band_mean_statistic("RISK-ON")(rows), 1.0, places=9)
+        self.assertAlmostEqual(
+            backtest_stats.band_mean_statistic("RISK-OFF")(rows), -2.0, places=9)
+        self.assertTrue(math.isnan(backtest_stats.band_mean_statistic("SELECTIVE")(rows)))
+
+    def test_decile_spread_bottom_minus_top(self):
+        # Bottom-decile scores carry fwd5=+2, top-decile scores carry fwd5=-1.
+        fwd5 = [2.0] * 10 + [0.0] * 80 + [-1.0] * 10
+        rows = make_rows(100, total=list(range(100)), fwd5=fwd5)
+        self.assertAlmostEqual(backtest_stats.decile_spread_statistic(rows), 3.0, places=9)
+
+
 if __name__ == "__main__":
     unittest.main()

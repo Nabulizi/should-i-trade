@@ -277,3 +277,71 @@ def yearly_table(rows: list[BacktestRow], engage_min: float,
         })
         i = j
     return out
+
+
+def block_bootstrap_ci(rows: list[BacktestRow],
+                       statistic: Callable[[list[BacktestRow]], float],
+                       n_resamples: int = BOOTSTRAP_RESAMPLES,
+                       block: int = BOOTSTRAP_BLOCK,
+                       seed: int = BOOTSTRAP_SEED) -> tuple[float, float, float]:
+    """Moving-block bootstrap 95% CI: returns (point, ci_lo, ci_hi).
+
+    Resamples contiguous blocks (with replacement) to preserve short-range
+    autocorrelation from overlapping forward returns. Seeded -> deterministic.
+    Resamples whose statistic is NaN (e.g. an empty decision band) are
+    dropped from the percentile computation.
+    """
+    n = len(rows)
+    if n < 2 * block:
+        raise ValueError(f"Need at least {2 * block} rows for block bootstrap")
+    point = statistic(rows)
+    rng = random.Random(seed)
+    n_blocks = math.ceil(n / block)
+    max_start = n - block
+    samples: list[float] = []
+    for _ in range(n_resamples):
+        resampled: list[BacktestRow] = []
+        for _ in range(n_blocks):
+            start = rng.randint(0, max_start)
+            resampled.extend(rows[start:start + block])
+        del resampled[n:]
+        value = statistic(resampled)
+        if not math.isnan(value):
+            samples.append(value)
+    if not samples:
+        return (point, float("nan"), float("nan"))
+    samples.sort()
+    lo = samples[int(0.025 * (len(samples) - 1))]
+    hi = samples[int(0.975 * (len(samples) - 1))]
+    return (point, lo, hi)
+
+
+def ic_statistic(horizon: int) -> Callable[[list[BacktestRow]], float]:
+    """Spearman IC of total score vs forward return at the given horizon."""
+    key = {1: "fwd1", 5: "fwd5", 20: "fwd20"}[horizon]
+    def stat(rows: list[BacktestRow]) -> float:
+        return spearman([r["total"] for r in rows], [r[key] for r in rows])
+    return stat
+
+
+def band_mean_statistic(band: str) -> Callable[[list[BacktestRow]], float]:
+    """Mean 5-day forward return within one decision band (NaN if absent)."""
+    def stat(rows: list[BacktestRow]) -> float:
+        vals = [r["fwd5"] for r in rows if r["decision"] == band]
+        return _mean(vals) if vals else float("nan")
+    return stat
+
+
+def decile_spread_statistic(rows: list[BacktestRow]) -> float:
+    """Bottom-decile minus top-decile mean fwd5 - the contrarian-edge gate.
+
+    Decile membership is recomputed on each (re)sample, so bootstrap CIs
+    reflect ranking uncertainty too.
+    """
+    ranked = sorted(rows, key=lambda r: r["total"])
+    tenth = len(ranked) // 10
+    if tenth == 0:
+        return float("nan")
+    bottom = [r["fwd5"] for r in ranked[:tenth]]
+    top = [r["fwd5"] for r in ranked[-tenth:]]
+    return _mean(bottom) - _mean(top)
