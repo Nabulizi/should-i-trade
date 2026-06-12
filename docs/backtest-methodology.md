@@ -1,21 +1,25 @@
 # Backtest Methodology
 
 This document records how the Market Quality Score claims should be reproduced
-and interpreted. The dashboard is a risk/exposure gauge, not a return predictor
-or financial advice.
+and interpreted. The dashboard is a market-conditions and exposure gauge, not a
+return predictor or financial advice.
 
 ## Current Headline Claim
 
-The README summarizes a 2005-2026 walk-forward replay showing that the
-composite score is most useful as a drawdown/exposure timer:
+The README summarizes the composite score conservatively:
 
 - Higher scores did not reliably predict which individual days would be
   profitable.
-- A rule that stayed long SPY when the score cleared the engagement threshold
-  and de-risked when it did not materially reduced drawdown versus buy-and-hold,
-  with lower exposure and lower absolute return in the documented validation
-  window.
-- The validated engagement threshold is 55, not 70.
+- A rule that stays long SPY when the score clears the engagement threshold must
+  be judged against same-exposure SPY and no-pillar volatility baselines before
+  it can claim timing value.
+- A no-pillar volatility-targeting baseline at matched exposure outperformed
+  the score-timing rule on return, Sharpe, and max drawdown in the validation
+  window; treat any timing claim as unsupported until this baseline is beaten
+  out of sample.
+- Drawdown reduction is useful only after separating it from the mechanical
+  benefit of simply holding less SPY.
+- The current engagement threshold under test is 55, not 70.
 
 Keep this claim attached to the exact implementation in `backtest.py` and the
 current scoring engine. If scoring rules or thresholds change, rerun and update
@@ -81,7 +85,13 @@ When validating a change, inspect at least:
 - Forward 5-day return by decision band.
 - Score decile monotonicity.
 - Per-pillar information coefficient.
-- Year-by-year behavior, especially weak market years.
+- Strategy performance versus constant same-exposure SPY.
+- Strategy performance versus a no-pillar volatility-targeting baseline.
+- Year-by-year strategy returns, exposure, and drawdown, especially weak market
+  years.
+- Bootstrap confidence intervals for IC, decision-band means, decile means, and
+  the decile 1 minus decile 10 spread.
+- Cost/slippage sensitivity across realistic bps assumptions.
 - Bull versus bear regime split.
 - Strategy test versus buy-and-hold, including exposure, Sharpe, and max
   drawdown.
