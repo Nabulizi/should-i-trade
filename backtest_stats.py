@@ -19,6 +19,9 @@ BOOTSTRAP_RESAMPLES = 2000
 BOOTSTRAP_BLOCK = 21
 BOOTSTRAP_SEED = 20260611
 
+TREND_DAY_MIN_EFF = 0.6
+CONDITION_METRIC_KEYS = ("range_eff", "range_pct", "gap_share", "trend_day")
+
 
 class BacktestRow(TypedDict):
     date: str
@@ -36,6 +39,11 @@ class BacktestRow(TypedDict):
     fwd1: float
     fwd5: float
     fwd20: float
+    nd_open: float | None
+    nd_high: float | None
+    nd_low: float | None
+    nd_close: float | None
+    nd_prev_close: float | None
 
 
 class StrategyResult(TypedDict):
@@ -381,3 +389,105 @@ def decile_spread_statistic(rows: list[BacktestRow]) -> float:
     bottom = [r["fwd5"] for r in ranked[:tenth]]
     top = [r["fwd5"] for r in ranked[-tenth:]]
     return _mean(bottom) - _mean(top)
+
+
+def condition_metrics(row: BacktestRow) -> dict[str, float] | None:
+    """Next-session (T+1) trading-condition metrics from raw SPY OHLC.
+
+    Returns a plain dict (not a TypedDict) keyed by CONDITION_METRIC_KEYS;
+    trend_day is 1.0/0.0. Returns None when any input is missing or the
+    session is degenerate (H <= L or prev close <= 0), so such rows drop
+    out of every statistic.
+    """
+    o = row.get("nd_open")
+    h = row.get("nd_high")
+    low = row.get("nd_low")
+    c = row.get("nd_close")
+    prev = row.get("nd_prev_close")
+    if o is None or h is None or low is None or c is None or prev is None:
+        return None
+    rng = h - low
+    if rng <= 0 or prev <= 0:
+        return None
+    range_eff = abs(c - o) / rng
+    return {
+        "range_eff": range_eff,
+        "range_pct": rng / prev,
+        "gap_share": min(1.0, abs(o - prev) / rng),
+        "trend_day": 1.0 if range_eff > TREND_DAY_MIN_EFF else 0.0,
+    }
+
+
+def condition_decile_spread_statistic(metric: str) -> Callable[[list[BacktestRow]], float]:
+    """Top-decile minus bottom-decile mean of a next-session condition metric.
+
+    Sign convention: POSITIVE means high-score days have the higher value —
+    deliberately flipped versus decile_spread_statistic (bottom minus top),
+    because here 'higher metric' (e.g. range efficiency) is the hypothesized
+    benefit of a high score. Rows without valid metrics are excluded after
+    ranking; NaN when either decile has no valid rows.
+    """
+    if metric not in CONDITION_METRIC_KEYS:
+        raise ValueError(f"Unsupported condition metric: {metric}")
+
+    def stat(rows: list[BacktestRow]) -> float:
+        ranked = sorted(rows, key=lambda r: r["total"])
+        tenth = len(ranked) // 10
+        if tenth == 0:
+            return float("nan")
+
+        def decile_mean(chunk: list[BacktestRow]) -> float:
+            vals = [m[metric] for r in chunk
+                    if (m := condition_metrics(r)) is not None]
+            return _mean(vals) if vals else float("nan")
+
+        return decile_mean(ranked[-tenth:]) - decile_mean(ranked[:tenth])
+    return stat
+
+
+class ConditionSummary(TypedDict):
+    label: str
+    n: int
+    range_eff: float
+    range_pct: float
+    gap_share: float
+    trend_day_pct: float
+
+
+def _condition_summary(label: str, chunk: list[BacktestRow]) -> ConditionSummary | None:
+    metrics = [m for r in chunk if (m := condition_metrics(r)) is not None]
+    if not metrics:
+        return None
+    return {
+        "label": label,
+        "n": len(metrics),
+        "range_eff": _mean([m["range_eff"] for m in metrics]),
+        "range_pct": _mean([m["range_pct"] for m in metrics]),
+        "gap_share": _mean([m["gap_share"] for m in metrics]),
+        "trend_day_pct": 100 * _mean([m["trend_day"] for m in metrics]),
+    }
+
+
+def condition_band_table(rows: list[BacktestRow],
+                         band_order: tuple[str, ...]) -> list[ConditionSummary]:
+    """Mean condition metrics per decision band (band_order is passed in so
+    this module never imports backtest_report)."""
+    out: list[ConditionSummary] = []
+    for band in band_order:
+        summary = _condition_summary(band, [r for r in rows if r["decision"] == band])
+        if summary is not None:
+            out.append(summary)
+    return out
+
+
+def condition_decile_table(rows: list[BacktestRow]) -> list[ConditionSummary]:
+    """Mean condition metrics per score decile (1 = lowest scores)."""
+    ranked = sorted(rows, key=lambda r: r["total"])
+    n = len(ranked)
+    out: list[ConditionSummary] = []
+    for d in range(10):
+        chunk = ranked[d * n // 10:(d + 1) * n // 10]
+        summary = _condition_summary(str(d + 1), chunk)
+        if summary is not None:
+            out.append(summary)
+    return out

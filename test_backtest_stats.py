@@ -14,7 +14,8 @@ import backtest_stats
 
 
 def make_rows(n, *, total=60.0, decision="SELECTIVE", fwd1=0.1, fwd5=0.5,
-              fwd20=1.0, start="2020-01-01"):
+              fwd20=1.0, start="2020-01-01", nd_open=None, nd_high=None,
+              nd_low=None, nd_close=None, nd_prev_close=None):
     """Build n synthetic BacktestRows. Scalar args broadcast; list args map per-row."""
     start_date = date.fromisoformat(start)
 
@@ -34,6 +35,11 @@ def make_rows(n, *, total=60.0, decision="SELECTIVE", fwd1=0.1, fwd5=0.5,
             "fwd1": float(at(fwd1, i)),
             "fwd5": float(at(fwd5, i)),
             "fwd20": float(at(fwd20, i)),
+            "nd_open": at(nd_open, i),
+            "nd_high": at(nd_high, i),
+            "nd_low": at(nd_low, i),
+            "nd_close": at(nd_close, i),
+            "nd_prev_close": at(nd_prev_close, i),
         })
     return rows
 
@@ -252,6 +258,72 @@ class TestStatistics(unittest.TestCase):
             backtest_stats.decile_mean_statistic(0)
         with self.assertRaises(ValueError):
             backtest_stats.decile_mean_statistic(11)
+
+
+class TestConditionMetrics(unittest.TestCase):
+
+    def _row(self, **kw):
+        return make_rows(1, **kw)[0]
+
+    def test_hand_computed_metrics(self):
+        row = self._row(nd_open=100.0, nd_high=110.0, nd_low=98.0,
+                        nd_close=109.0, nd_prev_close=100.0)
+        m = backtest_stats.condition_metrics(row)
+        self.assertAlmostEqual(m["range_eff"], 9.0 / 12.0, places=9)
+        self.assertAlmostEqual(m["range_pct"], 12.0 / 100.0, places=9)
+        self.assertAlmostEqual(m["gap_share"], 0.0, places=9)
+        self.assertEqual(m["trend_day"], 1.0)
+
+    def test_gap_share_caps_at_one(self):
+        # Overnight gap (5) larger than the day's range (2).
+        row = self._row(nd_open=105.0, nd_high=106.0, nd_low=104.0,
+                        nd_close=104.5, nd_prev_close=100.0)
+        m = backtest_stats.condition_metrics(row)
+        self.assertAlmostEqual(m["gap_share"], 1.0, places=9)
+        self.assertEqual(m["trend_day"], 0.0)  # |104.5-105|/2 = 0.25 < 0.6
+
+    def test_missing_or_degenerate_inputs_return_none(self):
+        self.assertIsNone(backtest_stats.condition_metrics(self._row()))
+        self.assertIsNone(backtest_stats.condition_metrics(self._row(
+            nd_open=100.0, nd_high=100.0, nd_low=100.0, nd_close=100.0,
+            nd_prev_close=100.0)))  # H == L
+
+    def test_spread_statistic_sign_convention(self):
+        # Bottom-decile scores get choppy sessions (eff 0.1); top decile clean (0.9).
+        # eff = |C-O|/(H-L) with H-L = 10: choppy C-O = 1, clean C-O = 9.
+        closes = [101.0] * 10 + [105.0] * 80 + [109.0] * 10
+        rows = make_rows(100, total=list(range(100)),
+                         nd_open=100.0, nd_high=110.0, nd_low=100.0,
+                         nd_close=closes, nd_prev_close=100.0)
+        spread = backtest_stats.condition_decile_spread_statistic("range_eff")(rows)
+        self.assertAlmostEqual(spread, 0.8, places=9)  # positive = high score better
+
+    def test_spread_statistic_rejects_unknown_metric(self):
+        with self.assertRaises(ValueError):
+            backtest_stats.condition_decile_spread_statistic("sharpe")
+
+    def test_spread_nan_when_no_valid_rows(self):
+        rows = make_rows(100, total=list(range(100)))  # nd columns all None
+        spread = backtest_stats.condition_decile_spread_statistic("range_eff")(rows)
+        self.assertTrue(math.isnan(spread))
+
+    def test_band_and_decile_tables(self):
+        rows = (make_rows(30, decision="RISK-ON", total=90.0, nd_open=100.0,
+                          nd_high=110.0, nd_low=100.0, nd_close=109.0,
+                          nd_prev_close=100.0)
+                + make_rows(30, decision="RISK-OFF", total=10.0, nd_open=100.0,
+                            nd_high=110.0, nd_low=100.0, nd_close=101.0,
+                            nd_prev_close=100.0, start="2020-03-01"))
+        bands = backtest_stats.condition_band_table(rows, ("RISK-ON", "RISK-OFF"))
+        self.assertEqual([b["label"] for b in bands], ["RISK-ON", "RISK-OFF"])
+        self.assertEqual(bands[0]["n"], 30)
+        self.assertAlmostEqual(bands[0]["range_eff"], 0.9, places=9)
+        self.assertAlmostEqual(bands[0]["trend_day_pct"], 100.0, places=9)
+        self.assertAlmostEqual(bands[1]["trend_day_pct"], 0.0, places=9)
+        deciles = backtest_stats.condition_decile_table(rows)
+        self.assertEqual(len(deciles), 10)
+        self.assertAlmostEqual(deciles[0]["range_eff"], 0.1, places=9)
+        self.assertAlmostEqual(deciles[-1]["range_eff"], 0.9, places=9)
 
 
 if __name__ == "__main__":
