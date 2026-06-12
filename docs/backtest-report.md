@@ -1,16 +1,18 @@
 # Backtest Report
 
-_Generated 2026-06-12 · engine b3b6d6b_
+_Generated 2026-06-12 · engine 527207e_
 
 This report is generated from the per-day replay output produced by `backtest.py`.
-It supports the product claim that the Market Quality Score is a risk/exposure dial, not a day-by-day return predictor.
+It tests whether the Market Quality Score adds timing value after fair same-exposure baselines.
+Product copy should stay conservative unless the timing rule clears those baselines out of sample.
 
 ## Executive Readout
 
 - Full sample: 5,373 trading days from 2005-01-03 to 2026-05-12.
 - Validation window (2016-01-04 to 2026-05-12): Score >= 55 produced +131.1% total return with 0.86 Sharpe, -14.3% max drawdown, and 69% market exposure.
 - A constant 69%-SPY baseline (same risk budget, no timing) returned +188.8% with 0.96 Sharpe — the fair benchmark for the timing rule.
-- A same-window, no-pillar vol-target baseline at the same exposure returned +153.9% with 1.06 Sharpe and -11.1% max drawdown — the score must beat this to justify the five-pillar machinery.
+- Timing edge versus constant exposure: -57.7% total-return points and -0.10 Sharpe. Drawdown difference: +8.5% (positive means the timing rule drew down less).
+- A same-window, no-pillar vol-target baseline at the same exposure returned +153.9% with 1.06 Sharpe and -11.1% max drawdown. Timing edge versus vol-target: -22.8% total-return points and -0.20 Sharpe.
 - At 10 bps per exposure change (263 flips), the full-sample Score >= 55 total return drops to +152.9%.
 - Same-window buy & hold: +340.3% total return with 0.96 Sharpe and -31.7% max drawdown.
 - Forward-return IC remains low (-0.078 at 5 days), so the score should not be marketed as a precise return forecast.
@@ -111,30 +113,30 @@ Calendar-year returns. Matched-benchmark fraction and vol-target calibration are
 
 The Score >= 55 rule beat its matched benchmark in **6 of 22 years**.
 
-| Year | Days | Mean Score | Score >= 55 | Matched Const. | Vol-Target | Buy & Hold | Beat benchmark? |
-|---|---:|---:|---:|---:|---:|---:|:---:|
-| 2005 | 252 | 62 | +1.7% | +5.4% | +5.5% | +8.6% | ✗ |
-| 2006 | 251 | 63 | +5.4% | +8.3% | +12.7% | +13.4% | ✗ |
-| 2007 | 251 | 58 | -10.0% | +0.3% | -0.3% | +0.1% | ✗ |
-| 2008 | 253 | 32 | -3.1% | -21.5% | -10.6% | -34.0% | ✓ |
-| 2009 | 252 | 56 | +12.5% | +16.2% | +10.7% | +25.7% | ✗ |
-| 2010 | 252 | 60 | -1.0% | +9.4% | +10.4% | +14.6% | ✗ |
-| 2011 | 252 | 54 | -9.3% | +2.4% | -1.1% | +2.6% | ✗ |
-| 2012 | 250 | 66 | +4.4% | +10.6% | +10.6% | +17.1% | ✗ |
-| 2013 | 252 | 73 | +25.0% | +16.9% | +15.4% | +28.2% | ✓ |
-| 2014 | 252 | 69 | -0.8% | +8.0% | +5.3% | +12.8% | ✗ |
-| 2015 | 252 | 57 | -7.1% | -2.0% | -4.0% | -3.6% | ✗ |
-| 2016 | 252 | 62 | +8.3% | +9.6% | +8.0% | +15.5% | ✗ |
-| 2017 | 251 | 74 | +19.5% | +14.5% | +22.8% | +24.0% | ✓ |
-| 2018 | 251 | 59 | -2.0% | -1.3% | +0.2% | -2.7% | ✗ |
-| 2019 | 252 | 69 | +20.6% | +18.9% | +13.0% | +31.4% | ✓ |
-| 2020 | 253 | 62 | +13.0% | +11.7% | +5.8% | +17.1% | ✓ |
-| 2021 | 252 | 73 | +12.7% | +17.3% | +14.4% | +28.6% | ✗ |
-| 2022 | 251 | 38 | -15.4% | -10.8% | -6.8% | -17.5% | ✗ |
-| 2023 | 250 | 63 | +10.9% | +15.8% | +13.4% | +26.0% | ✗ |
-| 2024 | 252 | 69 | +5.1% | +15.9% | +14.7% | +26.1% | ✗ |
-| 2025 | 250 | 64 | +6.3% | +11.6% | +6.5% | +18.2% | ✗ |
-| 2026 | 90 | 60 | +8.6% | +5.6% | +4.1% | +9.0% | ✓ |
+| Year | Days | Avg Exposure | Score >= 55 Ret | Score >= 55 Max DD | Matched Ret | Matched Max DD | Vol-Target Ret | Buy & Hold Ret | Beat benchmark? |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|
+| 2005 | 252 | 69% | +1.7% | -6.0% | +5.4% | -3.4% | +5.5% | +8.6% | ✗ |
+| 2006 | 251 | 76% | +5.4% | -6.3% | +8.3% | -4.1% | +12.7% | +13.4% | ✗ |
+| 2007 | 251 | 71% | -10.0% | -12.4% | +0.3% | -6.4% | -0.3% | +0.1% | ✗ |
+| 2008 | 253 | 2% | -3.1% | -3.1% | -21.5% | -32.0% | -10.6% | -34.0% | ✓ |
+| 2009 | 252 | 49% | +12.5% | -4.7% | +16.2% | -16.0% | +10.7% | +25.7% | ✗ |
+| 2010 | 252 | 63% | -1.0% | -12.9% | +9.4% | -9.7% | +10.4% | +14.6% | ✗ |
+| 2011 | 252 | 47% | -9.3% | -14.4% | +2.4% | -10.8% | -1.1% | +2.6% | ✗ |
+| 2012 | 250 | 66% | +4.4% | -8.7% | +10.6% | -5.5% | +10.6% | +17.1% | ✗ |
+| 2013 | 252 | 86% | +25.0% | -5.8% | +16.9% | -2.8% | +15.4% | +28.2% | ✓ |
+| 2014 | 252 | 71% | -0.8% | -6.9% | +8.0% | -3.8% | +5.3% | +12.8% | ✗ |
+| 2015 | 252 | 53% | -7.1% | -12.1% | -2.0% | -7.0% | -4.0% | -3.6% | ✗ |
+| 2016 | 252 | 63% | +8.3% | -3.1% | +9.6% | -4.9% | +8.0% | +15.5% | ✗ |
+| 2017 | 251 | 94% | +19.5% | -2.1% | +14.5% | -1.3% | +22.8% | +24.0% | ✓ |
+| 2018 | 251 | 63% | -2.0% | -8.4% | -1.3% | -10.8% | +0.2% | -2.7% | ✗ |
+| 2019 | 252 | 75% | +20.6% | -4.4% | +18.9% | -3.7% | +13.0% | +31.4% | ✓ |
+| 2020 | 253 | 61% | +13.0% | -6.8% | +11.7% | -22.2% | +5.8% | +17.1% | ✓ |
+| 2021 | 252 | 84% | +12.7% | -4.0% | +17.3% | -2.5% | +14.4% | +28.6% | ✗ |
+| 2022 | 251 | 18% | -15.4% | -15.4% | -10.8% | -15.7% | -6.8% | -17.5% | ✗ |
+| 2023 | 250 | 66% | +10.9% | -5.8% | +15.8% | -5.8% | +13.4% | +26.0% | ✗ |
+| 2024 | 252 | 78% | +5.1% | -9.5% | +15.9% | -4.8% | +14.7% | +26.1% | ✗ |
+| 2025 | 250 | 64% | +6.3% | -6.5% | +11.6% | -11.9% | +6.5% | +18.2% | ✗ |
+| 2026 | 90 | 67% | +8.6% | -2.8% | +5.6% | -3.9% | +4.1% | +9.0% | ✓ |
 
 ## Statistical Significance
 
@@ -151,11 +153,21 @@ the value is statistically indistinguishable from noise at this sample size.
 | Mean 5D, SELECTIVE | +0.25% | [+0.11%, +0.38%] | yes |
 | Mean 5D, DE-RISK | +0.30% | [+0.05%, +0.55%] | yes |
 | Mean 5D, RISK-OFF | +0.40% | [+0.01%, +0.78%] | yes |
+| Mean 5D, score decile 1 | +0.54% | [+0.07%, +1.05%] | yes |
+| Mean 5D, score decile 2 | +0.25% | [-0.13%, +0.66%] | no |
+| Mean 5D, score decile 3 | +0.29% | [-0.08%, +0.54%] | no |
+| Mean 5D, score decile 4 | +0.32% | [+0.06%, +0.60%] | yes |
+| Mean 5D, score decile 5 | +0.29% | [+0.08%, +0.40%] | yes |
+| Mean 5D, score decile 6 | +0.15% | [+0.01%, +0.34%] | yes |
+| Mean 5D, score decile 7 | +0.14% | [-0.04%, +0.29%] | no |
+| Mean 5D, score decile 8 | +0.12% | [-0.04%, +0.25%] | no |
+| Mean 5D, score decile 9 | +0.11% | [-0.08%, +0.26%] | no |
+| Mean 5D, score decile 10 | +0.15% | [+0.01%, +0.32%] | yes |
 | Decile 1 - Decile 10 spread (5D) | +0.38% | [-0.13%, +0.89%] | no |
 
-## Transaction Cost Sensitivity
+## Transaction Cost / Slippage Sensitivity
 
-Costs are charged on each change in exposure (including initial entry):
+Costs/slippage are charged on each change in exposure (including initial entry):
 cost = |delta exposure| x bps / 10,000. The constant benchmark pays once at
 inception; the vol-target baseline pays on its smaller continuous adjustments.
 
@@ -169,8 +181,9 @@ The Score >= 55 rule made **263 exposure flips** over this sample.
 
 ## Product Interpretation
 
-- Keep the UI language centered on exposure quality and drawdown control.
-- Treat 55 as the validated engagement line; 70 is a stronger constructive regime, not the first usable signal.
+- Keep the UI language centered on market conditions, exposure quality, and drawdown control.
+- If the score does not beat constant-exposure and vol-target baselines, describe it as a conditions dashboard rather than a timing edge.
+- Treat 55 as the current tested engagement line; 70 is a stronger constructive regime, not the first usable signal.
 - Avoid claims that the score predicts individual profitable days.
 - Rerun the replay and regenerate this report whenever scoring formulas, weights, thresholds, or safety overrides change.
 

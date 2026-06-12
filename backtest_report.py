@@ -13,7 +13,6 @@ Run:
 from __future__ import annotations
 
 import csv
-import hashlib
 import math
 import subprocess
 import sys
@@ -31,6 +30,7 @@ from backtest_stats import (
     block_bootstrap_ci,
     calibrate_vol_exposures,
     count_flips,
+    decile_mean_statistic,
     decile_spread_statistic,
     ic_statistic,
     max_drawdown,
@@ -177,33 +177,9 @@ def _matched_exposure_strategy(rows: list[BacktestRow], timing_result: StrategyR
     its total market exposure equals the timing strategy's. Same risk budget,
     no skill required.
     """
-    exposure_frac = timing_result["exposure_pct"] / 100.0
     label = f"Constant {timing_result['exposure_pct']:.0f}% SPY (matched benchmark)"
-    equity = 1.0
-    curve = [equity]
-    blocks: list[float] = []
-    for i in range(0, len(rows), 5):
-        row = rows[i]
-        block_return = (row["fwd5"] / 100) * exposure_frac
-        equity *= 1 + block_return
-        blocks.append(block_return)
-        curve.append(equity)
-    years = len(rows) / 252.0
-    total_blocks = len(blocks)
-    invested_blocks = total_blocks  # always invested (at reduced fraction)
-    cagr = (equity ** (1 / years) - 1) if years > 0 and equity > 0 else float("nan")
-    sd = _std(blocks)
-    sharpe = (_mean(blocks) / sd * math.sqrt(252 / 5)) if sd and sd > 0 else float("nan")
-    return {
-        "label": label,
-        "total_return_pct": (equity - 1) * 100,
-        "cagr_pct": cagr * 100,
-        "sharpe": sharpe,
-        "max_drawdown_pct": max_drawdown(curve) * 100,
-        "exposure_pct": timing_result["exposure_pct"],
-        "invested_blocks": invested_blocks,
-        "total_blocks": total_blocks,
-    }
+    exposure_frac = timing_result["exposure_pct"] / 100.0
+    return simulate_with_exposures(rows, [exposure_frac] * len(rows), label)
 
 
 def band_rows(rows: list[BacktestRow]) -> list[BandSummary]:
@@ -344,13 +320,14 @@ def _year_section(rows: list[BacktestRow], selective: StrategyResult) -> list[st
         f"The Score >= {ENGAGE_MIN} rule beat its matched benchmark in "
         f"**{beats} of {len(years)} years**.",
         "",
-        f"| Year | Days | Mean Score | Score >= {ENGAGE_MIN} | Matched Const. | Vol-Target | Buy & Hold | Beat benchmark? |",
-        "|---|---:|---:|---:|---:|---:|---:|:---:|",
+        f"| Year | Days | Avg Exposure | Score >= {ENGAGE_MIN} Ret | Score >= {ENGAGE_MIN} Max DD | Matched Ret | Matched Max DD | Vol-Target Ret | Buy & Hold Ret | Beat benchmark? |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|",
     ]
     for y in years:
         lines.append(
-            f"| {y['year']} | {y['days']:,} | {y['mean_score']:.0f} | "
-            f"{_fmt_pct(y['timing_return_pct'], 1)} | {_fmt_pct(y['matched_return_pct'], 1)} | "
+            f"| {y['year']} | {y['days']:,} | {y['timing_exposure_pct']:.0f}% | "
+            f"{_fmt_pct(y['timing_return_pct'], 1)} | {_fmt_pct(y['timing_max_drawdown_pct'], 1)} | "
+            f"{_fmt_pct(y['matched_return_pct'], 1)} | {_fmt_pct(y['matched_max_drawdown_pct'], 1)} | "
             f"{_fmt_pct(y['vol_target_return_pct'], 1)} | {_fmt_pct(y['buy_hold_return_pct'], 1)} | "
             f"{'✓' if y['beat_benchmark'] else '✗'} |"
         )
@@ -387,6 +364,10 @@ def _significance_section(rows: list[BacktestRow]) -> list[str]:
             point, lo, hi = block_bootstrap_ci(rows, band_mean_statistic(band))
             lines.append(_ci_row(f"Mean 5D, {band}", point, lo, hi, _fmt_pct))
 
+        for decile in range(1, 11):
+            point, lo, hi = block_bootstrap_ci(rows, decile_mean_statistic(decile))
+            lines.append(_ci_row(f"Mean 5D, score decile {decile}", point, lo, hi, _fmt_pct))
+
         point, lo, hi = block_bootstrap_ci(rows, decile_spread_statistic)
         lines.append(_ci_row("Decile 1 - Decile 10 spread (5D)", point, lo, hi, _fmt_pct))
     except ValueError:
@@ -402,9 +383,9 @@ def _cost_section(rows: list[BacktestRow], selective: StrategyResult) -> list[st
     flips = count_flips(timing_exposures)
     lines = [
         "",
-        "## Transaction Cost Sensitivity",
+        "## Transaction Cost / Slippage Sensitivity",
         "",
-        "Costs are charged on each change in exposure (including initial entry):",
+        "Costs/slippage are charged on each change in exposure (including initial entry):",
         "cost = |delta exposure| x bps / 10,000. The constant benchmark pays once at",
         "inception; the vol-target baseline pays on its smaller continuous adjustments.",
         "",
@@ -460,6 +441,11 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
     matched_engage = headline_strategies[3]
     vol_target = headline_strategies[4]
     buy_hold = headline_strategies[5]
+    matched_return_gap = engage["total_return_pct"] - matched_engage["total_return_pct"]
+    matched_sharpe_gap = engage["sharpe"] - matched_engage["sharpe"]
+    vol_return_gap = engage["total_return_pct"] - vol_target["total_return_pct"]
+    vol_sharpe_gap = engage["sharpe"] - vol_target["sharpe"]
+    matched_dd_benefit = engage["max_drawdown_pct"] - matched_engage["max_drawdown_pct"]
     headline_label = (
         f"Validation window ({headline_rows[0]['date']} to {headline_rows[-1]['date']})"
         if validation_strategies else "Full sample"
@@ -476,7 +462,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         generated_stamp,
         "",
         "This report is generated from the per-day replay output produced by `backtest.py`.",
-        "It supports the product claim that the Market Quality Score is a risk/exposure dial, not a day-by-day return predictor.",
+        "It tests whether the Market Quality Score adds timing value after fair same-exposure baselines.",
+        "Product copy should stay conservative unless the timing rule clears those baselines out of sample.",
         "",
         "## Executive Readout",
         "",
@@ -486,10 +473,13 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         f"{engage['exposure_pct']:.0f}% market exposure.",
         f"- A constant {matched_engage['exposure_pct']:.0f}%-SPY baseline (same risk budget, no timing) returned "
         f"{_fmt_pct(matched_engage['total_return_pct'], 1)} with {matched_engage['sharpe']:.2f} Sharpe — the fair benchmark for the timing rule.",
+        f"- Timing edge versus constant exposure: {_fmt_pct(matched_return_gap, 1)} total-return points and "
+        f"{matched_sharpe_gap:+.2f} Sharpe. Drawdown difference: {_fmt_pct(matched_dd_benefit, 1)} "
+        "(positive means the timing rule drew down less).",
         f"- A same-window, no-pillar vol-target baseline at the same exposure returned "
         f"{_fmt_pct(vol_target['total_return_pct'], 1)} with {vol_target['sharpe']:.2f} Sharpe and "
-        f"{_fmt_pct(vol_target['max_drawdown_pct'], 1)} max drawdown — the score must beat this "
-        f"to justify the five-pillar machinery.",
+        f"{_fmt_pct(vol_target['max_drawdown_pct'], 1)} max drawdown. Timing edge versus vol-target: "
+        f"{_fmt_pct(vol_return_gap, 1)} total-return points and {vol_sharpe_gap:+.2f} Sharpe.",
         f"- At 10 bps per exposure change ({flips} flips), the full-sample Score >= {ENGAGE_MIN} "
         f"total return drops to {_fmt_pct(costed['total_return_pct'], 1)}.",
         f"- Same-window buy & hold: {_fmt_pct(buy_hold['total_return_pct'], 1)} total return with "
@@ -609,8 +599,9 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         "",
         "## Product Interpretation",
         "",
-        "- Keep the UI language centered on exposure quality and drawdown control.",
-        "- Treat 55 as the validated engagement line; 70 is a stronger constructive regime, not the first usable signal.",
+        "- Keep the UI language centered on market conditions, exposure quality, and drawdown control.",
+        "- If the score does not beat constant-exposure and vol-target baselines, describe it as a conditions dashboard rather than a timing edge.",
+        "- Treat 55 as the current tested engagement line; 70 is a stronger constructive regime, not the first usable signal.",
         "- Avoid claims that the score predicts individual profitable days.",
         "- Rerun the replay and regenerate this report whenever scoring formulas, weights, thresholds, or safety overrides change.",
         "",

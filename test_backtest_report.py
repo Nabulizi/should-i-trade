@@ -73,7 +73,7 @@ class TestBacktestReport(unittest.TestCase):
         self.assertIn("## Strategy Comparison", report)
         self.assertIn("Score >= 55 (SELECTIVE+)", report)
         self.assertIn("Buy & hold", report)
-        self.assertIn("risk/exposure dial", report)
+        self.assertIn("same-exposure baselines", report)
         # New sections — removing any of these fails CI
         self.assertIn("matched benchmark", report)
         self.assertIn("Mean/Std", report)
@@ -237,7 +237,7 @@ class TestBacktestReport(unittest.TestCase):
             rows = backtest_report.load_rows(path)
             report = backtest_report.build_report(rows, "fixture.csv")
 
-        self.assertIn("## Transaction Cost Sensitivity", report)
+        self.assertIn("## Transaction Cost / Slippage Sensitivity", report)
         self.assertIn("20 bps", report)
         self.assertIn("exposure flips", report)
 
@@ -253,8 +253,8 @@ class TestBacktestReport(unittest.TestCase):
         self.assertLess(report.index("## Year-By-Year"),
                         report.index("## Statistical Significance"))
         self.assertLess(report.index("## Statistical Significance"),
-                        report.index("## Transaction Cost Sensitivity"))
-        self.assertLess(report.index("## Transaction Cost Sensitivity"),
+                        report.index("## Transaction Cost / Slippage Sensitivity"))
+        self.assertLess(report.index("## Transaction Cost / Slippage Sensitivity"),
                         report.index("## Product Interpretation"))
 
 
