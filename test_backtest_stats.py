@@ -156,11 +156,15 @@ class TestYearlyTable(unittest.TestCase):
         self.assertEqual([y["year"] for y in table], ["2020", "2021"])
         self.assertEqual([y["days"] for y in table], [40, 40])
         # 2020: timing never invested -> 0% return; B&H compounds 8 blocks of +1%.
+        self.assertAlmostEqual(table[0]["timing_exposure_pct"], 0.0, places=9)
         self.assertAlmostEqual(table[0]["timing_return_pct"], 0.0, places=9)
         self.assertAlmostEqual(table[0]["buy_hold_return_pct"], (1.01 ** 8 - 1) * 100, places=9)
         # 2021: timing fully invested -> equals B&H for the year.
+        self.assertAlmostEqual(table[1]["timing_exposure_pct"], 100.0, places=9)
         self.assertAlmostEqual(
             table[1]["timing_return_pct"], table[1]["buy_hold_return_pct"], places=9)
+        self.assertLessEqual(table[0]["timing_max_drawdown_pct"], 0.0)
+        self.assertLessEqual(table[0]["matched_max_drawdown_pct"], 0.0)
 
     def test_beat_benchmark_flag(self):
         rows = self._two_year_rows()
@@ -236,6 +240,18 @@ class TestStatistics(unittest.TestCase):
         rows = make_rows(50)
         with self.assertRaises(ValueError):
             backtest_stats.ic_statistic(10)(rows)
+
+    def test_decile_mean_statistic_recomputes_score_bucket(self):
+        fwd5 = [2.0] * 10 + [0.0] * 80 + [-1.0] * 10
+        rows = make_rows(100, total=list(range(100)), fwd5=fwd5)
+        self.assertAlmostEqual(backtest_stats.decile_mean_statistic(1)(rows), 2.0, places=9)
+        self.assertAlmostEqual(backtest_stats.decile_mean_statistic(10)(rows), -1.0, places=9)
+
+    def test_decile_mean_statistic_validates_decile(self):
+        with self.assertRaises(ValueError):
+            backtest_stats.decile_mean_statistic(0)
+        with self.assertRaises(ValueError):
+            backtest_stats.decile_mean_statistic(11)
 
 
 if __name__ == "__main__":

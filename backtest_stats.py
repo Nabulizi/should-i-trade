@@ -234,9 +234,13 @@ class YearRow(TypedDict):
     year: str
     days: int
     mean_score: float
+    timing_exposure_pct: float
     timing_return_pct: float
+    timing_max_drawdown_pct: float
     matched_return_pct: float
+    matched_max_drawdown_pct: float
     vol_target_return_pct: float
+    vol_target_max_drawdown_pct: float
     buy_hold_return_pct: float
     beat_benchmark: bool
 
@@ -269,9 +273,13 @@ def yearly_table(rows: list[BacktestRow], engage_min: float,
             "year": year,
             "days": len(chunk),
             "mean_score": _mean([r["total"] for r in chunk]),
+            "timing_exposure_pct": timing["exposure_pct"],
             "timing_return_pct": timing["total_return_pct"],
+            "timing_max_drawdown_pct": timing["max_drawdown_pct"],
             "matched_return_pct": matched["total_return_pct"],
+            "matched_max_drawdown_pct": matched["max_drawdown_pct"],
             "vol_target_return_pct": vol["total_return_pct"],
+            "vol_target_max_drawdown_pct": vol["max_drawdown_pct"],
             "buy_hold_return_pct": buy_hold["total_return_pct"],
             "beat_benchmark": timing["total_return_pct"] > matched["total_return_pct"],
         })
@@ -336,6 +344,27 @@ def band_mean_statistic(band: str) -> Callable[[list[BacktestRow]], float]:
     def stat(rows: list[BacktestRow]) -> float:
         vals = [r["fwd5"] for r in rows if r["decision"] == band]
         return _mean(vals) if vals else float("nan")
+    return stat
+
+
+def decile_mean_statistic(decile: int) -> Callable[[list[BacktestRow]], float]:
+    """Mean 5-day forward return for a 1-indexed score decile.
+
+    Decile membership is recomputed on every bootstrap resample. That makes
+    the interval answer the actual question: is this rank bucket stable, or did
+    the apparent edge depend on one exact historical ordering?
+    """
+    if decile < 1 or decile > 10:
+        raise ValueError("decile must be between 1 and 10")
+
+    def stat(rows: list[BacktestRow]) -> float:
+        ranked = sorted(rows, key=lambda r: r["total"])
+        n = len(ranked)
+        lo = (decile - 1) * n // 10
+        hi = decile * n // 10
+        vals = [r["fwd5"] for r in ranked[lo:hi]]
+        return _mean(vals) if vals else float("nan")
+
     return stat
 
 
