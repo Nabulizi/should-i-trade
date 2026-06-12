@@ -2,13 +2,13 @@
 
 # Should I Trade? — Market Quality Terminal v6
 
-A single-page, self-hosted **risk / de-risk gauge** for the session: it reads the market regime and tells you **how much market exposure the current environment is worth.**
+A single-page, self-hosted **market-conditions gauge** for the session: it reads the market regime and turns current conditions into a suggested exposure posture.
 
 No subscriptions, no API keys, no cloud dependencies — all data comes from free public sources.
 
 > **Live demo:** [should-i-trade.onrender.com](https://should-i-trade.onrender.com) — or self-host in one command (see Quick Start).
 
-> **What the score is (and isn't).** A 2005–2026 walk-forward backtest showed the composite Market Quality Score is a **drawdown/exposure timer, not a forward-return predictor.** In the 2016+ validation window, a "long SPY when score ≥55, otherwise flat" rule cut max drawdown from ~−32% to ~−14% with ~69% exposure, but it lagged buy-and-hold on total return and Sharpe. It does **not** predict which days will be profitable — read it as a risk dial, not a green light. The engage line is **55**, not 70.
+> **What the score is (and isn't).** The composite Market Quality Score describes market conditions; it is **not a timing signal**. In the 2005–2026 backtest, a no-pillar volatility-targeting baseline holding the same average exposure beat the "long SPY when score ≥ 55" rule on total return, Sharpe, and max drawdown (validation window: 1.06 vs 0.86 Sharpe, −11.1% vs −14.3% max drawdown). The rule beat its fair benchmark in 6 of 22 years, and forward-return correlations are negative. Read the dashboard as a conditions report and exposure prompt — see the [Backtest Report](docs/backtest-report.md) for the full evidence.
 
 > See [Backtest Methodology](docs/backtest-methodology.md) and the generated [Backtest Report](docs/backtest-report.md) for reproduction commands, assumptions, results, and limitations.
 
@@ -69,7 +69,7 @@ Then open **http://localhost:8765** in your browser. The first load takes ~7–8
 ### First-Run Orientation
 
 - The headline score is the backend's official Market Quality Score. Custom weights in the UI are what-if only and never rewrite the saved/live score.
-- Read the score as an exposure dial: **55** is the validated engagement line, **70** is constructive, and **85** is the strongest risk-on band.
+- Read the score as a conditions/exposure dial: **55/70/85** mark descriptive bands (selective / constructive / strongest), not validated signal thresholds.
 - If the data-quality banner appears, treat the decision as disabled or stale until live market inputs recover.
 - The first full refresh is slower than later refreshes because the 60-second cache is empty.
 - To use Watchlist Health, place a TradingView-format `.txt` export in `watchlists/` and refresh `/api/watchlist-health`.
@@ -88,6 +88,7 @@ should-i-trade/
 ├── watchlist.py           # TradingView watchlist import + symbol health scorer
 ├── backtest.py            # Walk-forward replay: IC, decile, regime & strategy tests
 ├── backtest_report.py     # Offline Markdown report generator for backtest_results.csv
+├── backtest_stats.py      # Pure offline stats: baselines, bootstrap CIs, costs
 ├── backtest_experiment.py # Scratchpad for weight/threshold experiments
 ├── config.py              # ← All user-tunable settings (port, TTLs, weights, WL thresholds)
 ├── config_local.py        # (git-ignored) your local secrets, e.g. GEMINI_API_KEY
@@ -103,6 +104,7 @@ should-i-trade/
 ├── test_data.py           # Data layer + circuit-breaker tests
 ├── test_analysis.py       # Roundtable persona tests
 ├── test_backtest_report.py # Backtest report generator tests
+├── test_backtest_stats.py # Baseline/bootstrap/cost analytics tests
 ├── test_fixes.py          # Script-style infra regression suite (python3 test_fixes.py)
 ├── docs/
 │   ├── backtest-methodology.md # Backtest design, assumptions, update protocol
@@ -162,7 +164,7 @@ Data flows: `data.py` fetches from Yahoo Finance (primary), falling back to Stoo
 
 > Weights are defined in `config.py` and can be adjusted without touching logic files.
 
-> **Correlation note (22-year backtest):** Breadth↔Momentum share significant signal (r=0.70) and Vol↔Breadth correlate at r=0.71 — the composite has ~3 effective independent inputs, not 5. Macro is the only truly orthogonal pillar. The score still works as a drawdown timer; just don't interpret the 5 bars as 5 independent votes.
+> **Correlation note:** the five pillars are substantially correlated — the composite behaves like roughly three effective inputs, not five independent votes. Macro is the most independent pillar. Don't read the five bars as five separate confirmations.
 
 ### Risk-Posture Thresholds
 
@@ -284,6 +286,7 @@ python3 test_scoring.py  # scoring pillar unit tests (fully offline)
 python3 test_data.py     # data-layer + circuit-breaker tests
 python3 test_contracts.py # dashboard payload schema contract tests
 python3 test_backtest_report.py # offline generated-report contract tests
+python3 test_backtest_stats.py # baseline/bootstrap/cost analytics tests
 python3 test_analysis.py # roundtable persona tests
 npm test                 # frontend unit tests
 ```
