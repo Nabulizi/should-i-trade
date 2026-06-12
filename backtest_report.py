@@ -19,8 +19,18 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Callable, Iterable, Literal, TypedDict
+from typing import Callable, Literal, TypedDict
 
+from backtest_stats import (
+    BacktestRow,
+    StrategyResult,
+    _mean,
+    _median,
+    _std,
+    max_drawdown,
+    pearson,
+    spearman,
+)
 
 DEFAULT_INPUT = Path("backtest_results.csv")
 DEFAULT_OUTPUT = Path("docs/backtest-report.md")
@@ -38,35 +48,6 @@ PILLARS: tuple[tuple[PillarKey, str], ...] = (
     ("ma", "Macro"),
     ("total", "TOTAL"),
 )
-
-
-class BacktestRow(TypedDict):
-    date: str
-    total: float
-    raw_total: float
-    decision: str
-    above_200: bool
-    v: float
-    tr: float
-    br: float
-    mo: float
-    ma: float
-    rsi2: float | None
-    dist20: float | None
-    fwd1: float
-    fwd5: float
-    fwd20: float
-
-
-class StrategyResult(TypedDict):
-    label: str
-    total_return_pct: float
-    cagr_pct: float
-    sharpe: float
-    max_drawdown_pct: float
-    exposure_pct: float
-    invested_blocks: int
-    total_blocks: int
 
 
 def _engine_hash() -> str:
@@ -148,74 +129,6 @@ def load_rows(path: Path | str) -> list[BacktestRow]:
                 "fwd20": float(raw["fwd20"]),
             })
     return rows
-
-
-def _mean(xs: Iterable[float]) -> float:
-    vals = list(xs)
-    return sum(vals) / len(vals) if vals else float("nan")
-
-
-def _median(xs: Iterable[float]) -> float:
-    vals = sorted(xs)
-    if not vals:
-        return float("nan")
-    mid = len(vals) // 2
-    if len(vals) % 2:
-        return vals[mid]
-    return (vals[mid - 1] + vals[mid]) / 2
-
-
-def _std(xs: Iterable[float]) -> float:
-    vals = list(xs)
-    if len(vals) < 2:
-        return float("nan")
-    avg = _mean(vals)
-    return math.sqrt(sum((x - avg) ** 2 for x in vals) / (len(vals) - 1))
-
-
-def _rank(xs: list[float]) -> list[float]:
-    order = sorted(range(len(xs)), key=lambda i: xs[i])
-    ranks = [0.0] * len(xs)
-    i = 0
-    while i < len(order):
-        j = i
-        while j + 1 < len(order) and xs[order[j + 1]] == xs[order[i]]:
-            j += 1
-        avg_rank = (i + j) / 2.0 + 1
-        for k in range(i, j + 1):
-            ranks[order[k]] = avg_rank
-        i = j + 1
-    return ranks
-
-
-def pearson(xs: list[float], ys: list[float]) -> float:
-    n = min(len(xs), len(ys))
-    if n < 3:
-        return float("nan")
-    a = xs[:n]
-    b = ys[:n]
-    ma = _mean(a)
-    mb = _mean(b)
-    cov = sum((x - ma) * (y - mb) for x, y in zip(a, b))
-    va = sum((x - ma) ** 2 for x in a)
-    vb = sum((y - mb) ** 2 for y in b)
-    return cov / math.sqrt(va * vb) if va and vb else float("nan")
-
-
-def spearman(xs: list[float], ys: list[float]) -> float:
-    return pearson(_rank(xs), _rank(ys))
-
-
-def max_drawdown(equity: list[float]) -> float:
-    if not equity:
-        return float("nan")
-    peak = equity[0]
-    mdd = 0.0
-    for value in equity:
-        peak = max(peak, value)
-        if peak:
-            mdd = min(mdd, value / peak - 1)
-    return mdd
 
 
 def information_coefficients(rows: list[BacktestRow]) -> dict[int, float]:
