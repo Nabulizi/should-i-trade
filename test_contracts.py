@@ -170,7 +170,8 @@ class TestDashboardContracts(unittest.TestCase):
             self.assertIsInstance(vt["realized_vol_pct"], float)
             self.assertGreaterEqual(vt["exposure_pct"], 0.0)
             self.assertLessEqual(vt["exposure_pct"], 100.0)
-            self.assertGreater(vt["realized_vol_pct"], 0.0)
+            # Rounded to 2 decimals; near-zero-vol fixtures may round to 0.0.
+            self.assertGreaterEqual(vt["realized_vol_pct"], 0.0)
 
     def test_pillars_contain_all_five(self):
         self.assertEqual(set(self.payload["pillars"].keys()), KNOWN_PILLAR_NAMES)

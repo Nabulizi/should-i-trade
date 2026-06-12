@@ -805,7 +805,7 @@ def test_vol_target_exposure() -> None:
     ok("exposure matches hand computation",
        abs(out["exposure_pct"] - round(expected_exp, 1)) < 1e-9)
     ok("realized vol matches hand computation",
-       abs(out["realized_vol_pct"] - round(expected_vol, 1)) < 1e-9)
+       abs(out["realized_vol_pct"] - round(expected_vol, 2)) < 1e-9)
 
     # Calm-but-nonzero vol clamps at 100%.
     calm = [100.0]

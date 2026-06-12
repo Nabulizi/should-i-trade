@@ -1389,7 +1389,7 @@ def vol_target_exposure(closes: list[float]) -> VolTargetInfo | None:
     if vol <= 0:
         return None
     exposure = min(100.0, max(0.0, 100.0 * VOL_TARGET_K / vol))
-    return {"exposure_pct": round(exposure, 1), "realized_vol_pct": round(vol, 1)}
+    return {"exposure_pct": round(exposure, 1), "realized_vol_pct": round(vol, 2)}
 
 
 def _day_streak(closes: list[float]) -> dict:
