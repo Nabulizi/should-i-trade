@@ -202,5 +202,17 @@ class TestBacktestReport(unittest.TestCase):
         self.assertAlmostEqual(val_strats[2]["exposure_pct"], val_strats[3]["exposure_pct"], places=6)
 
 
+    def test_report_contains_year_by_year_section(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(FIXTURE_CSV, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Year-By-Year", report)
+        self.assertIn("| 2024 |", report)
+        self.assertIn("Beat benchmark", report)
+
+
 if __name__ == "__main__":
     unittest.main()

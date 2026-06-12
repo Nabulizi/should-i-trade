@@ -27,10 +27,12 @@ from backtest_stats import (
     _mean,
     _median,
     _std,
+    calibrate_vol_exposures,
     max_drawdown,
     pearson,
     spearman,
     vol_target_strategy,
+    yearly_table,
 )
 
 DEFAULT_INPUT = Path("backtest_results.csv")
@@ -320,6 +322,35 @@ def strategy_rows(rows: list[BacktestRow]) -> list[StrategyResult]:
     ]
 
 
+def _year_section(rows: list[BacktestRow], selective: StrategyResult) -> list[str]:
+    matched_fraction = selective["exposure_pct"] / 100.0
+    vol_exposures = calibrate_vol_exposures(rows, selective["exposure_pct"])
+    years = yearly_table(rows, ENGAGE_MIN, matched_fraction, vol_exposures)
+    beats = sum(1 for y in years if y["beat_benchmark"])
+    lines = [
+        "",
+        "## Year-By-Year",
+        "",
+        f"Calendar-year returns. Matched-benchmark fraction and vol-target calibration are "
+        f"full-sample ({selective['exposure_pct']:.0f}% exposure), so rows are comparable down "
+        "each column. Block boundaries reset at year start (approximation).",
+        "",
+        f"The Score >= {ENGAGE_MIN} rule beat its matched benchmark in "
+        f"**{beats} of {len(years)} years**.",
+        "",
+        "| Year | Days | Mean Score | Score >= 55 | Matched Const. | Vol-Target | Buy & Hold | Beat benchmark? |",
+        "|---|---:|---:|---:|---:|---:|---:|:---:|",
+    ]
+    for y in years:
+        lines.append(
+            f"| {y['year']} | {y['days']:,} | {y['mean_score']:.0f} | "
+            f"{_fmt_pct(y['timing_return_pct'], 1)} | {_fmt_pct(y['matched_return_pct'], 1)} | "
+            f"{_fmt_pct(y['vol_target_return_pct'], 1)} | {_fmt_pct(y['buy_hold_return_pct'], 1)} | "
+            f"{'✓' if y['beat_benchmark'] else '✗'} |"
+        )
+    return lines
+
+
 def _fmt_pct(value: float, digits: int = 2) -> str:
     if math.isnan(value):
         return "n/a"
@@ -484,6 +515,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
                 f"{_fmt_pct(strategy_result['cagr_pct'])} | {strategy_result['sharpe']:.2f} | "
                 f"{_fmt_pct(strategy_result['max_drawdown_pct'], 1)} | {strategy_result['exposure_pct']:.0f}% |"
             )
+
+    lines.extend(_year_section(rows, full_sample_strategies[2]))
 
     lines.extend([
         "",
