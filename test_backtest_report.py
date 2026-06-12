@@ -213,6 +213,22 @@ class TestBacktestReport(unittest.TestCase):
         self.assertIn("| 2024 |", report)
         self.assertIn("Beat benchmark", report)
 
+    def test_report_contains_significance_section(self):
+        lines = FIXTURE_CSV.strip().split("\n")
+        header, data = lines[0], lines[1:]
+        shifted = [row.replace("2024-", "2025-", 1) for row in data]
+        big_csv = "\n".join([header] + data + shifted) + "\n"
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(big_csv, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Statistical Significance", report)
+        self.assertIn("95% CI", report)
+        self.assertIn("Decile 1 - Decile 10", report)
+        self.assertIn("zero excluded", report.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

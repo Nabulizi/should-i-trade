@@ -27,7 +27,11 @@ from backtest_stats import (
     _mean,
     _median,
     _std,
+    band_mean_statistic,
+    block_bootstrap_ci,
     calibrate_vol_exposures,
+    decile_spread_statistic,
+    ic_statistic,
     max_drawdown,
     pearson,
     spearman,
@@ -351,6 +355,43 @@ def _year_section(rows: list[BacktestRow], selective: StrategyResult) -> list[st
     return lines
 
 
+def _ci_row(label: str, point: float, lo: float, hi: float,
+            fmt: Callable[[float], str]) -> str:
+    if math.isnan(lo) or math.isnan(hi):
+        return f"| {label} | {fmt(point)} | n/a | n/a |"
+    excluded = "yes" if (lo > 0 or hi < 0) else "no"
+    return f"| {label} | {fmt(point)} | [{fmt(lo)}, {fmt(hi)}] | {excluded} |"
+
+
+def _significance_section(rows: list[BacktestRow]) -> list[str]:
+    lines = [
+        "",
+        "## Statistical Significance",
+        "",
+        "Moving-block bootstrap (block 21 days, seeded, 95% CI). \"Zero excluded: no\" means",
+        "the value is statistically indistinguishable from noise at this sample size.",
+        "",
+        "| Statistic | Point | 95% CI | Zero excluded |",
+        "|---|---:|---:|:---:|",
+    ]
+    try:
+        for horizon in HORIZONS:
+            point, lo, hi = block_bootstrap_ci(rows, ic_statistic(horizon))
+            lines.append(_ci_row(f"IC ({horizon}d)", point, lo, hi, _fmt_num))
+
+        for band in DECISION_ORDER:
+            if not any(r["decision"] == band for r in rows):
+                continue
+            point, lo, hi = block_bootstrap_ci(rows, band_mean_statistic(band))
+            lines.append(_ci_row(f"Mean 5D, {band}", point, lo, hi, _fmt_pct))
+
+        point, lo, hi = block_bootstrap_ci(rows, decile_spread_statistic)
+        lines.append(_ci_row("Decile 1 - Decile 10 spread (5D)", point, lo, hi, _fmt_pct))
+    except ValueError:
+        lines.append("| (sample too small for block bootstrap) | n/a | n/a | n/a |")
+    return lines
+
+
 def _fmt_pct(value: float, digits: int = 2) -> str:
     if math.isnan(value):
         return "n/a"
@@ -517,6 +558,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
             )
 
     lines.extend(_year_section(rows, full_sample_strategies[2]))
+
+    lines.extend(_significance_section(rows))
 
     lines.extend([
         "",
