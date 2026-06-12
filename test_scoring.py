@@ -788,6 +788,37 @@ def test_claim_hygiene() -> None:
            len(band["action"]) < 90)
 
 
+def test_vol_target_exposure() -> None:
+    """Evidence-backed vol-target dial: clamp(k / realized vol, 0..100%)."""
+    print("\nVol-target exposure dial:")
+    import statistics
+
+    # 21 closes producing exactly alternating +1% / -1% daily returns.
+    closes = [100.0]
+    for i in range(20):
+        closes.append(closes[-1] * (1.01 if i % 2 == 0 else 0.99))
+    rets = [(closes[i] / closes[i - 1] - 1) * 100 for i in range(1, 21)]
+    expected_vol = statistics.stdev(rets)
+    out = scoring.vol_target_exposure(closes)
+    ok("returns dict for 21 closes", out is not None)
+    expected_exp = min(100.0, max(0.0, 100.0 * scoring.VOL_TARGET_K / expected_vol))
+    ok("exposure matches hand computation",
+       abs(out["exposure_pct"] - round(expected_exp, 1)) < 1e-9)
+    ok("realized vol matches hand computation",
+       abs(out["realized_vol_pct"] - round(expected_vol, 2)) < 1e-9)
+
+    # Calm-but-nonzero vol clamps at 100%.
+    calm = [100.0]
+    for i in range(20):
+        calm.append(calm[-1] * (1.0003 if i % 2 == 0 else 0.9999))
+    calm_out = scoring.vol_target_exposure(calm)
+    ok("calm tape clamps at 100%", calm_out is not None and calm_out["exposure_pct"] == 100.0)
+
+    ok("insufficient history -> None", scoring.vol_target_exposure([100.0] * 20) is None)
+    ok("zero vol (constant closes) -> None", scoring.vol_target_exposure([100.0] * 21) is None)
+    ok("empty input -> None", scoring.vol_target_exposure([]) is None)
+
+
 # ─── runner ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -804,6 +835,7 @@ if __name__ == "__main__":
     test_hyg_lqd_spread()
     test_day_streak()
     test_claim_hygiene()
+    test_vol_target_exposure()
 
     total = _PASS + _FAIL
     print(f"\n{'=' * 55}")
