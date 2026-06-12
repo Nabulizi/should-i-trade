@@ -19,6 +19,11 @@ The README summarizes the composite score conservatively:
   out of sample.
 - Drawdown reduction is useful only after separating it from the mechanical
   benefit of simply holding less SPY.
+- The pre-registered next-session conditions test FAILED: top-decile score
+  days were not followed by measurably cleaner-trending sessions (see the
+  Next-Session Trading Conditions section of the report). The spread ran
+  negative — calm, high-score tape was followed by slightly choppier
+  sessions than stressed tape.
 - The current engagement threshold under test is 55, not 70.
 
 Keep this claim attached to the exact implementation in `backtest.py` and the

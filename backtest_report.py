@@ -29,6 +29,10 @@ from backtest_stats import (
     band_mean_statistic,
     block_bootstrap_ci,
     calibrate_vol_exposures,
+    condition_band_table,
+    condition_decile_spread_statistic,
+    condition_decile_table,
+    condition_metrics,
     count_flips,
     decile_mean_statistic,
     decile_spread_statistic,
@@ -44,6 +48,7 @@ DEFAULT_INPUT = Path("backtest_results.csv")
 DEFAULT_OUTPUT = Path("docs/backtest-report.md")
 HORIZONS = (1, 5, 20)
 COST_LEVELS_BPS = (0.0, 5.0, 10.0, 20.0)
+CONDITION_PRIMARY_METRIC = "range_eff"
 ENGAGE_MIN = 55
 FULL_RISK_MIN = 70
 VALIDATION_START = "2016-01-01"
@@ -136,6 +141,11 @@ def load_rows(path: Path | str) -> list[BacktestRow]:
                 "fwd1": float(raw["fwd1"]),
                 "fwd5": float(raw["fwd5"]),
                 "fwd20": float(raw["fwd20"]),
+                "nd_open": _to_float(raw.get("nd_open", "") or ""),
+                "nd_high": _to_float(raw.get("nd_high", "") or ""),
+                "nd_low": _to_float(raw.get("nd_low", "") or ""),
+                "nd_close": _to_float(raw.get("nd_close", "") or ""),
+                "nd_prev_close": _to_float(raw.get("nd_prev_close", "") or ""),
             })
     return rows
 
@@ -409,6 +419,101 @@ def _cost_section(rows: list[BacktestRow], selective: StrategyResult) -> list[st
     return lines
 
 
+def _conditions_verdict(rows: list[BacktestRow]) -> tuple[str, float, float, float] | None:
+    """(verdict, point, lo, hi) for the pre-registered H1, or None when the
+    sample cannot support the bootstrap (no valid rows / too few rows)."""
+    if not any(condition_metrics(r) is not None for r in rows):
+        return None
+    try:
+        point, lo, hi = block_bootstrap_ci(
+            rows, condition_decile_spread_statistic(CONDITION_PRIMARY_METRIC))
+    except ValueError:
+        return None
+    if math.isnan(lo) or math.isnan(hi):
+        return None
+    return ("PASS" if lo > 0 else "FAIL", point, lo, hi)
+
+
+def _conditions_section(rows: list[BacktestRow]) -> list[str]:
+    lines = [
+        "",
+        "## Next-Session Trading Conditions",
+        "",
+        "Does a high score predict a better session to TRADE (not a higher return)?",
+        "Metrics describe SPY's next session from raw daily OHLC: range efficiency",
+        "|C-O|/(H-L) (1.0 = clean trend day, ~0 = round-trip chop), range size (H-L)/prevC,",
+        "gap share (fraction of the move that happened overnight, untradeable), and",
+        "trend-day frequency (efficiency > 0.6).",
+        "",
+    ]
+    valid = [r for r in rows if condition_metrics(r) is not None]
+    if not valid:
+        lines.append("_No next-session OHLC columns in this CSV — re-run `python3 backtest.py` to populate them._")
+        return lines
+
+    verdict = _conditions_verdict(rows)
+    lines.extend([
+        "**Pre-registered H1:** next-session range efficiency is higher after",
+        "top-decile score days than after bottom-decile days (95% block-bootstrap",
+        "CI of the decile spread excludes zero, positive direction).",
+        "",
+    ])
+    if verdict is None:
+        lines.extend(["**VERDICT: insufficient sample**", ""])
+    else:
+        v, point, lo, hi = verdict
+        lines.extend([
+            f"Spread {point:+.3f}, 95% CI [{lo:+.3f}, {hi:+.3f}].",
+            "",
+            f"**VERDICT: {v}**",
+            "",
+        ])
+
+    lines.extend([
+        "| Band | Valid Days | Range Eff | Range Size | Gap Share | Trend Days |",
+        "|---|---:|---:|---:|---:|---:|",
+    ])
+    for b in condition_band_table(rows, DECISION_ORDER):
+        lines.append(
+            f"| {b['label']} | {b['n']:,} | {b['range_eff']:.3f} | "
+            f"{100 * b['range_pct']:.2f}% | {b['gap_share']:.3f} | {b['trend_day_pct']:.1f}% |")
+
+    lines.extend([
+        "",
+        "| Decile | Valid Days | Range Eff | Range Size | Gap Share | Trend Days |",
+        "|---:|---:|---:|---:|---:|---:|",
+    ])
+    for b in condition_decile_table(rows):
+        lines.append(
+            f"| {b['label']} | {b['n']:,} | {b['range_eff']:.3f} | "
+            f"{100 * b['range_pct']:.2f}% | {b['gap_share']:.3f} | {b['trend_day_pct']:.1f}% |")
+
+    lines.extend([
+        "",
+        "Decile 10 minus decile 1 spreads (positive = high score better):",
+        "",
+        "| Metric | Point | 95% CI | Zero excluded |",
+        "|---|---:|---:|:---:|",
+    ])
+    metric_labels = (
+        ("range_eff", "Range efficiency (PRIMARY)"),
+        ("range_pct", "Range size (descriptive)"),
+        ("gap_share", "Gap share (descriptive)"),
+        ("trend_day", "Trend-day rate (descriptive)"),
+    )
+
+    def fmt3(x: float) -> str:
+        return f"{x:+.3f}"
+
+    try:
+        for key, label in metric_labels:
+            point, lo, hi = block_bootstrap_ci(rows, condition_decile_spread_statistic(key))
+            lines.append(_ci_row(label, point, lo, hi, fmt3))
+    except ValueError:
+        lines.append("| (sample too small for block bootstrap) | n/a | n/a | n/a |")
+    return lines
+
+
 def _fmt_pct(value: float, digits: int = 2) -> str:
     if math.isnan(value):
         return "n/a"
@@ -455,6 +560,7 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
     flips = count_flips(timing_exposures)
     costed = simulate_with_exposures(
         rows, timing_exposures, "costed", cost_bps=10.0)
+    cond_verdict = _conditions_verdict(rows)
 
     lines = [
         "# Backtest Report",
@@ -482,6 +588,10 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         f"{_fmt_pct(vol_return_gap, 1)} total-return points and {vol_sharpe_gap:+.2f} Sharpe.",
         f"- At 10 bps per exposure change ({flips} flips), the full-sample Score >= {ENGAGE_MIN} "
         f"total return drops to {_fmt_pct(costed['total_return_pct'], 1)}.",
+        *([f"- Conditions hypothesis (cleaner next-session trends after high scores): "
+           f"**{cond_verdict[0]}** — range-efficiency decile spread {cond_verdict[1]:+.3f}, "
+           f"95% CI [{cond_verdict[2]:+.3f}, {cond_verdict[3]:+.3f}]."]
+          if cond_verdict is not None else []),
         f"- Same-window buy & hold: {_fmt_pct(buy_hold['total_return_pct'], 1)} total return with "
         f"{buy_hold['sharpe']:.2f} Sharpe and {_fmt_pct(buy_hold['max_drawdown_pct'], 1)} max drawdown.",
         f"- Forward-return IC remains low ({_fmt_num(ics[5])} at 5 days), so the score should not be marketed as a precise return forecast.",
@@ -595,6 +705,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
 
     lines.extend(_cost_section(rows, full_sample_strategies[2]))
 
+    lines.extend(_conditions_section(rows))
+
     lines.extend([
         "",
         "## Product Interpretation",
@@ -611,6 +723,8 @@ def build_report(rows: list[BacktestRow], source_name: str = "backtest_results.c
         "- SPY close-to-close returns only; no intraday fills, stops, or position management.",
         "- Calendar overlays are neutralized in the replay methodology.",
         "- Historical data vendor revisions can change results.",
+        "- Condition metrics proxy intraday quality from daily OHLC; no true intraday bars.",
+        "- The gap metric uses raw prior close, so dividend days (~4/year) carry a small gap bias.",
         "- The score pillars are correlated, so the dashboard should not imply five fully independent votes.",
         "",
     ])

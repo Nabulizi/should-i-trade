@@ -79,7 +79,7 @@ def _yf_url(sym: str) -> str:
 
 
 def _fetch(sym: str) -> dict | None:
-    """Return {dates:[iso], adjclose:[float|None], high/low/volume:[...]}."""
+    """Return {dates:[iso], adjclose:[float|None], open/high/low/volume:[...]}."""
     for attempt in range(3):
         try:
             req = urllib.request.Request(_yf_url(sym),
@@ -101,6 +101,7 @@ def _fetch(sym: str) -> dict | None:
                 "dates": dates,
                 "adjclose": adj,
                 "close": closes,
+                "open": q.get("open", []),
                 "high": q.get("high", []),
                 "low": q.get("low", []),
                 "volume": q.get("volume", []),
@@ -121,9 +122,13 @@ def load_all(refresh: bool = False) -> dict[str, dict]:
         cache = os.path.join(CACHE_DIR, sym.replace("/", "_").replace("^", "_") + ".json")
         if not refresh and os.path.exists(cache):
             with open(cache) as f:
-                out[sym] = json.load(f)
-            continue
-        print(f"  downloading {sym} …")
+                data = json.load(f)
+            if "open" in data:
+                out[sym] = data
+                continue
+            print(f"  {sym}: cached payload lacks 'open' — refetching …")
+        else:
+            print(f"  downloading {sym} …")
         data = _fetch(sym)
         if data:
             with open(cache, "w") as f:
@@ -157,13 +162,15 @@ def align(raw: dict[str, dict]) -> tuple[list[str], dict[str, list]]:
     spy_ax = {dt: i for i, dt in enumerate(spy["dates"])}
     def col(name):
         s = [None] * len(master)
-        for dt, v in zip(spy["dates"], spy[name]):
+        for dt, v in zip(spy["dates"], spy.get(name, [])):
             if dt in idx:
                 s[idx[dt]] = v
         return s
     aligned["__SPY_HIGH"] = col("high")
     aligned["__SPY_LOW"] = col("low")
     aligned["__SPY_VOL"] = col("volume")
+    aligned["__SPY_OPEN"] = col("open")
+    aligned["__SPY_CLOSE_RAW"] = col("close")
     return master, aligned
 
 
@@ -330,6 +337,10 @@ def run(refresh: bool = False):
         aligned.setdefault(s, [None] * len(master))
 
     spy = aligned["SPY"]
+    spy_open = aligned["__SPY_OPEN"]
+    spy_high = aligned["__SPY_HIGH"]
+    spy_low = aligned["__SPY_LOW"]
+    spy_close_raw = aligned["__SPY_CLOSE_RAW"]
     n = len(master)
     print(f"Replaying {n - WARMUP - max(HORIZONS)} trading days "
           f"({master[WARMUP]} → {master[n - max(HORIZONS) - 1]})…\n")
@@ -354,7 +365,14 @@ def run(refresh: bool = False):
                 ok = False
         if not ok:
             continue
-        rows.append({"date": master[i], **s, **{f"fwd{h}": fwd[h] for h in HORIZONS}})
+        nd = {
+            "nd_open": spy_open[i + 1], "nd_high": spy_high[i + 1],
+            "nd_low": spy_low[i + 1], "nd_close": spy_close_raw[i + 1],
+            "nd_prev_close": spy_close_raw[i],
+        }
+        rows.append({"date": master[i], **s,
+                     **{f"fwd{h}": fwd[h] for h in HORIZONS},
+                     **{k: (v if v is not None else "") for k, v in nd.items()}})
 
     if len(rows) < 100:
         print(f"Only {len(rows)} scored days — insufficient for inference.")
@@ -363,8 +381,10 @@ def run(refresh: bool = False):
     _report(rows)
     # dump raw for inspection
     with open("backtest_results.csv", "w") as f:
-        cols = ["date", "total", "raw_total", "decision", "above_200",
-                "v", "tr", "br", "mo", "ma", "rsi2", "dist20"] + [f"fwd{h}" for h in HORIZONS]
+        cols = (["date", "total", "raw_total", "decision", "above_200",
+                 "v", "tr", "br", "mo", "ma", "rsi2", "dist20"]
+                + [f"fwd{h}" for h in HORIZONS]
+                + ["nd_open", "nd_high", "nd_low", "nd_close", "nd_prev_close"])
         f.write(",".join(cols) + "\n")
         for r in rows:
             f.write(",".join(str(r.get(c, "")) for c in cols) + "\n")

@@ -13,37 +13,37 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import backtest_report
 
 
-FIXTURE_CSV = """date,total,raw_total,decision,above_200,v,tr,br,mo,ma,rsi2,dist20,fwd1,fwd5,fwd20
-2024-01-02,40,40,DE-RISK,False,45,35,40,38,50,12.0,-1.2,-0.5,-1.0,-2.0
-2024-01-03,55,55,SELECTIVE,True,60,58,54,55,50,45.0,0.1,0.2,0.6,1.0
-2024-01-04,65,65,SELECTIVE,True,70,65,60,68,54,55.0,0.4,0.1,0.9,1.4
-2024-01-05,72,72,CONSTRUCTIVE,True,75,72,70,71,65,62.0,0.7,0.3,1.1,2.0
-2024-01-08,88,88,RISK-ON,True,90,89,86,88,78,70.0,1.1,0.4,1.6,2.8
-2024-01-09,35,35,RISK-OFF,False,40,30,35,30,48,9.0,-1.6,-0.7,-1.4,-2.5
-2024-01-10,58,58,SELECTIVE,True,64,60,55,58,52,50.0,0.2,0.1,0.5,0.8
-2024-01-11,74,74,CONSTRUCTIVE,True,76,75,72,74,66,64.0,0.8,0.3,1.3,2.2
-2024-01-12,92,92,RISK-ON,True,92,94,89,91,80,76.0,1.4,0.5,1.8,3.0
-2024-01-16,45,45,DE-RISK,False,50,43,45,41,49,20.0,-0.8,-0.2,-0.7,-1.5
-2024-01-17,57,57,SELECTIVE,True,61,59,58,56,51,48.0,0.0,0.2,0.7,1.1
-2024-01-18,76,76,CONSTRUCTIVE,True,78,77,73,75,67,66.0,0.9,0.4,1.4,2.4
-2024-01-19,90,90,RISK-ON,True,94,91,88,90,79,74.0,1.3,0.6,1.7,2.9
-2024-01-22,42,42,DE-RISK,False,48,40,42,39,47,18.0,-0.9,-0.3,-0.8,-1.6
-2024-01-23,60,60,SELECTIVE,True,66,62,59,60,53,52.0,0.3,0.2,0.8,1.2
-2024-01-24,78,78,CONSTRUCTIVE,True,80,79,76,77,68,68.0,1.0,0.5,1.5,2.6
-2024-01-25,94,94,RISK-ON,True,95,95,92,93,82,78.0,1.5,0.7,1.9,3.2
-2024-01-26,38,38,RISK-OFF,False,42,36,38,35,46,11.0,-1.3,-0.6,-1.2,-2.2
-2024-01-29,62,62,SELECTIVE,True,68,64,61,62,54,54.0,0.4,0.2,0.9,1.3
-2024-01-30,80,80,CONSTRUCTIVE,True,82,81,78,80,70,70.0,1.1,0.5,1.6,2.7
-2024-01-31,96,96,RISK-ON,True,96,97,94,95,84,80.0,1.6,0.8,2.0,3.4
-2024-02-01,44,44,DE-RISK,False,49,42,44,40,48,19.0,-0.7,-0.2,-0.6,-1.4
-2024-02-02,64,64,SELECTIVE,True,69,66,63,64,55,56.0,0.5,0.3,1.0,1.5
-2024-02-05,82,82,CONSTRUCTIVE,True,84,83,80,82,72,72.0,1.2,0.6,1.7,2.8
-2024-02-06,98,98,RISK-ON,True,98,98,96,97,86,82.0,1.7,0.9,2.1,3.6
-2024-02-07,36,36,RISK-OFF,False,41,34,36,33,45,10.0,-1.4,-0.7,-1.3,-2.4
-2024-02-08,66,66,SELECTIVE,True,71,68,65,66,56,58.0,0.6,0.3,1.1,1.6
-2024-02-09,84,84,CONSTRUCTIVE,True,86,85,82,84,74,74.0,1.3,0.7,1.8,2.9
-2024-02-12,99,99,RISK-ON,True,99,99,98,98,88,84.0,1.8,1.0,2.2,3.8
-2024-02-13,46,46,DE-RISK,False,51,44,46,42,49,21.0,-0.6,-0.1,-0.5,-1.2
+FIXTURE_CSV = """date,total,raw_total,decision,above_200,v,tr,br,mo,ma,rsi2,dist20,fwd1,fwd5,fwd20,nd_open,nd_high,nd_low,nd_close,nd_prev_close
+2024-01-02,40,40,DE-RISK,False,45,35,40,38,50,12.0,-1.2,-0.5,-1.0,-2.0,100.2,101.5,99.5,101.0,100.0
+2024-01-03,55,55,SELECTIVE,True,60,58,54,55,50,45.0,0.1,0.2,0.6,1.0,100.2,101.5,99.5,101.0,100.0
+2024-01-04,65,65,SELECTIVE,True,70,65,60,68,54,55.0,0.4,0.1,0.9,1.4,100.2,101.5,99.5,101.0,100.0
+2024-01-05,72,72,CONSTRUCTIVE,True,75,72,70,71,65,62.0,0.7,0.3,1.1,2.0,100.2,101.5,99.5,101.0,100.0
+2024-01-08,88,88,RISK-ON,True,90,89,86,88,78,70.0,1.1,0.4,1.6,2.8,100.2,101.5,99.5,101.0,100.0
+2024-01-09,35,35,RISK-OFF,False,40,30,35,30,48,9.0,-1.6,-0.7,-1.4,-2.5,100.2,101.5,99.5,101.0,100.0
+2024-01-10,58,58,SELECTIVE,True,64,60,55,58,52,50.0,0.2,0.1,0.5,0.8,100.2,101.5,99.5,101.0,100.0
+2024-01-11,74,74,CONSTRUCTIVE,True,76,75,72,74,66,64.0,0.8,0.3,1.3,2.2,100.2,101.5,99.5,101.0,100.0
+2024-01-12,92,92,RISK-ON,True,92,94,89,91,80,76.0,1.4,0.5,1.8,3.0,100.2,101.5,99.5,101.0,100.0
+2024-01-16,45,45,DE-RISK,False,50,43,45,41,49,20.0,-0.8,-0.2,-0.7,-1.5,100.2,101.5,99.5,101.0,100.0
+2024-01-17,57,57,SELECTIVE,True,61,59,58,56,51,48.0,0.0,0.2,0.7,1.1,100.2,101.5,99.5,101.0,100.0
+2024-01-18,76,76,CONSTRUCTIVE,True,78,77,73,75,67,66.0,0.9,0.4,1.4,2.4,100.2,101.5,99.5,101.0,100.0
+2024-01-19,90,90,RISK-ON,True,94,91,88,90,79,74.0,1.3,0.6,1.7,2.9,100.2,101.5,99.5,101.0,100.0
+2024-01-22,42,42,DE-RISK,False,48,40,42,39,47,18.0,-0.9,-0.3,-0.8,-1.6,100.2,101.5,99.5,101.0,100.0
+2024-01-23,60,60,SELECTIVE,True,66,62,59,60,53,52.0,0.3,0.2,0.8,1.2,100.2,101.5,99.5,101.0,100.0
+2024-01-24,78,78,CONSTRUCTIVE,True,80,79,76,77,68,68.0,1.0,0.5,1.5,2.6,100.2,101.5,99.5,101.0,100.0
+2024-01-25,94,94,RISK-ON,True,95,95,92,93,82,78.0,1.5,0.7,1.9,3.2,100.2,101.5,99.5,101.0,100.0
+2024-01-26,38,38,RISK-OFF,False,42,36,38,35,46,11.0,-1.3,-0.6,-1.2,-2.2,100.2,101.5,99.5,101.0,100.0
+2024-01-29,62,62,SELECTIVE,True,68,64,61,62,54,54.0,0.4,0.2,0.9,1.3,100.2,101.5,99.5,101.0,100.0
+2024-01-30,80,80,CONSTRUCTIVE,True,82,81,78,80,70,70.0,1.1,0.5,1.6,2.7,100.2,101.5,99.5,101.0,100.0
+2024-01-31,96,96,RISK-ON,True,96,97,94,95,84,80.0,1.6,0.8,2.0,3.4,100.2,101.5,99.5,101.0,100.0
+2024-02-01,44,44,DE-RISK,False,49,42,44,40,48,19.0,-0.7,-0.2,-0.6,-1.4,100.2,101.5,99.5,101.0,100.0
+2024-02-02,64,64,SELECTIVE,True,69,66,63,64,55,56.0,0.5,0.3,1.0,1.5,100.2,101.5,99.5,101.0,100.0
+2024-02-05,82,82,CONSTRUCTIVE,True,84,83,80,82,72,72.0,1.2,0.6,1.7,2.8,100.2,101.5,99.5,101.0,100.0
+2024-02-06,98,98,RISK-ON,True,98,98,96,97,86,82.0,1.7,0.9,2.1,3.6,100.2,101.5,99.5,101.0,100.0
+2024-02-07,36,36,RISK-OFF,False,41,34,36,33,45,10.0,-1.4,-0.7,-1.3,-2.4,100.2,101.5,99.5,101.0,100.0
+2024-02-08,66,66,SELECTIVE,True,71,68,65,66,56,58.0,0.6,0.3,1.1,1.6,100.2,101.5,99.5,101.0,100.0
+2024-02-09,84,84,CONSTRUCTIVE,True,86,85,82,84,74,74.0,1.3,0.7,1.8,2.9,100.2,101.5,99.5,101.0,100.0
+2024-02-12,99,99,RISK-ON,True,99,99,98,98,88,84.0,1.8,1.0,2.2,3.8,100.2,101.5,99.5,101.0,100.0
+2024-02-13,46,46,DE-RISK,False,51,44,46,42,49,21.0,-0.6,-0.1,-0.5,-1.2,100.2,101.5,99.5,101.0,100.0
 """
 
 
@@ -256,6 +256,43 @@ class TestBacktestReport(unittest.TestCase):
                         report.index("## Transaction Cost / Slippage Sensitivity"))
         self.assertLess(report.index("## Transaction Cost / Slippage Sensitivity"),
                         report.index("## Product Interpretation"))
+
+
+    def test_report_contains_conditions_section_with_verdict(self):
+        lines = FIXTURE_CSV.strip().split("\n")
+        header, data = lines[0], lines[1:]
+        shifted = [row.replace("2024-", "2025-", 1) for row in data]
+        big_csv = "\n".join([header] + data + shifted) + "\n"
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(big_csv, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Next-Session Trading Conditions", report)
+        self.assertIn("**VERDICT:", report)
+        self.assertIn("Range efficiency (PRIMARY)", report)
+        self.assertIn("(descriptive)", report)
+        # Section order: after cost sensitivity, before product interpretation.
+        self.assertLess(report.index("## Transaction Cost / Slippage Sensitivity"),
+                        report.index("## Next-Session Trading Conditions"))
+        self.assertLess(report.index("## Next-Session Trading Conditions"),
+                        report.index("## Product Interpretation"))
+
+    def test_conditions_section_degrades_without_nd_columns(self):
+        # Rebuild the fixture WITHOUT the five nd columns (original schema).
+        lines = FIXTURE_CSV.strip().split("\n")
+        stripped = [",".join(row.split(",")[:15]) for row in lines]
+        old_csv = "\n".join(stripped) + "\n"
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "fixture.csv"
+            path.write_text(old_csv, encoding="utf-8")
+            rows = backtest_report.load_rows(path)
+            report = backtest_report.build_report(rows, "fixture.csv")
+
+        self.assertIn("## Next-Session Trading Conditions", report)
+        self.assertIn("re-run `python3 backtest.py`", report)
+        self.assertNotIn("**VERDICT:", report)
 
 
 if __name__ == "__main__":
