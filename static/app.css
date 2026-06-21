@@ -424,34 +424,6 @@
     .ai-toast { transition: none; }
   }
 
-/* ── CALM DECISION-FIRST UI ─────────────────────────────── */
-:root {
-  --bg: #0b1217;
-  --surface: #101a20;
-  --surface2: #162229;
-  --border: #263740;
-  --border2: #38505b;
-  --green: #69d6a0;
-  --yellow: #f3cc67;
-  --orange: #f2a866;
-  --red: #ff7185;
-  --text: #edf4f5;
-  --muted: #9fb0b7;
-  --muted2: #b7c5ca;
-  --accent: #65d6c5;
-  --accent2: #65d6c5;
-}
-
-html { color-scheme: dark; scroll-behavior: smooth; }
-body {
-  min-width: 320px;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-}
-button, select, input { font: inherit; }
 .score-num, .pillar-score-badge, .metric-val, .ts, .countdown, .tick,
 .future-px, .future-chg, .weight-right, .watch-price, .watch-chg, .watch-score {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
