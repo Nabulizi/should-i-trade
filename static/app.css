@@ -71,11 +71,15 @@
   .main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
 
   /* ── HERO ── */
-  .hero { display: grid; grid-template-columns: clamp(185px, 14vw, 225px) 1fr clamp(140px, 11vw, 170px); gap: 14px; align-items: stretch; }
+  .hero { display: grid; grid-template-columns: 1fr clamp(140px, 11vw, 170px); grid-template-areas: "dec dec" "mid pos"; gap: 14px; align-items: stretch; }
   .decision-card, .pos-card, .score-wrap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 0; overflow: hidden; }
-  .decision-card { justify-content: flex-start; padding-top: 16px; }
+  /* Decision is the answer — give it the full hero width as the lead band */
+  .decision-card { grid-area: dec; flex-direction: row; align-items: center; text-align: left; justify-content: flex-start; gap: clamp(18px, 3vw, 44px); padding: 16px 22px; }
+  .hero-mid { grid-area: mid; }
+  .pos-card { grid-area: pos; }
+  .decision-verdict { display: flex; flex-direction: column; flex-shrink: 0; }
   .decision-label, .pos-label { font-size: 10px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
-  .decision-badge { font-size: clamp(14px, 1.4vw, 22px); font-weight: 800; letter-spacing: clamp(0px, 0.08vw, 1px); margin-bottom: 4px; white-space: nowrap; }
+  .decision-badge { font-size: clamp(28px, 4vw, 44px); font-weight: 800; letter-spacing: 0.5px; margin-bottom: 4px; white-space: nowrap; line-height: 1.05; }
   .decision-sub { font-size: 10px; color: var(--muted); }
   .pos-icon { font-size: 26px; margin-bottom: 4px; }
   .pos-text { font-size: 13px; font-weight: 700; letter-spacing: 1px; }
@@ -215,7 +219,7 @@
   .sparkline-wrap { padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border); }
 
   /* ── DECISION CONTEXT ── */
-  .decision-context { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; text-align: left; }
+  .decision-context { flex: 1; min-width: 0; padding-left: clamp(18px, 3vw, 44px); border-left: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; text-align: left; }
   .dc-row { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted2); }
   .dc-label { letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 62px; }
   .dc-posture { font-size: 10px; color: var(--text); font-weight: 600; line-height: 1.4; }
@@ -363,18 +367,18 @@
     .pillars-row { grid-template-columns: repeat(2, 1fr); }
     .roundtable-grid { grid-template-columns: repeat(2, 1fr); }
     .bottom-row { grid-template-columns: 1fr 1fr; }
-    /* Score+pillars full-width on top; Decision & Position side-by-side below */
-    .hero { grid-template-columns: 1fr 1fr; grid-template-areas: "mid mid" "dec pos"; }
-    .hero > .decision-card { grid-area: dec; }
-    .hero > .hero-mid      { grid-area: mid; }
-    .hero > .pos-card      { grid-area: pos; }
+    /* Decision band leads; score block then exposure stack beneath it */
+    .hero { grid-template-columns: 1fr; grid-template-areas: "dec" "mid" "pos"; }
   }
   @media (max-width: 600px) {
     .pillars-row { grid-template-columns: 1fr; }
     .roundtable-grid { grid-template-columns: 1fr; }
     .bottom-row { grid-template-columns: 1fr; }
-    .hero { grid-template-columns: 1fr; grid-template-areas: "mid" "dec" "pos"; }
-    .decision-badge { font-size: 24px; letter-spacing: 1px; }
+    .hero { grid-template-columns: 1fr; grid-template-areas: "dec" "mid" "pos"; }
+    /* On phones the decision band stacks vertically */
+    .decision-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .decision-context { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: 10px; width: 100%; }
+    .decision-badge { font-size: 30px; letter-spacing: 0.5px; }
     .header { flex-wrap: wrap; gap: 8px; }
     .header-left, .header-right { flex-wrap: wrap; }
     .main { padding: 10px; }
