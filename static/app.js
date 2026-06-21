@@ -869,6 +869,36 @@ async function renderSparkline() {
   }
 }
 
+/* ── COLLAPSIBLE SECTIONS ──────────────────────────────── */
+const _SECTION_DEFAULTS = { roundtable: false, watchlist: false };
+
+function _sectionExpanded(id) {
+  try { const v = localStorage.getItem(`section_${id}`); return v === null ? _SECTION_DEFAULTS[id] : v === 'true'; }
+  catch { return _SECTION_DEFAULTS[id]; }
+}
+
+function toggleSection(id) {
+  const body = document.getElementById(`section-body-${id}`);
+  const btn  = document.getElementById(`section-toggle-${id}`);
+  if (!body || !btn) return;
+  const nowOpen = body.classList.toggle('section-open');
+  btn.setAttribute('aria-expanded', String(nowOpen));
+  btn.querySelector('.toggle-chevron').style.transform = nowOpen ? 'rotate(90deg)' : '';
+  try { localStorage.setItem(`section_${id}`, String(nowOpen)); } catch {}
+  if (nowOpen && id === 'roundtable' && !document.querySelector('.persona-card')) runRoundtable(true);
+  if (nowOpen && id === 'watchlist' && !_watchlistData) loadWatchlistHealth();
+}
+
+function _initSection(id) {
+  const body = document.getElementById(`section-body-${id}`);
+  const btn  = document.getElementById(`section-toggle-${id}`);
+  if (!body || !btn) return;
+  const open = _sectionExpanded(id);
+  if (open) body.classList.add('section-open');
+  btn.setAttribute('aria-expanded', String(open));
+  btn.querySelector('.toggle-chevron').style.transform = open ? 'rotate(90deg)' : '';
+}
+
 /* ── ROUNDTABLE ────────────────────────────────────────── */
 // SVG icons used in roundtable buttons (match initial HTML renders in should-i-trade-v5.html)
 const _BTN_PLAY_SVG = '<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
@@ -1019,6 +1049,8 @@ async function load(isManual = false) {
       if (isFirst) {
         $('loading').style.display = 'none';
         $('content').style.display = 'block';
+        _initSection('roundtable');
+        _initSection('watchlist');
       }
       // Stale-while-revalidate: keep pulse active while server refreshes in background.
       if (raw.stale) {
@@ -1030,13 +1062,13 @@ async function load(isManual = false) {
     });
 
     renderSparkline();
-    if (isManual || isFirst) loadWatchlistHealth();
+    if ((isManual || isFirst) && _sectionExpanded('watchlist')) loadWatchlistHealth();
     _nextRefreshAt = raw.stale ? 0 : Date.now() + AUTO_REFRESH_MS;
 
     // Fire alert if score zone changed since last load
     _maybeAlert(raw.total_score, raw.decision);
 
-    if (isManual || isFirst || !document.querySelector('.persona-card')) {
+    if ((isManual || isFirst) && _sectionExpanded('roundtable')) {
       setTimeout(() => runRoundtable(true), 400);
     }
   } catch(e) {
@@ -1186,6 +1218,7 @@ if (!globalThis.__TESTING__) {
   // Expose functions used by HTML inline event handlers (onclick=, oninput=, etc.)
   // Required because ES modules don't leak to global scope.
   window.copySnapshot           = copySnapshot;
+  window.toggleSection          = toggleSection;
   window.toggleAlerts           = toggleAlerts;
   window.toggleTheme            = toggleTheme;
   window.toggleSettings         = toggleSettings;

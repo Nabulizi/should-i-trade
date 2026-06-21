@@ -171,29 +171,38 @@
     </div>
 
     <!-- WATCHLIST HEALTH -->
-    <div class="card watch-card">
-      <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Watchlist Health</span> <span class="watch-meta" id="watchlist-meta">TradingView export</span>
-        <select id="watchlist-select" style="margin-left:8px;font-size:10px;background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer;" aria-label="Select watchlist file" onchange="onWatchlistChange()"></select>
-      </div>
-      <div id="watchlist-health">
-        <div style="color:var(--muted);font-size:10px;">Loading watchlist…</div>
+    <div class="collapsible-section">
+      <button class="section-toggle" id="section-toggle-watchlist" onclick="toggleSection('watchlist')" aria-expanded="false" aria-controls="section-body-watchlist">
+        <span class="toggle-chevron" aria-hidden="true">▶</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Watchlist Health
+        <span class="watch-meta" id="watchlist-meta"></span>
+        <select id="watchlist-select" style="font-size:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer;" aria-label="Select watchlist file" onchange="onWatchlistChange()" onclick="event.stopPropagation()"></select>
+      </button>
+      <div id="section-body-watchlist" class="section-body">
+        <div id="watchlist-health">
+          <div style="color:var(--muted);font-size:11px;">Click to load watchlist…</div>
+        </div>
       </div>
     </div>
       </div>
     </details>
 
     <!-- ROUNDTABLE -->
-    <details class="workspace-disclosure roundtable-disclosure">
-      <summary><span>Consult the trading desk</span><span class="summary-hint">Rule-based read with optional AI analysis</span></summary>
-      <div class="roundtable-section">
-      <div class="roundtable-head">
-        <span class="roundtable-title">Desk perspective</span>
-        <button class="btn" id="rt-btn" onclick="runRoundtable()" aria-label="Refresh rule-based desk read"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>Refresh read</button>
-        <button class="btn btn-ai btn-primary" id="rt-ai-btn" onclick="runRoundtable(false, true)" aria-label="Run AI analysis — 5 specialist agents, approximately 10 seconds"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Ask AI desk</button>
+    <div class="collapsible-section">
+      <button class="section-toggle" id="section-toggle-roundtable" onclick="toggleSection('roundtable')" aria-expanded="false" aria-controls="section-body-roundtable">
+        <span class="toggle-chevron" aria-hidden="true">▶</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Trading Desk Roundtable
+      </button>
+      <div id="section-body-roundtable" class="section-body">
+        <div class="roundtable-head">
+          <button class="btn" id="rt-btn" onclick="runRoundtable()" aria-label="Generate rule-based desk read"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>Rule-Based Read</button>
+          <button class="btn btn-ai" id="rt-ai-btn" onclick="runRoundtable(false, true)" aria-label="Run AI analysis — 5 specialist agents, approximately 10 seconds"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI Analysis</button>
+        </div>
+        <div id="roundtable-grid" class="roundtable-grid"></div>
       </div>
-      <div id="roundtable-grid" class="roundtable-grid"></div>
-      </div>
-    </details>
+    </div>
 
   </main>
 </div>

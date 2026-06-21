@@ -211,9 +211,18 @@
   .confidence-bar { display: flex; gap: 3px; }
   .conf-seg { width: 18px; height: 3px; border-radius: 1px; }
 
+  /* ── COLLAPSIBLE SECTIONS ── */
+  .collapsible-section { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); overflow: hidden; }
+  .section-toggle { width: 100%; display: flex; align-items: center; gap: 8px; padding: 14px 20px; background: transparent; border: none; color: var(--text); font-size: 12px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; text-align: left; font-family: var(--sans); }
+  .section-toggle:hover { background: rgba(255,255,255,0.03); }
+  .section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .toggle-chevron { font-size: 9px; color: var(--muted); transition: transform 0.2s; display: inline-block; }
+  .section-body { display: none; padding: 0 20px 20px; }
+  .section-body.section-open { display: block; }
+  .roundtable-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-top: 4px; }
+
   /* ── ROUNDTABLE ── */
   .roundtable-section { display: flex; flex-direction: column; gap: 10px; }
-  .roundtable-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .roundtable-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
   .roundtable-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
   .persona-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; transition: border-color 0.3s, transform 0.3s; opacity: 0; transform: translateY(8px); }
