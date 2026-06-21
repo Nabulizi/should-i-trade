@@ -496,47 +496,6 @@
 .utility-menu-panel .btn { width: 100%; justify-content: flex-start; border-color: transparent; }
 .utility-menu-panel button[onclick="toggleSettings()"]::after { content: "Score weights"; }
 
-.market-tape {
-  max-width: 1440px;
-  margin: 0 auto;
-  border-bottom: 1px solid var(--border);
-}
-.market-tape > summary {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-  list-style: none;
-}
-.market-tape > summary::before { content: "+"; width: 20px; color: var(--accent); font-size: 17px; }
-.market-tape[open] > summary::before { content: "−"; }
-.market-tape > summary::-webkit-details-marker { display: none; }
-.ticker {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  gap: 1px;
-  padding: 0 20px 14px;
-}
-.tick {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  color: var(--text);
-  font-size: 11px;
-}
-.tick .sym { color: var(--muted); font-weight: 700; }
-.tick .px { margin-left: auto; }
-.tick.up .chg { color: var(--green); }
-.tick.dn .chg { color: var(--red); }
-
 .workspace-disclosure {
   border-block: 1px solid var(--border);
 }
@@ -574,11 +533,11 @@
 }
 
 .econ-row {
-  max-width: 1440px;
+  width: min(1392px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 4px 20px;
+  padding: 8px 0 0;
   background: transparent;
-  border-bottom: 1px solid var(--border);
+  border: 0;
 }
 .econ-badge { min-height: 24px; padding: 2px 7px; border-radius: 4px; }
 
@@ -691,9 +650,7 @@ input[type=range] { min-height: 32px; }
   .logo { font-size: 16px; }
   .mkt-badge { font-size: 9px; }
   .btn { min-height: 44px; }
-  .market-tape > summary { min-height: 44px; padding-inline: 16px; }
-  .ticker { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 12px 12px; }
-  .econ-row { padding: 6px 12px; }
+  .econ-row { width: calc(100% - 24px); padding: 8px 0 0; }
   .main { padding: 16px 12px 40px; gap: 16px; }
   .decision-badge { font-size: 36px; }
   .pillars-mini { min-width: 0; width: 100%; }

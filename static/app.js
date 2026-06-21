@@ -22,17 +22,6 @@ function colorClass(s) {
 function tagColor(c) { return ['green','yellow','orange','red','gray'].includes(c) ? c : 'gray'; }
 function chgStr(v)   { return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
 
-/* ── TICKER ─────────────────────────────────────────────── */
-function renderTicker(items) {
-  if (!$('ticker')) return;
-  $('ticker').innerHTML = (items || []).map(t => `
-    <span class="tick ${t.up ? 'up' : 'dn'}">
-      <span class="sym">${esc(t.symbol)}</span>
-      <span class="px">${esc(t.price)}</span>
-      <span class="chg"> ${t.up ? '\u25b4' : '\u25be'}${chgStr(t.change_pct)}</span>
-    </span>`).join('');
-}
-
 /* ── FUTURES TAPE ─────────────────────────────────────── */
 function fmtFuturePrice(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -1012,7 +1001,6 @@ async function load(isManual = false) {
     // Batch all DOM mutations in one animation frame to avoid layout thrashing
     requestAnimationFrame(() => {
       renderHeader(raw);
-      renderTicker(raw.ticker);
       renderHero(raw);
       renderFuturesTape(raw.futures_tape);
       renderPillars(raw);
