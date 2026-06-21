@@ -48,8 +48,9 @@
   .countdown { color: var(--muted2); font-size: 10px; }
   #refresh-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; opacity: 0; transition: opacity 0.3s; vertical-align: middle; margin-left: 4px; }
   #refresh-dot.active { opacity: 1; animation: pulse 1s infinite; }
-  .btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px; font-family: inherit; letter-spacing: 0.5px; transition: all 0.2s; }
+  .btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px; font-family: inherit; letter-spacing: 0.5px; transition: border-color 0.15s, color 0.15s; }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .btn:disabled { opacity: 0.4; cursor: wait; }
   .btn-ai { border-color: rgba(0,176,255,0.35); color: var(--accent); }
   .btn-ai:hover { background: rgba(0,176,255,0.08); border-color: var(--accent); }
@@ -116,7 +117,7 @@
 
   /* ── BOTTOM GRID ── */
   .bottom-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px; }
   .card-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .card-subtitle { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin: 10px 0 6px 0; padding-top: 8px; border-top: 1px solid var(--border); }
   .card-subtitle:first-child { border-top: none; padding-top: 0; margin-top: 0; }
@@ -387,7 +388,7 @@
   .icon-label { display: inline-flex; align-items: center; gap: 5px; }
 
   /* ── FOCUS STYLES ── */
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* ── BUTTON RESET for semantic toggle elements ── */
   button.why-toggle, button.detail-toggle {
@@ -397,17 +398,6 @@
     font-family: inherit;
   }
 
-  /* ── REDUCED MOTION ── */
-  @media (prefers-reduced-motion: reduce) {
-    .mkt-badge.open .dot,
-    #refresh-dot.active { animation: none; opacity: 1; }
-    .spinner { animation: none; border: 2px solid var(--accent); }
-    .score-circle .fill { transition: none; }
-    .pillar-bar-fill, .pm-fill, .weight-bar, .sector-bar { transition: none; }
-    .persona-card { transition: none; opacity: 1; transform: none; }
-    .settings-drawer { animation: none; }
-    .ai-toast { transition: none; }
-  }
 
 .score-num, .pillar-score-badge, .metric-val, .ts, .countdown, .tick,
 .future-px, .future-chg, .weight-right, .watch-price, .watch-chg, .watch-score {
