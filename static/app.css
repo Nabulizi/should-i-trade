@@ -371,7 +371,6 @@
   @media (max-width: 480px) {
     /* Hide non-essential header chrome — keep logo, mkt badge, action buttons */
     .subtitle, .fomc-badge, .countdown, #refresh-dot, .ts { display: none; }
-    .ticker-wrap { display: none; }
     .header { padding: 8px 12px; gap: 6px; }
     .header-left { gap: 10px; }
     .header-right { gap: 6px; }
@@ -402,7 +401,6 @@
 
   /* ── REDUCED MOTION ── */
   @media (prefers-reduced-motion: reduce) {
-    .ticker-inner { animation: none; }
     .mkt-badge.open .dot,
     #refresh-dot.active { animation: none; opacity: 1; }
     .spinner { animation: none; border: 2px solid var(--accent); }
@@ -523,18 +521,6 @@
 .market-tape > summary::before { content: "+"; width: 20px; color: var(--accent); font-size: 17px; }
 .market-tape[open] > summary::before { content: "−"; }
 .market-tape > summary::-webkit-details-marker { display: none; }
-.ticker-wrap {
-  height: auto;
-  min-height: 42px;
-  padding: 6px 10px;
-  overflow-x: auto;
-  background: transparent;
-  border-top: 1px solid var(--border);
-  border-bottom: 0;
-}
-.ticker-inner { display: flex; align-items: center; animation: none; }
-.tick { flex: 0 0 auto; padding: 5px 12px; font-size: 11px; font-weight: 600; }
-.tick .sym { color: var(--muted); }
 
 .econ-row {
   max-width: 1440px;
