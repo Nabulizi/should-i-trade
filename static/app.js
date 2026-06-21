@@ -25,7 +25,7 @@ function chgStr(v)   { return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; 
 /* ── TICKER ─────────────────────────────────────────────── */
 function renderTicker(items) {
   if (!$('ticker')) return;
-  $('ticker').innerHTML = items.map(t => `
+  $('ticker').innerHTML = (items || []).map(t => `
     <span class="tick ${t.up ? 'up' : 'dn'}">
       <span class="sym">${esc(t.symbol)}</span>
       <span class="px">${esc(t.price)}</span>
@@ -464,30 +464,6 @@ function renderBars(elId, data) {
           <span class="sector-pct" style="color:${c}">${chgStr(v.change_pct)}</span>
         </div>
       </div>
-    </div>`;
-  }).join('');
-}
-
-/* ── EXECUTION WINDOW ──────────────────────────────────── */
-function renderExecution(d) {
-  const t = d.pillars.trend.details;
-  const b = d.pillars.breadth.details;
-  const m = d.pillars.momentum.details;
-
-  const checks = [
-    { label: 'Breakouts working?', ok: m.sectors_positive >= 7,       t: 'Working',     f: 'Failing'  },
-    { label: 'Leaders holding?',   ok: t.above_50 && t.above_20,      t: 'Holding',     f: 'Breaking' },
-    { label: 'Pullbacks bought?',  ok: b.rsp_change_pct >= 0,         t: 'Supported',   f: 'Sold'     },
-    { label: 'Equal-weight leading?', ok: b.rsp_vs_spy > 0,             t: 'Equal-Wt Led', f: 'Large-Cap Led' },
-    { label: 'Follow-through?',    ok: d.total_score >= 70,           t: 'Conviction',  f: 'Weak'     },
-  ];
-
-  if (!$('exec-window')) return;
-  $('exec-window').innerHTML = checks.map(c => {
-    const col = c.ok ? 'var(--green)' : 'var(--red)';
-    return `<div class="exec-row">
-      <span class="exec-key"><span class="exec-dot" style="background:${col}"></span>${c.label}</span>
-      <span style="color:${col};font-size:10px;font-weight:700">${c.ok ? c.t : c.f}</span>
     </div>`;
   }).join('');
 }
@@ -1036,6 +1012,7 @@ async function load(isManual = false) {
     // Batch all DOM mutations in one animation frame to avoid layout thrashing
     requestAnimationFrame(() => {
       renderHeader(raw);
+      renderTicker(raw.ticker);
       renderHero(raw);
       renderFuturesTape(raw.futures_tape);
       renderPillars(raw);

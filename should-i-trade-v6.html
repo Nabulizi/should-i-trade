@@ -36,6 +36,7 @@
 <!-- MARKET TAPE -->
 <details class="market-tape">
   <summary>Market tape</summary>
+  <div class="ticker" id="ticker" aria-label="Current market prices"></div>
 </details>
 
 <!-- ECON EVENTS ROW -->
@@ -116,7 +117,7 @@
 
     <!-- SUPPORTING DATA -->
     <details class="workspace-disclosure">
-      <summary><span>Explore supporting data</span><span class="summary-hint">Breadth, execution, history, and watchlist</span></summary>
+      <summary><span>Explore supporting data</span><span class="summary-hint">Breadth, history, and watchlist</span></summary>
       <div class="supporting-content">
     <!-- BOTTOM -->
     <div class="bottom-row">
@@ -149,9 +150,6 @@
         </div>
       </div>
     </div>
-    <!-- Hidden elements kept for JS compatibility -->
-    <div id="exec-window" style="display:none" aria-hidden="true"></div>
-
     <!-- WATCHLIST HEALTH -->
     <div class="collapsible-section">
       <button class="section-toggle" id="section-toggle-watchlist" onclick="toggleSection('watchlist')" aria-expanded="false" aria-controls="section-body-watchlist">
