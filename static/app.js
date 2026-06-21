@@ -93,7 +93,8 @@ function renderHeader(d) {
     $('fomc-badge').innerHTML = `${esc(fomc.label || '—')} <span class="date">${esc(fomc.date_pretty || '')}</span>`;
   }
 
-  $('data-ts').textContent = d.timestamp ? `updated ${d.timestamp}` : '';
+  const dataTsEl = document.getElementById('data-ts');
+  if (dataTsEl) dataTsEl.textContent = d.timestamp ? `updated ${d.timestamp}` : '';
   const freshEl = document.getElementById('score-freshness');
   if (freshEl) freshEl.textContent = d.timestamp ? `as of ${d.timestamp}` : '';
 
