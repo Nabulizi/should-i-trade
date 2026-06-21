@@ -56,44 +56,37 @@
 
   <div class="main">
 
-    <!-- HERO -->
+    <!-- HERO — one band: score · verdict + context · radar -->
     <div class="hero">
-      <div class="decision-card">
-        <div class="decision-verdict">
-          <div class="decision-label">Risk Posture</div>
-          <div class="decision-badge" id="decision-badge">—</div>
-          <div class="decision-sub" id="decision-sub">Swing Trading</div>
-        </div>
-        <div class="decision-context" id="decision-context" style="display:none"></div>
-      </div>
-
-      <div class="hero-mid">
-        <div class="score-circle-wrap">
-          <div class="score-circle">
-            <svg width="110" height="110" viewBox="0 0 110 110">
-              <circle class="track" cx="55" cy="55" r="46"/>
-              <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
-            </svg>
-            <div class="score-num">
-              <div class="val" id="score-val">—</div>
-              <div class="tot">/ 100</div>
-            </div>
+      <div class="hero-score">
+        <div class="score-circle">
+          <svg width="104" height="104" viewBox="0 0 110 110">
+            <circle class="track" cx="55" cy="55" r="46"/>
+            <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
+          </svg>
+          <div class="score-num">
+            <div class="val" id="score-val">—</div>
+            <div class="tot">/ 100</div>
           </div>
-          <div class="score-label">Total Score</div>
-          <div class="score-caveat">not advice · not a return signal</div>
-          <div class="score-freshness" id="score-freshness"></div>
-          <div class="streak-badge-wrap" style="display:none"></div>
         </div>
-        <div class="pillars-mini" id="pillars-mini"></div>
+        <div class="score-label">Total Score</div>
+        <div class="score-freshness" id="score-freshness"></div>
+        <div class="streak-badge-wrap" style="display:none"></div>
       </div>
 
-      <div class="pos-card">
-        <div class="pos-label">Suggested Exposure</div>
-        <div class="pos-icon" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <div class="hero-verdict">
+        <div class="decision-label">Risk Posture</div>
+        <div class="decision-headline">
+          <span class="decision-badge" id="decision-badge">—</span>
+          <span class="pos-text" id="pos-text">—</span>
         </div>
-        <div class="pos-text" id="pos-text">—</div>
-        <div class="pos-sub">Drawdown-timed</div>
+        <div class="decision-sub" id="decision-sub">Swing Trading</div>
+        <div class="decision-context" id="decision-context" style="display:none"></div>
+        <div class="score-caveat">not advice · not a return signal</div>
+      </div>
+
+      <div class="hero-radar">
+        <div class="pillars-mini" id="pillars-mini"></div>
       </div>
     </div>
 
@@ -113,6 +106,10 @@
       </div>
     </div>
 
+    <div class="section-head">
+      <h2 class="section-title-lg">What's shaping the posture</h2>
+      <span class="section-hint">Open a signal only when you need the evidence</span>
+    </div>
     <div class="pillars-row" id="pillars-row"></div>
 
     <!-- OVERRIDE BANNER + CONFLICTS -->
@@ -165,10 +162,10 @@
           <svg class="sparkline" id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none"></svg>
           <div class="spark-legend" id="spark-legend" role="group" aria-label="Toggle sparkline series">
             <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#ededee"></div>Total</button>
-            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#d9a441"></div>Vol</button>
-            <button class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#4cc38a"></div>Trend</button>
-            <button class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#d6a23a"></div>Breadth</button>
-            <button class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#d98a3a"></div>Mom</button>
+            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#3b82f6"></div>Vol</button>
+            <button class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00e676"></div>Trend</button>
+            <button class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ffd740"></div>Breadth</button>
+            <button class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ff9100"></div>Mom</button>
             <button class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#8a8d93"></div>Macro</button>
           </div>
         </div>
