@@ -141,7 +141,7 @@ function renderHeader(d) {
 function buildRadarChart(pillars) {
   const keys   = ['volatility','trend','breadth','momentum','macro'];
   const labels = ['VOL','TREND','BREADTH','MOM','MACRO'];
-  const cx = 100, cy = 100, maxR = 72, sz = 200;
+  const cx = 100, cy = 100, maxR = 72;
   const n = keys.length;
   const step = (2 * Math.PI) / n;
   const start = -Math.PI / 2;
@@ -149,20 +149,23 @@ function buildRadarChart(pillars) {
     const a = start + i * step;
     return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
   }
-  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="160" height="160">`;
+  // viewBox carries margin around the chart so the axis labels (placed
+  // beyond maxR) are never clipped; colours use theme tokens so the grid
+  // and labels stay visible in both dark and light themes.
+  let svg = `<svg viewBox="-18 -12 236 218" width="184" height="170" role="img" aria-label="Pillar scores radar">`;
   // Grid rings
   [25,50,75,100].forEach(pct => {
     const r = maxR * pct / 100;
-    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="1"/>`;
   });
   // Axis lines
   for (let i = 0; i < n; i++) {
     const [x,y] = pt(i, maxR);
-    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
+    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border2)" stroke-width="1"/>`;
   }
   // Score polygon
   const pts = keys.map((k,i) => pt(i, maxR * (pillars[k]?.score ?? 50) / 100));
-  svg += `<polygon points="${pts.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="rgba(0,176,255,0.15)" stroke="#00b0ff" stroke-width="1.5"/>`;
+  svg += `<polygon points="${pts.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="rgba(0,176,255,0.15)" stroke="var(--accent)" stroke-width="1.5"/>`;
   // Dots + labels
   keys.forEach((k,i) => {
     const sc = pillars[k]?.score ?? 50;
@@ -170,7 +173,7 @@ function buildRadarChart(pillars) {
     const col = sc >= 70 ? '#00e676' : sc >= 45 ? '#ffd740' : '#ff1744';
     svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${col}"/>`;
     const [lx,ly] = pt(i, maxR + 18);
-    svg += `<text x="${lx.toFixed(1)}" y="${(ly-2).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.80)" font-size="15" font-family="monospace">${labels[i]}</text>`;
+    svg += `<text x="${lx.toFixed(1)}" y="${(ly-2).toFixed(1)}" text-anchor="middle" fill="var(--muted2)" font-size="15" font-family="monospace">${labels[i]}</text>`;
     svg += `<text x="${lx.toFixed(1)}" y="${(ly+13).toFixed(1)}" text-anchor="middle" fill="${col}" font-size="17" font-family="monospace" font-weight="700">${sc}</text>`;
   });
   svg += '</svg>';
