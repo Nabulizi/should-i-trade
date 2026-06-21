@@ -115,7 +115,7 @@
   .why-body .why-line { padding: 2px 0; }
 
   /* ── BOTTOM GRID ── */
-  .bottom-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
+  .bottom-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
   .card-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .card-subtitle { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin: 10px 0 6px 0; padding-top: 8px; border-top: 1px solid var(--border); }

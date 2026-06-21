@@ -118,7 +118,8 @@
     <details class="workspace-disclosure">
       <summary><span>Explore supporting data</span><span class="summary-hint">Breadth, execution, history, and watchlist</span></summary>
       <div class="supporting-content">
-      <div class="bottom-row">
+    <!-- BOTTOM -->
+    <div class="bottom-row">
       <!-- Sector + Industry Performance -->
       <div class="card">
         <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Breadth Under the Surface</span></div>
@@ -128,39 +129,18 @@
         <div id="industry-bars"></div>
       </div>
 
-      <!-- Execution Window -->
+      <!-- Score History Sparkline -->
       <div class="card">
-        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Execution Window</span></div>
-        <div id="exec-window"></div>
-      </div>
-
-      <!-- Scoring Weights + Sparkline -->
-      <div class="card">
-        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Scoring Weights</span> <button class="btn" style="font-size:9px;padding:2px 6px" onclick="toggleSettings()"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Edit</button></div>
-        <div id="score-weights"></div>
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
-          <span id="weight-total-label" style="color:var(--muted);font-size:10px;">OFFICIAL SCORE</span>
-          <span style="font-size:16px;font-weight:800;" id="total-score-bottom">—</span>
-        </div>
-        <div id="weight-scenario-note" style="display:none;margin-top:6px;font-size:9px;color:var(--muted);line-height:1.6;">
-          What-if only. The hero decision, alerts, conflicts, history, and roundtable use backend weights.
-        </div>
-        <div style="margin-top:8px;font-size:9px;color:var(--muted);line-height:1.7;">
-          <span style="color:var(--green);">●</span> 70+: RISK-ON (full / standard exposure)<br>
-          <span style="color:var(--yellow);">●</span> 55–69: SELECTIVE (moderate exposure)<br>
-          <span style="color:var(--orange);">●</span> 40–54: DE-RISK (reduced exposure)<br>
-          <span style="color:var(--red);">●</span> &lt;40: RISK-OFF (defensive / flat)
-        </div>
-
+        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Score History</span></div>
         <div class="sparkline-wrap">
           <div class="sparkline-label">
-            <span>Score history <span id="spark-paused" style="display:none;color:var(--red);margin-left:6px;">⏸ paused — bad data</span></span>
+            <span>Last 12 hours <span id="spark-paused" style="display:none;color:var(--red);margin-left:6px;">⏸ paused — bad data</span></span>
             <span id="spark-range">—</span>
           </div>
           <svg class="sparkline" id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none"></svg>
           <div class="spark-legend" id="spark-legend" role="group" aria-label="Toggle sparkline series">
-            <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#e0e8f0"></div>Total</button>
-            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00b0ff"></div>Vol</button>
+            <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#dce6f0"></div>Total</button>
+            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#3b82f6"></div>Vol</button>
             <button class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00e676"></div>Trend</button>
             <button class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ffd740"></div>Breadth</button>
             <button class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ff9100"></div>Mom</button>
@@ -169,6 +149,8 @@
         </div>
       </div>
     </div>
+    <!-- Hidden elements kept for JS compatibility -->
+    <div id="exec-window" style="display:none" aria-hidden="true"></div>
 
     <!-- WATCHLIST HEALTH -->
     <div class="collapsible-section">
@@ -243,6 +225,25 @@
         <button class="btn" onclick="resetWeights()">↺ Reset</button>
       </div>
       <div class="settings-info">Weights are saved locally and persist across sessions. They only affect the what-if score in the Scoring Weights card; the main dashboard decision remains backend-scored.</div>
+    </div>
+
+    <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">
+      <div class="settings-section-title">Score Weights — What-If View</div>
+      <div id="score-weights"></div>
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
+        <span id="weight-total-label" style="color:var(--muted);font-size:10px;">OFFICIAL SCORE</span>
+        <span style="font-size:16px;font-weight:800;font-family:'Fira Code',monospace;" id="total-score-bottom">—</span>
+      </div>
+      <div id="weight-scenario-note" style="display:none;margin-top:6px;font-size:10px;color:var(--muted);line-height:1.6;">
+        What-if only. The hero decision, alerts, conflicts, history, and roundtable use backend weights.
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:var(--muted);line-height:1.9;">
+        <span style="color:var(--green);">●</span> 85+: RISK-ON — full exposure<br>
+        <span style="color:var(--green);">●</span> 70–84: CONSTRUCTIVE — standard exposure<br>
+        <span style="color:var(--yellow);">●</span> 55–69: SELECTIVE — moderate exposure<br>
+        <span style="color:var(--orange);">●</span> 40–54: DE-RISK — reduced exposure<br>
+        <span style="color:var(--red);">●</span> &lt;40: RISK-OFF — defensive / flat
+      </div>
     </div>
 
     <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">

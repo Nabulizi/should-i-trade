@@ -482,6 +482,7 @@ function renderExecution(d) {
     { label: 'Follow-through?',    ok: d.total_score >= 70,           t: 'Conviction',  f: 'Weak'     },
   ];
 
+  if (!$('exec-window')) return;
   $('exec-window').innerHTML = checks.map(c => {
     const col = c.ok ? 'var(--green)' : 'var(--red)';
     return `<div class="exec-row">
@@ -1041,7 +1042,6 @@ async function load(isManual = false) {
       renderConflicts(raw);
       renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
       renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
-      renderExecution(raw);
       renderWeights(weightScenario);
       // Show/hide sparkline paused indicator based on data quality
       const paused = $('spark-paused');
