@@ -437,12 +437,14 @@ function renderPillars(d) {
         </div>
         <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
         ${def.primary(p)}
-        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false">▾ more</button>
+        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false">▾ More detail &amp; why</button>
         <div class="detail-rows">
           ${def.detail(p)}
+          <div class="why-section">
+            <div class="why-section-label">Why this score</div>
+            ${reasons || '<em>No reasons recorded</em>'}
+          </div>
         </div>
-        <button class="why-toggle" onclick="toggleWhy(this)" aria-expanded="false">▾ Why this score?</button>
-        <div class="why-body">${reasons || '<em>No reasons recorded</em>'}</div>
       </div>`;
   }).join('');
 }
@@ -451,14 +453,7 @@ function toggleDetail(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
   el.setAttribute('aria-expanded', open);
-  el.innerHTML = (open ? '▴' : '▾') + ' more';
-}
-
-function toggleWhy(el) {
-  const body = el.nextElementSibling;
-  const open = body.classList.toggle('open');
-  el.setAttribute('aria-expanded', open);
-  el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
+  el.innerHTML = (open ? '▴ Less detail' : '▾ More detail & why');
 }
 
 /* ── SECTOR + INDUSTRY BARS ────────────────────────────── */
@@ -920,7 +915,7 @@ function renderRoundtable(personas) {
     '⛔': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--red)"     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></svg>`,
     '⚡': `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
   };
-  $('roundtable-grid').innerHTML = personas.map((p, i) => {
+  const buildCard = (p, i) => {
     const stanceCol = p.stance_color || 'gray';
     const isHead = p.persona === 'The Desk Head';
     const bg = `rgba(${stanceCol === 'green' ? '0,230,118' : stanceCol === 'yellow' ? '255,215,64' : stanceCol === 'orange' ? '255,145,0' : stanceCol === 'red' ? '255,23,68' : '90,112,128'}, 0.15)`;
@@ -943,11 +938,36 @@ function renderRoundtable(personas) {
         <div class="persona-points">${pts}</div>
         <div class="persona-verdict">${esc(p.verdict)}</div>
       </div>`;
-  }).join('');
+  };
+
+  // Desk Head leads as the synthesis; the individual analyst reads sit
+  // behind a single disclosure so the verdict isn't buried under five cards.
+  const headIdx = personas.findIndex(p => p.persona === 'The Desk Head');
+  const head = headIdx >= 0 ? personas[headIdx] : null;
+  const others = personas.filter((_, i) => i !== headIdx);
+  const analystHtml = others.map((p, i) => buildCard(p, i)).join('');
+
+  $('roundtable-grid').innerHTML = `
+    ${head ? buildCard(head, headIdx) : ''}
+    ${others.length ? `
+      <button class="rt-analysts-toggle" onclick="toggleAnalysts(this)" aria-expanded="false" aria-controls="rt-analysts">▾ Show ${others.length} desk reads</button>
+      <div class="roundtable-grid rt-analysts" id="rt-analysts" hidden>${analystHtml}</div>
+    ` : ''}
+  `;
 
   // Stagger fade-in
   const cards = document.querySelectorAll('.persona-card');
   cards.forEach((card, i) => setTimeout(() => card.classList.add('in'), i * 120));
+}
+
+function toggleAnalysts(btn) {
+  const wrap = document.getElementById('rt-analysts');
+  if (!wrap) return;
+  const willOpen = wrap.hasAttribute('hidden');
+  if (willOpen) wrap.removeAttribute('hidden');
+  else wrap.setAttribute('hidden', '');
+  btn.setAttribute('aria-expanded', String(willOpen));
+  btn.innerHTML = willOpen ? '▴ Hide desk reads' : `▾ Show ${wrap.children.length} desk reads`;
 }
 
 /* ── FEAR & GREED (inline color helper, used in macro rows) ── */
@@ -1203,7 +1223,7 @@ if (!globalThis.__TESTING__) {
   window.applyWeights           = applyWeights;
   window.resetWeights           = resetWeights;
   window.toggleDetail           = toggleDetail;
-  window.toggleWhy              = toggleWhy;
+  window.toggleAnalysts         = toggleAnalysts;
   window.selectWatchlistView    = selectWatchlistView;
 
   initTheme();

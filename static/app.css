@@ -121,11 +121,9 @@
   .tag.gray   { background: rgba(90,112,128,0.12); color: var(--muted2); }
 
   /* "Why" expandable */
-  .why-toggle { margin-top: auto; padding-top: 10px; font-size: 10px; color: var(--muted2); cursor: pointer; text-align: center; letter-spacing: 1px; text-transform: uppercase; border-top: 1px solid var(--border); padding-bottom: 2px; user-select: none; }
-  .why-toggle:hover { color: var(--accent); }
-  .why-body { display: none; margin-top: 8px; padding: 8px; background: rgba(0,176,255,0.04); border-radius: 3px; font-size: 10px; line-height: 1.65; color: var(--muted2); }
-  .why-body.open { display: block; }
-  .why-body .why-line { padding: 2px 0; }
+  .why-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .why-section-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .why-section .why-line { font-size: 10px; line-height: 1.65; color: var(--muted2); padding: 2px 0; }
 
   /* ── BOTTOM GRID ── */
   .bottom-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
@@ -229,6 +227,14 @@
   .roundtable-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .roundtable-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
   .roundtable-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .roundtable-stack { display: flex; flex-direction: column; gap: 12px; }
+  .roundtable-stack > .persona-card.desk-head { padding: 16px 18px; }
+  .roundtable-stack > .persona-card.desk-head .persona-read { font-size: 12px; }
+  .roundtable-stack > .persona-card.desk-head .persona-verdict { font-size: 12px; }
+  .rt-analysts-toggle { width: 100%; background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: inherit; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 10px; cursor: pointer; min-height: 40px; transition: border-color 0.2s, color 0.2s; }
+  .rt-analysts-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .rt-analysts { grid-template-columns: repeat(4, 1fr); }
+  .rt-analysts[hidden] { display: none; }
   .persona-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; display: flex; flex-direction: column; gap: 10px; position: relative; transition: border-color 0.3s, transform 0.3s; opacity: 0; transform: translateY(8px); }
   .persona-card.in { opacity: 1; transform: translateY(0); }
   .persona-card:hover { border-color: var(--border2); }
@@ -295,8 +301,8 @@
   .pillar-sep { border-top: 1px solid rgba(255,255,255,0.05); margin: 5px 0 3px; }
   .detail-rows { display: none; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 4px; padding-top: 2px; }
   .detail-rows.open { display: block; }
-  .detail-toggle { font-size: 10px; color: var(--muted); cursor: pointer; padding: 4px 0; min-height: 24px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.5px; user-select: none; text-align: center; margin-bottom: 4px; }
-  .detail-toggle:hover { color: var(--accent2); }
+  .detail-toggle { font-size: 10px; color: var(--muted); cursor: pointer; padding: 8px 0 2px; min-height: 24px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.5px; user-select: none; text-align: center; margin-top: auto; border-top: 1px solid var(--border); }
+  .detail-toggle:hover { color: var(--accent); }
 
   /* ── SECTOR RS CHIPS ── */
   .rs-chips { display: flex; gap: 4px; flex-wrap: wrap; padding: 3px 0 5px; }
