@@ -41,6 +41,9 @@
   .fomc-badge.orange { color: var(--orange); border-color: rgba(255,145,0,0.4); }
   .fomc-badge.red    { color: var(--red);    border-color: rgba(255,23,68,0.45); background: rgba(255,23,68,0.08); }
   .fomc-badge.gray   { color: var(--muted);  border-color: var(--border2); }
+  .header-score { font-size: 12px; font-weight: 700; font-family: 'Fira Code', monospace; color: var(--muted); letter-spacing: 0.5px; }
+  .header-score.loaded { color: var(--text); }
+  .subtitle { display: none; }
 
   .ts { color: var(--muted); font-size: 10px; }
   .countdown { color: var(--muted2); font-size: 10px; }

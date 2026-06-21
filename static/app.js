@@ -83,7 +83,7 @@ function renderHeader(d) {
   const mkt = d.market_state || {};
   $('mkt-badge').className = 'mkt-badge ' + (mkt.state || 'closed');
   $('mkt-label').textContent = mkt.label || '—';
-  $('et-time').textContent = mkt.et_time ? `${mkt.et_date} · ${mkt.et_time}` : '—';
+  const etEl = $('et-time'); if (etEl) etEl.textContent = mkt.et_time ? `${mkt.et_date} · ${mkt.et_time}` : '—';
 
   const fomc = d.fomc || {};
   $('fomc-badge').className = 'fomc-badge ' + (fomc.color || 'gray');
@@ -93,7 +93,7 @@ function renderHeader(d) {
     $('fomc-badge').innerHTML = `${esc(fomc.label || '—')} <span class="date">${esc(fomc.date_pretty || '')}</span>`;
   }
 
-  $('data-ts').textContent = d.timestamp ? `updated ${d.timestamp}` : '';
+  const dtsEl = $('data-ts'); if (dtsEl) dtsEl.textContent = d.timestamp ? `updated ${d.timestamp}` : '';
   const freshEl = document.getElementById('score-freshness');
   if (freshEl) freshEl.textContent = d.timestamp ? `as of ${d.timestamp}` : '';
 
@@ -240,6 +240,15 @@ function renderHero(d) {
         <span class="signal-summary-value">${esc(pillarLabels[weakest[0]])} <span class="signal-summary-score">${esc(weakest[1].score)}/100</span></span>
       </div>
     </div>` : '';
+
+  // Update header score badge
+  const headerScore = $('header-score');
+  if (headerScore) {
+    const invalidData = d.data_quality?.valid === false;
+    headerScore.textContent = invalidData ? '— · DATA UNAVAILABLE' : `${s} · ${d.decision}`;
+    headerScore.className = 'header-score loaded';
+    headerScore.style.color = invalidData ? 'var(--muted)' : scoreColor(s);
+  }
 }
 
 /* ── PILLARS ────────────────────────────────────────────── */
@@ -1013,7 +1022,7 @@ async function load(isManual = false) {
       // Stale-while-revalidate: keep pulse active while server refreshes in background.
       if (raw.stale) {
         $('refresh-dot').classList.add('active');
-        $('countdown').textContent = 'refreshing in background…';
+        const cdBgEl = $('countdown'); if (cdBgEl) cdBgEl.textContent = 'refreshing in background…';
       } else {
         $('refresh-dot').classList.remove('active');
       }
@@ -1043,17 +1052,18 @@ async function load(isManual = false) {
 
 /* ── AUTO-REFRESH + COUNTDOWN ──────────────────────────── */
 function tickCountdown() {
-  if (!_nextRefreshAt) { $('countdown').textContent = ''; return; }
+  const cdEl = $('countdown');
+  if (!_nextRefreshAt) { if (cdEl) cdEl.textContent = ''; return; }
   const left = Math.max(0, _nextRefreshAt - Date.now());
   if (left === 0) {
     _nextRefreshAt = 0;
-    $('countdown').textContent = 'refreshing…';
+    if (cdEl) cdEl.textContent = 'refreshing…';
     load(false);
     return;
   }
   const m = Math.floor(left / 60000);
   const s = Math.floor((left % 60000) / 1000);
-  $('countdown').textContent = `next refresh in ${m}:${s.toString().padStart(2, '0')}`;
+  if (cdEl) cdEl.textContent = `next refresh in ${m}:${s.toString().padStart(2, '0')}`;
 }
 setInterval(tickCountdown, 1000);
 
