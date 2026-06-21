@@ -24,8 +24,8 @@ function chgStr(v)   { return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; 
 
 /* ── TICKER ─────────────────────────────────────────────── */
 function renderTicker(items) {
-  const doubled = [...items, ...items];
-  $('ticker').innerHTML = doubled.map(t => `
+  if (!$('ticker')) return;
+  $('ticker').innerHTML = items.map(t => `
     <span class="tick ${t.up ? 'up' : 'dn'}">
       <span class="sym">${esc(t.symbol)}</span>
       <span class="px">${esc(t.price)}</span>
@@ -136,46 +136,6 @@ function renderHeader(d) {
   }
 }
 
-/* ── RADAR CHART ────────────────────────────────────────── */
-function buildRadarChart(pillars) {
-  const keys   = ['volatility','trend','breadth','momentum','macro'];
-  const labels = ['VOL','TREND','BREADTH','MOM','MACRO'];
-  const cx = 100, cy = 100, maxR = 72, sz = 200;
-  const n = keys.length;
-  const step = (2 * Math.PI) / n;
-  const start = -Math.PI / 2;
-  function pt(i, r) {
-    const a = start + i * step;
-    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-  }
-  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="160" height="160">`;
-  // Grid rings
-  [25,50,75,100].forEach(pct => {
-    const r = maxR * pct / 100;
-    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
-  });
-  // Axis lines
-  for (let i = 0; i < n; i++) {
-    const [x,y] = pt(i, maxR);
-    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
-  }
-  // Score polygon
-  const pts = keys.map((k,i) => pt(i, maxR * (pillars[k]?.score ?? 50) / 100));
-  svg += `<polygon points="${pts.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="rgba(0,176,255,0.15)" stroke="#00b0ff" stroke-width="1.5"/>`;
-  // Dots + labels
-  keys.forEach((k,i) => {
-    const sc = pillars[k]?.score ?? 50;
-    const [x,y] = pts[i];
-    const col = sc >= 70 ? '#00e676' : sc >= 45 ? '#ffd740' : '#ff1744';
-    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${col}"/>`;
-    const [lx,ly] = pt(i, maxR + 18);
-    svg += `<text x="${lx.toFixed(1)}" y="${(ly-2).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.80)" font-size="15" font-family="monospace">${labels[i]}</text>`;
-    svg += `<text x="${lx.toFixed(1)}" y="${(ly+13).toFixed(1)}" text-anchor="middle" fill="${col}" font-size="17" font-family="monospace" font-weight="700">${sc}</text>`;
-  });
-  svg += '</svg>';
-  return svg;
-}
-
 /* ── HERO ───────────────────────────────────────────────── */
 function renderHero(d) {
   const col = d.decision_color;
@@ -259,8 +219,27 @@ function renderHero(d) {
     }
   }
 
-  // Radar chart replaces pillar mini-bars
-  $('pillars-mini').innerHTML = `<div class="radar-wrap">${buildRadarChart(d.pillars)}</div>`;
+  // Summarize the most useful contrast instead of repeating all five pillar cards.
+  const pillarLabels = {
+    volatility: 'Volatility', trend: 'Trend', breadth: 'Breadth',
+    momentum: 'Momentum', macro: 'Macro'
+  };
+  const ranked = Object.entries(d.pillars || {})
+    .filter(([, pillar]) => Number.isFinite(Number(pillar?.score)))
+    .sort((a, b) => a[1].score - b[1].score);
+  const weakest = ranked[0];
+  const strongest = ranked[ranked.length - 1];
+  $('pillars-mini').innerHTML = ranked.length ? `
+    <div class="signal-summary">
+      <div class="signal-summary-item">
+        <span class="signal-summary-label">Strongest signal</span>
+        <span class="signal-summary-value">${esc(pillarLabels[strongest[0]])} <span class="signal-summary-score">${esc(strongest[1].score)}/100</span></span>
+      </div>
+      <div class="signal-summary-item">
+        <span class="signal-summary-label">Main constraint</span>
+        <span class="signal-summary-value">${esc(pillarLabels[weakest[0]])} <span class="signal-summary-score">${esc(weakest[1].score)}/100</span></span>
+      </div>
+    </div>` : '';
 }
 
 /* ── PILLARS ────────────────────────────────────────────── */
@@ -675,16 +654,24 @@ function buildWeightScenario(data) {
 }
 
 /* ── SETTINGS DRAWER ───────────────────────────────────── */
+let _settingsReturnFocus = null;
+
 function toggleSettings() {
   const overlay = $('settings-overlay');
   const isOpen = overlay.classList.toggle('open');
+  overlay.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
   if (isOpen) {
+    _settingsReturnFocus = document.activeElement;
     const w = loadWeights();
     ['v','tr','br','mo','ma'].forEach((k, i) => {
       const key = ['volatility','trend','breadth','momentum','macro'][i];
       $(`ws-${k}`).value = w[key];
       $(`wlbl-${k}`).textContent = w[key] + '%';
     });
+    requestAnimationFrame(() => overlay.querySelector('.settings-close')?.focus());
+  } else if (_settingsReturnFocus?.focus) {
+    _settingsReturnFocus.focus();
+    _settingsReturnFocus = null;
   }
 }
 function closeSettingsOnOverlay(e) { if (e.target === $('settings-overlay')) toggleSettings(); }
@@ -724,13 +711,20 @@ function resetWeights() {
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light-theme');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
-  $('theme-btn').textContent = isLight ? '🌙' : '☀';
+  updateThemeButton(isLight);
+}
+function updateThemeButton(isLight) {
+  const btn = $('theme-btn');
+  if (!btn) return;
+  btn.textContent = isLight ? 'Use dark theme' : 'Use light theme';
+  btn.setAttribute('aria-label', btn.textContent);
+  const drawerBtn = $('theme-drawer-btn');
+  if (drawerBtn) drawerBtn.textContent = btn.textContent;
 }
 function initTheme() {
-  if (localStorage.getItem('theme') === 'light') {
-    document.body.classList.add('light-theme');
-    $('theme-btn').textContent = '🌙';
-  }
+  const isLight = localStorage.getItem('theme') === 'light';
+  document.body.classList.toggle('light-theme', isLight);
+  updateThemeButton(isLight);
 }
 
 /* ── EXPORT / COPY ─────────────────────────────────────── */
@@ -766,7 +760,11 @@ function copySnapshot() {
   }
   navigator.clipboard.writeText(lines.join('\n')).then(() => {
     const btn = document.querySelector('button[onclick="copySnapshot()"]');
-    if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1500); }
+    if (btn) {
+      const previous = btn.innerHTML;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.innerHTML = previous; }, 1500);
+    }
   });
 }
 
@@ -872,8 +870,8 @@ async function runRoundtable(auto=false, useAi=false) {
   if (btn)    btn.disabled    = true;
   if (altBtn) altBtn.disabled = true;
   if (btn) btn.innerHTML = useAi
-    ? `${_BTN_STAR_SVG}Consulting AI agents…`
-    : (auto ? `${_BTN_PLAY_SVG}Rule-Based Read` : `${_BTN_PLAY_SVG}Convening desk…`);
+    ? `${_BTN_STAR_SVG}Consulting AI desk…`
+    : (auto ? `${_BTN_PLAY_SVG}Rule-based read` : `${_BTN_PLAY_SVG}Refreshing…`);
   try {
     const url = useAi ? '/api/analysis?ai=1' : '/api/analysis';
     const res = await fetch(url);
@@ -886,7 +884,7 @@ async function runRoundtable(auto=false, useAi=false) {
   } catch(e) {
     $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${esc(e.message)}</div>`;
   } finally {
-    if (btn)    { btn.disabled = false; btn.innerHTML = useAi ? `${_BTN_STAR_SVG}Re-run AI Analysis` : `${_BTN_PLAY_SVG}Refresh Read`; }
+    if (btn)    { btn.disabled = false; btn.innerHTML = useAi ? `${_BTN_STAR_SVG}Ask AI desk again` : `${_BTN_PLAY_SVG}Refresh read`; }
     if (altBtn) { altBtn.disabled = false; }
   }
 }
@@ -933,9 +931,6 @@ function renderRoundtable(personas) {
       </div>`;
   }).join('');
 
-  // Stagger fade-in
-  const cards = document.querySelectorAll('.persona-card');
-  cards.forEach((card, i) => setTimeout(() => card.classList.add('in'), i * 120));
 }
 
 /* ── FEAR & GREED (inline color helper, used in macro rows) ── */
@@ -999,7 +994,6 @@ async function load(isManual = false) {
 
     // Batch all DOM mutations in one animation frame to avoid layout thrashing
     requestAnimationFrame(() => {
-      renderTicker(raw.ticker || []);
       renderHeader(raw);
       renderHero(raw);
       renderFuturesTape(raw.futures_tape);
@@ -1083,6 +1077,8 @@ function _updateAlertBtn() {
   if (!btn) return;
   btn.style.opacity = _alertsEnabled ? '1' : '0.45';
   btn.title = _alertsEnabled ? 'Alerts ON — click to disable' : 'Score zone change notifications (click to enable)';
+  btn.textContent = `Score alerts: ${_alertsEnabled ? 'on' : 'off'}`;
+  btn.setAttribute('aria-pressed', _alertsEnabled ? 'true' : 'false');
 }
 
 async function toggleAlerts() {
@@ -1199,11 +1195,30 @@ if (!globalThis.__TESTING__) {
   connectSSE();
 
   document.addEventListener('keydown', e => {
+    const settingsOpen = $('settings-overlay').classList.contains('open');
+    if (settingsOpen && e.key === 'Tab') {
+      const focusable = [...$('settings-overlay').querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )];
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+      return;
+    }
+    if (e.key === 'Escape' && settingsOpen) {
+      toggleSettings();
+      return;
+    }
     if (e.target.tagName === 'INPUT') return;
     if (e.key === 'r' || e.key === 'R') load(true);
     if (e.key === 'd' || e.key === 'D') toggleTheme();
     if (e.key === 's' || e.key === 'S') toggleSettings();
-    if (e.key === 'Escape') { if ($('settings-overlay').classList.contains('open')) toggleSettings(); }
   });
 
   load(true);

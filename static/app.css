@@ -18,17 +18,6 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; }
 
-  /* ── TICKER ── */
-  .ticker-wrap { background: #050810; border-bottom: 1px solid var(--border); overflow: hidden; white-space: nowrap; height: 28px; display: flex; align-items: center; }
-  .ticker-inner { display: inline-block; animation: scroll 90s linear infinite; }
-  .ticker-inner:hover { animation-play-state: paused; }
-  @keyframes scroll { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
-  .tick { display: inline-block; padding: 0 18px; font-size: 11px; font-weight: 600; }
-  .tick .sym { color: var(--muted); margin-right: 4px; }
-  .tick .px  { color: var(--text); }
-  .tick.up   .chg { color: var(--green); }
-  .tick.dn   .chg { color: var(--red); }
-
   /* ── HEADER ── */
   .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
   .header-left  { display: flex; align-items: center; gap: 16px; }
