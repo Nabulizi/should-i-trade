@@ -355,6 +355,12 @@
     .roundtable-grid { grid-template-columns: repeat(2, 1fr); }
     .bottom-row { grid-template-columns: 1fr 1fr; }
   }
+  @media (max-width: 768px) {
+    .pillars-row { grid-template-columns: repeat(2, 1fr); }
+    .bottom-row  { grid-template-columns: 1fr; }
+    .score-strip { flex-wrap: wrap; gap: 12px; }
+    .strip-caveat { width: 100%; text-align: left; }
+  }
   @media (max-width: 600px) {
     .pillars-row { grid-template-columns: 1fr; }
     .roundtable-grid { grid-template-columns: 1fr; }
@@ -375,11 +381,16 @@
     .header { padding: 8px 12px; gap: 6px; }
     .header-left { gap: 10px; }
     .header-right { gap: 6px; }
-    .main { padding: 8px; gap: 8px; }
+    .header-score { display: none; }
+    .main { padding: 10px 12px; gap: 10px; }
     .decision-card, .pos-card, .score-wrap-card { padding: 12px; }
     .pillars-mini { gap: 8px; }
     .pillar-mini .pm-score { font-size: 18px; }
-    .score-num .val { font-size: 22px; }
+    .score-num .val { font-size: 20px; }
+    .decision-badge { font-size: 15px; }
+    .score-strip { padding: 12px 14px; }
+    .strip-circle { width: 64px; height: 64px; }
+    .strip-circle svg { width: 64px; height: 64px; }
     .card { padding: 10px; }
     .pillars-row { gap: 8px; }
     .bottom-row { gap: 8px; }
