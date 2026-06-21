@@ -125,6 +125,42 @@ function renderHeader(d) {
   }
 }
 
+/* ── RADAR CHART ────────────────────────────────────────── */
+function buildRadarChart(pillars) {
+  const keys = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
+  const labels = ['VOL', 'TREND', 'BREADTH', 'MOM', 'MACRO'];
+  const cx = 100, cy = 100, maxR = 62;
+  const step = (2 * Math.PI) / keys.length;
+  const start = -Math.PI / 2;
+  const point = (index, radius) => {
+    const angle = start + index * step;
+    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+  };
+  const scores = keys.map(key => Math.max(0, Math.min(100, Number(pillars?.[key]?.score) || 0)));
+  const scorePoints = scores.map((score, index) => point(index, maxR * score / 100));
+  const accessibleLabel = labels.map((label, index) => `${label} ${scores[index]}`).join(', ');
+
+  let svg = `<svg viewBox="0 0 200 200" role="img" aria-label="Decision driver scores: ${accessibleLabel}">`;
+  [25, 50, 75, 100].forEach(percent => {
+    const radius = maxR * percent / 100;
+    svg += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="var(--border2)" stroke-width="1"/>`;
+  });
+  keys.forEach((_, index) => {
+    const [x, y] = point(index, maxR);
+    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border2)" stroke-width="1"/>`;
+  });
+  svg += `<polygon points="${scorePoints.map(coords => coords.map(value => value.toFixed(1)).join(',')).join(' ')}" fill="rgba(59,130,246,.14)" stroke="var(--accent)" stroke-width="1.5"/>`;
+  scores.forEach((score, index) => {
+    const [x, y] = scorePoints[index];
+    const color = scoreColor(score);
+    const [labelX, labelY] = point(index, maxR + 20);
+    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${color}"/>`;
+    svg += `<text x="${labelX.toFixed(1)}" y="${(labelY - 2).toFixed(1)}" text-anchor="middle" fill="var(--muted2)" font-size="12" font-family="ui-monospace, monospace">${labels[index]}</text>`;
+    svg += `<text x="${labelX.toFixed(1)}" y="${(labelY + 11).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="14" font-family="ui-monospace, monospace" font-weight="700">${score}</text>`;
+  });
+  return svg + '</svg>';
+}
+
 /* ── HERO ───────────────────────────────────────────────── */
 function renderHero(d) {
   const col = d.decision_color;
@@ -176,6 +212,8 @@ function renderHero(d) {
   arc.style.stroke = scoreColor(s);
   $('score-val').textContent = s;
   $('score-val').style.color = scoreColor(s);
+  const radar = $('hero-radar');
+  if (radar) radar.innerHTML = buildRadarChart(d.pillars);
 
   // Score delta badge
   const delta = d.score_delta;
@@ -1242,5 +1280,6 @@ export {
   FALLBACK_DECISION_BANDS,
   DEFAULT_WEIGHTS,
   buildWeightScenario,
+  buildRadarChart,
   isDefaultWeights,
 };

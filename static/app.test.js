@@ -7,11 +7,28 @@ import {
   FALLBACK_DECISION_BANDS,
   DEFAULT_WEIGHTS,
   buildWeightScenario,
+  buildRadarChart,
   isDefaultWeights,
 } from './app.js';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+describe('buildRadarChart', () => {
+  it('renders an accessible SVG summary of all five pillar scores', () => {
+    const svg = buildRadarChart({
+      volatility: { score: 95 },
+      trend: { score: 100 },
+      breadth: { score: 87 },
+      momentum: { score: 75 },
+      macro: { score: 73 },
+    });
+
+    expect(svg).toContain('role="img"');
+    expect(svg).toContain('VOL 95, TREND 100, BREADTH 87, MOM 75, MACRO 73');
+    expect(svg).toContain('<polygon');
+  });
 });
 
 // ── scoreColor ────────────────────────────────────────────────────────────

@@ -429,7 +429,7 @@
   top: 0;
   z-index: 50;
   min-height: 68px;
-  padding: 12px max(20px, calc((100vw - 1440px) / 2));
+  padding: 12px max(20px, calc((100vw - 1760px) / 2 + 24px));
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(12px);
@@ -533,7 +533,7 @@
 }
 
 .econ-row {
-  width: min(1392px, calc(100% - 48px));
+  width: min(1712px, calc(100% - 48px));
   margin: 0 auto;
   padding: 8px 0 0;
   background: transparent;
@@ -542,13 +542,16 @@
 .econ-badge { min-height: 24px; padding: 2px 7px; border-radius: 4px; }
 
 .main {
-  width: min(1440px, 100%);
+  width: min(1760px, 100%);
   margin: 0 auto;
   padding: 28px 24px 64px;
   gap: 24px;
 }
 
 .score-strip {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) 190px;
+  align-items: center;
   gap: 16px;
   padding: 12px 16px;
 }
@@ -564,6 +567,10 @@
   white-space: normal;
 }
 .decision-context { margin-top: 8px; padding-top: 0; gap: 4px; border-top: none; }
+.strip-right { display: grid; justify-items: center; align-self: stretch; }
+.hero-radar { width: 170px; height: 170px; display: grid; place-items: center; }
+.hero-radar svg { width: 100%; height: 100%; display: block; }
+.strip-caveat { align-self: end; }
 .dc-posture { color: var(--muted2); font-size: 12px; line-height: 1.55; }
 .dc-row, .dc-label { font-size: 11px; }
 .score-freshness { font-size: 10px; opacity: 1; }
@@ -602,7 +609,7 @@ input[type=range] { min-height: 32px; }
 
 .loading { min-height: 70vh; color: var(--muted); }
 .spinner { width: 26px; height: 26px; border-color: var(--border2); border-top-color: var(--accent); }
-.warn-banner, .err-banner { max-width: 1392px; margin: 16px auto 0; border-radius: 6px; font-size: 12px; }
+.warn-banner, .err-banner { max-width: 1712px; margin: 16px auto 0; border-radius: 6px; font-size: 12px; }
 .override-banner, .conflict-card { border-radius: 6px; }
 
 .light-theme {
@@ -637,6 +644,9 @@ input[type=range] { min-height: 32px; }
   .header-right .ts { margin-right: auto; }
   #data-ts { display: none; }
   .main { padding: 20px 16px 48px; gap: 18px; }
+  .score-strip { grid-template-columns: 68px minmax(0, 1fr); }
+  .strip-right { grid-column: 1 / -1; justify-items: start; }
+  .hero-radar { display: none; }
   .section-heading { align-items: start; flex-direction: column; gap: 6px; }
   .section-heading p { text-align: left; }
   .pillars-row { grid-template-columns: repeat(2, 1fr); }
