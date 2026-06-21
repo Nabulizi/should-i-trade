@@ -62,36 +62,31 @@
   /* ── MAIN ── */
   .main { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
 
-  /* ── HERO ── */
-  .hero { display: grid; grid-template-columns: clamp(185px, 14vw, 225px) 1fr clamp(140px, 11vw, 170px); gap: 14px; align-items: stretch; }
-  .decision-card, .pos-card, .score-wrap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 0; overflow: hidden; }
-  .decision-card { justify-content: flex-start; padding-top: 16px; }
-  .decision-label, .pos-label { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
-  .decision-badge { font-size: clamp(14px, 1.4vw, 22px); font-weight: 800; letter-spacing: clamp(0px, 0.08vw, 1px); margin-bottom: 4px; white-space: nowrap; }
-  .decision-sub { font-size: 10px; color: var(--muted); }
-  .pos-icon { font-size: 26px; margin-bottom: 4px; }
-  .pos-text { font-size: 13px; font-weight: 700; letter-spacing: 1px; }
-  .pos-sub  { font-size: 10px; color: var(--muted); margin-top: 4px; }
-
-  .hero-mid { display: flex; align-items: center; justify-content: center; gap: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; min-width: 0; overflow: hidden; }
-  .score-circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .score-circle { position: relative; width: 110px; height: 110px; }
-  .score-circle svg { transform: rotate(-90deg); }
-  .score-circle .track { fill: none; stroke: var(--border); stroke-width: 8; }
-  .score-circle .fill  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
-  .score-num { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; }
-  .score-num .val { font-size: 28px; font-weight: 800; }
-  .score-num .tot { font-size: 10px; color: var(--muted); }
-  .score-label { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
-  .score-caveat { font-size: 9px; color: var(--muted); letter-spacing: 0.3px; margin-top: 3px; opacity: 0.7; }
-  .score-freshness { font-size: 9px; color: var(--muted); letter-spacing: 0.3px; margin-top: 1px; }
-
-  .pillars-mini { display: flex; gap: 22px; }
-  .pillar-mini { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-  .pillar-mini .pm-score { font-size: 22px; font-weight: 700; }
-  .pillar-mini .pm-bar { width: 58px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
-  .pillar-mini .pm-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
-  .pillar-mini .pm-label { font-size: 10px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+  /* ── SCORE STRIP ── */
+  .score-strip { display: flex; align-items: center; gap: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; }
+  .strip-circle { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+  .strip-circle svg { transform: rotate(-90deg); display: block; }
+  .strip-circle .track { fill: none; stroke: var(--border); stroke-width: 8; }
+  .strip-circle .fill  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+  .score-num { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+  .score-num .val { font-size: 24px; font-weight: 800; font-family: 'Fira Code', monospace; line-height: 1; }
+  .score-num .tot { font-size: 9px; color: var(--muted); font-family: 'Fira Code', monospace; }
+  .strip-info { flex: 1; min-width: 0; }
+  .strip-posture { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .decision-badge { font-size: 18px; font-weight: 800; letter-spacing: 0.5px; white-space: nowrap; font-family: 'Fira Code', monospace; }
+  .strip-exposure { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .score-freshness { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .strip-caveat { font-size: 10px; color: var(--muted); opacity: 0.6; white-space: nowrap; align-self: flex-end; }
+  /* Keep decision-context styles */
+  .decision-context { font-size: 12px; color: var(--muted); margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .dc-row { display: flex; align-items: center; gap: 8px; }
+  .dc-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 70px; }
+  .dc-posture { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .confidence-bar { display: flex; gap: 3px; }
+  .conf-seg { width: 14px; height: 4px; border-radius: 2px; }
+  .streak-badge { font-size: 11px; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+  .streak-badge.streak-up { background: rgba(0,230,118,0.12); color: var(--green); }
+  .streak-badge.streak-down { background: rgba(255,23,68,0.10); color: var(--red); }
 
   /* ── PILLAR CARDS ── */
   .pillars-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }

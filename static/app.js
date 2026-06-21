@@ -229,7 +229,8 @@ function renderHero(d) {
     .sort((a, b) => a[1].score - b[1].score);
   const weakest = ranked[0];
   const strongest = ranked[ranked.length - 1];
-  $('pillars-mini').innerHTML = ranked.length ? `
+  const pmEl = $('pillars-mini');
+  if (pmEl) pmEl.innerHTML = ranked.length ? `
     <div class="signal-summary">
       <div class="signal-summary-item">
         <span class="signal-summary-label">Strongest signal</span>

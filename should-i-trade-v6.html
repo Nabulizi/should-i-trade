@@ -55,44 +55,31 @@
 
   <main class="main" id="main-content" tabindex="-1">
 
-    <!-- HERO -->
-    <section class="hero" aria-label="Current market posture">
-      <div class="decision-card">
-        <div class="decision-label">Today’s market posture</div>
-        <h1 class="decision-badge" id="decision-badge">—</h1>
-        <div class="decision-sub" id="decision-sub">For swing trading</div>
+    <!-- SCORE STRIP -->
+    <div class="score-strip">
+      <div class="strip-circle">
+        <svg width="80" height="80" viewBox="0 0 110 110">
+          <circle class="track" cx="55" cy="55" r="46"/>
+          <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
+        </svg>
+        <div class="score-num">
+          <div class="val" id="score-val">—</div>
+          <div class="tot">/ 100</div>
+        </div>
+      </div>
+      <div class="strip-info">
+        <div class="strip-posture">
+          <span class="decision-badge" id="decision-badge">—</span>
+          <span class="strip-exposure" id="pos-text">—</span>
+        </div>
         <div class="decision-context" id="decision-context" style="display:none"></div>
+        <div class="score-freshness" id="score-freshness"></div>
+        <div class="streak-badge-wrap" style="display:none"></div>
       </div>
-
-      <div class="hero-mid">
-        <div class="score-circle-wrap">
-          <div class="score-circle">
-            <svg width="110" height="110" viewBox="0 0 110 110">
-              <circle class="track" cx="55" cy="55" r="46"/>
-              <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
-            </svg>
-            <div class="score-num">
-              <div class="val" id="score-val">—</div>
-              <div class="tot">/ 100</div>
-            </div>
-          </div>
-          <div class="score-label">Total Score</div>
-          <div class="score-caveat">not advice · not a return signal</div>
-          <div class="score-freshness" id="score-freshness"></div>
-          <div class="streak-badge-wrap" style="display:none"></div>
-        </div>
-        <div class="pillars-mini" id="pillars-mini"></div>
-      </div>
-
-      <div class="pos-card">
-        <div class="pos-label">Suggested exposure</div>
-        <div class="pos-icon" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <div class="pos-text" id="pos-text">—</div>
-        <div class="pos-sub">Drawdown-timed</div>
-      </div>
-    </section>
+      <div class="strip-caveat">not advice · not a return signal</div>
+    </div>
+    <!-- Hidden legacy IDs kept for JS compatibility -->
+    <div id="pillars-mini" style="display:none" aria-hidden="true"></div>
 
     <!-- 5 PILLAR CARDS -->
     <div class="futures-card" id="futures-card">
