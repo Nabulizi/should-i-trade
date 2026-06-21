@@ -6,14 +6,11 @@
 <title>Should I Trade? — Market Quality Terminal v6</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/app.css">
 <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
 </head>
 <body>
-
-<!-- TICKER -->
-<div class="ticker-wrap"><div class="ticker-inner" id="ticker"></div></div>
 
 <!-- HEADER -->
 <div class="header">
@@ -167,12 +164,12 @@
           </div>
           <svg class="sparkline" id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none"></svg>
           <div class="spark-legend" id="spark-legend" role="group" aria-label="Toggle sparkline series">
-            <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#e0e8f0"></div>Total</button>
-            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00b0ff"></div>Vol</button>
-            <button class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00e676"></div>Trend</button>
-            <button class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ffd740"></div>Breadth</button>
-            <button class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ff9100"></div>Mom</button>
-            <button class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#7c4dff"></div>Macro</button>
+            <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#ededee"></div>Total</button>
+            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#d9a441"></div>Vol</button>
+            <button class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#4cc38a"></div>Trend</button>
+            <button class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#d6a23a"></div>Breadth</button>
+            <button class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#d98a3a"></div>Mom</button>
+            <button class="spark-leg-item dimmed" data-key="ma" onclick="toggleSparkLine('ma',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#8a8d93"></div>Macro</button>
           </div>
         </div>
       </div>

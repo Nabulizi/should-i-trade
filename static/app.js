@@ -24,8 +24,10 @@ function chgStr(v)   { return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; 
 
 /* ── TICKER ─────────────────────────────────────────────── */
 function renderTicker(items) {
+  const el = document.getElementById('ticker');
+  if (!el) return;   // ticker removed in the calm redesign
   const doubled = [...items, ...items];
-  $('ticker').innerHTML = doubled.map(t => `
+  el.innerHTML = doubled.map(t => `
     <span class="tick ${t.up ? 'up' : 'dn'}">
       <span class="sym">${esc(t.symbol)}</span>
       <span class="px">${esc(t.price)}</span>
@@ -165,12 +167,12 @@ function buildRadarChart(pillars) {
   }
   // Score polygon
   const pts = keys.map((k,i) => pt(i, maxR * (pillars[k]?.score ?? 50) / 100));
-  svg += `<polygon points="${pts.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="rgba(0,176,255,0.15)" stroke="var(--accent)" stroke-width="1.5"/>`;
+  svg += `<polygon points="${pts.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="rgba(217,164,65,0.15)" stroke="var(--accent)" stroke-width="1.5"/>`;
   // Dots + labels
   keys.forEach((k,i) => {
     const sc = pillars[k]?.score ?? 50;
     const [x,y] = pts[i];
-    const col = sc >= 70 ? '#00e676' : sc >= 45 ? '#ffd740' : '#ff1744';
+    const col = sc >= 70 ? '#4cc38a' : sc >= 45 ? '#d6a23a' : '#e5546b';
     svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${col}"/>`;
     const [lx,ly] = pt(i, maxR + 18);
     svg += `<text x="${lx.toFixed(1)}" y="${(ly-2).toFixed(1)}" text-anchor="middle" fill="var(--muted2)" font-size="15" font-family="monospace">${labels[i]}</text>`;
@@ -360,7 +362,7 @@ function renderPillars(d) {
         const v = p.details;
         const chips = (v.sector_rs && v.sector_rs.length)
           ? `<div class="rs-chips">${v.sector_rs.slice(0, 3).map(r => {
-              const bg = r.rs_score >= 0 ? 'rgba(0,230,118,0.15)' : 'rgba(255,23,68,0.15)';
+              const bg = r.rs_score >= 0 ? 'rgba(76,195,138,0.15)' : 'rgba(229,84,107,0.15)';
               const col = r.rs_score >= 0 ? 'var(--green)' : 'var(--red)';
               return `<span class="rs-chip" style="background:${bg};color:${col}">${esc(r.name)}</span>`;
             }).join('')}</div>` : '';
@@ -466,7 +468,7 @@ function renderBars(elId, data) {
   const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
   $(elId).innerHTML = entries.map(([, v]) => {
     const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
-    const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
+    const bg = v.change_pct >= 0 ? 'rgba(76,195,138,0.25)' : 'rgba(229,84,107,0.25)';
     const c  = 'var(--text)';
     return `<div class="sector-row">
       <span class="sector-name">${esc(v.name)}</span>
@@ -809,7 +811,7 @@ function renderWeights(d) {
 
 /* ── SCORE SPARKLINE ───────────────────────────────────── */
 const SPARK_LINES = { total: true, v: false, tr: false, br: false, mo: false, ma: false };
-const SPARK_COLORS = { total: '#e0e8f0', v: '#00b0ff', tr: '#00e676', br: '#ffd740', mo: '#ff9100', ma: '#7c4dff' };
+const SPARK_COLORS = { total: '#ededee', v: '#d9a441', tr: '#4cc38a', br: '#d6a23a', mo: '#d98a3a', ma: '#8a8d93' };
 let _sparkHistory = [];
 
 function toggleSparkLine(key, el) {
@@ -921,7 +923,7 @@ function renderRoundtable(personas) {
   const buildCard = (p, i) => {
     const stanceCol = p.stance_color || 'gray';
     const isHead = p.persona === 'The Desk Head';
-    const bg = `rgba(${stanceCol === 'green' ? '0,230,118' : stanceCol === 'yellow' ? '255,215,64' : stanceCol === 'orange' ? '255,145,0' : stanceCol === 'red' ? '255,23,68' : '90,112,128'}, 0.15)`;
+    const bg = `rgba(${stanceCol === 'green' ? '76,195,138' : stanceCol === 'yellow' ? '214,162,58' : stanceCol === 'orange' ? '217,138,58' : stanceCol === 'red' ? '229,84,107' : '90,112,128'}, 0.15)`;
     const fg = `var(--${stanceCol === 'gray' ? 'muted' : stanceCol})`;
     const pts = (p.points || []).map(pt => `
       <div class="persona-point"><span class="icon">${POINT_SVG[pt.icon] || esc(pt.icon)}</span><span>${esc(pt.text)}</span></div>`).join('');
@@ -975,11 +977,11 @@ function toggleAnalysts(btn) {
 
 /* ── FEAR & GREED (inline color helper, used in macro rows) ── */
 function fngColor(score) {
-  if (score <= 25) return '#ff1744';
-  if (score <= 45) return '#ff9100';
-  if (score <= 55) return '#ffd740';
-  if (score <= 75) return '#69f0ae';
-  return '#00e676';
+  if (score <= 25) return '#e5546b';
+  if (score <= 45) return '#d98a3a';
+  if (score <= 55) return '#d6a23a';
+  if (score <= 75) return '#4cc38a';
+  return '#4cc38a';
 }
 
 
