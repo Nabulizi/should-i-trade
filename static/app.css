@@ -56,7 +56,7 @@
   .countdown { color: var(--muted2); font-size: 10px; }
   #refresh-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; opacity: 0; transition: opacity 0.3s; vertical-align: middle; margin-left: 4px; }
   #refresh-dot.active { opacity: 1; animation: pulse 1s infinite; }
-  .btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px; font-family: inherit; letter-spacing: 0.5px; transition: all 0.2s; }
+  .btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; cursor: pointer; border-radius: 3px; font-size: 10px; font-family: inherit; letter-spacing: 0.5px; transition: all 0.2s; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn:disabled { opacity: 0.4; cursor: wait; }
   .btn-ai { border-color: rgba(0,176,255,0.35); color: var(--accent); }
@@ -112,7 +112,7 @@
   .metric-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; min-height: 16px; }
   .metric-key { color: var(--muted); font-size: 10px; }
   .metric-val { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
-  .src-badge { font-size: 10px; font-weight: 400; color: var(--muted2); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; letter-spacing: 0.2px; white-space: nowrap; }
+  .src-badge { font-size: 10px; font-weight: 400; color: var(--muted); letter-spacing: 0.2px; white-space: nowrap; opacity: 0.85; }
   .tag { font-size: 10px; padding: 1px 6px; border-radius: 2px; font-weight: 700; letter-spacing: 0.5px; }
   .tag.green  { background: rgba(0,230,118,0.15);  color: var(--green); }
   .tag.yellow { background: rgba(255,215,64,0.15); color: var(--yellow); }
@@ -408,6 +408,13 @@
     border: none;
     width: 100%;
     font-family: inherit;
+  }
+
+  /* ── TOUCH TARGETS (coarse pointers) ── */
+  @media (pointer: coarse) {
+    .btn { min-height: 40px; padding: 8px 12px; }
+    .watch-stat { min-height: 44px; }
+    .spark-leg-item, .why-toggle, .detail-toggle { min-height: 40px; }
   }
 
   /* ── REDUCED MOTION ── */
