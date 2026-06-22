@@ -13,7 +13,7 @@
     --muted2:  #93a1b2;
     --accent:  #3b82f6;
     --accent2: #3b82f6;
-    --sans:    system-ui, -apple-system, 'Inter', sans-serif;
+    --sans:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; }
