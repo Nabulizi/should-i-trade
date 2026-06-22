@@ -49,6 +49,7 @@
   <div id="coverage-warn" class="warn-banner" style="display:none"></div>
 
   <main class="main" id="main-content" tabindex="-1">
+    <h1 class="sr-only">Should I Trade? Market posture dashboard</h1>
 
     <!-- SCORE STRIP -->
     <div class="score-strip">
@@ -76,9 +77,6 @@
         <div class="strip-caveat">not advice · not a return signal</div>
       </div>
     </div>
-    <!-- Hidden legacy IDs kept for JS compatibility -->
-    <div id="pillars-mini" style="display:none" aria-hidden="true"></div>
-
     <!-- 5 PILLAR CARDS -->
     <div class="futures-card" id="futures-card">
       <div>
@@ -148,13 +146,18 @@
     </div>
     <!-- WATCHLIST HEALTH -->
     <div class="collapsible-section">
-      <button class="section-toggle" id="section-toggle-watchlist" onclick="toggleSection('watchlist')" aria-expanded="false" aria-controls="section-body-watchlist">
-        <span class="toggle-chevron" aria-hidden="true">▶</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Watchlist Health
-        <span class="watch-meta" id="watchlist-meta"></span>
-        <select id="watchlist-select" style="font-size:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer;" aria-label="Select watchlist file" onchange="onWatchlistChange()" onclick="event.stopPropagation()"></select>
-      </button>
+      <div class="section-toggle-row">
+        <button class="section-toggle" id="section-toggle-watchlist" onclick="toggleSection('watchlist')" aria-expanded="false" aria-controls="section-body-watchlist">
+          <span class="toggle-chevron" aria-hidden="true">▶</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Watchlist Health
+          <span class="watch-meta" id="watchlist-meta"></span>
+        </button>
+        <label class="watchlist-picker">
+          <span class="sr-only">Select watchlist file</span>
+          <select id="watchlist-select" aria-label="Select watchlist file" onchange="onWatchlistChange()"></select>
+        </label>
+      </div>
       <div id="section-body-watchlist" class="section-body">
         <div id="watchlist-health">
           <div style="color:var(--muted);font-size:11px;">Click to load watchlist…</div>

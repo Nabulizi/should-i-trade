@@ -161,6 +161,14 @@ function buildRadarChart(pillars) {
   return svg + '</svg>';
 }
 
+function validateDashboardPayload(data) {
+  const pillarKeys = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
+  const validScore = value => Number.isFinite(Number(value));
+  if (!data || typeof data !== 'object' || !validScore(data.total_score)) return false;
+  if (!data.pillars || !pillarKeys.every(key => validScore(data.pillars[key]?.score) && data.pillars[key]?.details)) return false;
+  return typeof data.decision === 'string' && typeof data.position_size === 'string';
+}
+
 /* ── HERO ───────────────────────────────────────────────── */
 function renderHero(d) {
   const col = d.decision_color;
@@ -245,29 +253,6 @@ function renderHero(d) {
       streakContainer.style.display = 'none';
     }
   }
-
-  // Summarize the most useful contrast instead of repeating all five pillar cards.
-  const pillarLabels = {
-    volatility: 'Volatility', trend: 'Trend', breadth: 'Breadth',
-    momentum: 'Momentum', macro: 'Macro'
-  };
-  const ranked = Object.entries(d.pillars || {})
-    .filter(([, pillar]) => Number.isFinite(Number(pillar?.score)))
-    .sort((a, b) => a[1].score - b[1].score);
-  const weakest = ranked[0];
-  const strongest = ranked[ranked.length - 1];
-  const pmEl = $('pillars-mini');
-  if (pmEl) pmEl.innerHTML = ranked.length ? `
-    <div class="signal-summary">
-      <div class="signal-summary-item">
-        <span class="signal-summary-label">Strongest signal</span>
-        <span class="signal-summary-value">${esc(pillarLabels[strongest[0]])} <span class="signal-summary-score">${esc(strongest[1].score)}/100</span></span>
-      </div>
-      <div class="signal-summary-item">
-        <span class="signal-summary-label">Main constraint</span>
-        <span class="signal-summary-value">${esc(pillarLabels[weakest[0]])} <span class="signal-summary-score">${esc(weakest[1].score)}/100</span></span>
-      </div>
-    </div>` : '';
 
   // Update header score badge
   const headerScore = $('header-score');
@@ -443,6 +428,8 @@ function renderPillars(d) {
     const sc = p.score;
     const c = scoreColor(sc);
     const reasons = (p.reasons || []).map(r => `<div class="why-line">${esc(r)}</div>`).join('');
+    const detailId = `pillar-${def.key}-details`;
+    const whyId = `pillar-${def.key}-why`;
     return `
       <div class="pillar-card">
         <div class="pillar-head">
@@ -451,12 +438,12 @@ function renderPillars(d) {
         </div>
         <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
         ${def.primary(p)}
-        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false">▾ more</button>
-        <div class="detail-rows">
+        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false" aria-controls="${detailId}">▾ more</button>
+        <div class="detail-rows" id="${detailId}">
           ${def.detail(p)}
         </div>
-        <button class="why-toggle" onclick="toggleWhy(this)" aria-expanded="false">▾ Why this score?</button>
-        <div class="why-body">${reasons || '<em>No reasons recorded</em>'}</div>
+        <button class="why-toggle" onclick="toggleWhy(this)" aria-expanded="false" aria-controls="${whyId}">▾ Why this score?</button>
+        <div class="why-body" id="${whyId}">${reasons || '<em>No reasons recorded</em>'}</div>
       </div>`;
   }).join('');
 }
@@ -1032,6 +1019,7 @@ async function load(isManual = false) {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const raw = await res.json();
     if (raw.error) throw new Error(raw.error);
+    if (!validateDashboardPayload(raw)) throw new Error('Invalid dashboard payload');
     _lastData = raw;
 
     const weightScenario = buildWeightScenario(raw);
@@ -1075,10 +1063,11 @@ async function load(isManual = false) {
       setTimeout(() => runRoundtable(true), 400);
     }
   } catch(e) {
+    console.error('Dashboard load failed:', e);
     $('refresh-dot').classList.remove('active');
     if (isFirst) {
       $('loading').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">
-        ⚠ Error: ${esc(e.message)}<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
+        We could not load current market data.<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
     } else {
       // Background refresh failed — keep stale data visible, retry on next cycle
       _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
@@ -1262,10 +1251,6 @@ if (!globalThis.__TESTING__) {
       toggleSettings();
       return;
     }
-    if (e.target.tagName === 'INPUT') return;
-    if (e.key === 'r' || e.key === 'R') load(true);
-    if (e.key === 'd' || e.key === 'D') toggleTheme();
-    if (e.key === 's' || e.key === 'S') toggleSettings();
   });
 
   load(true);
@@ -1281,5 +1266,6 @@ export {
   DEFAULT_WEIGHTS,
   buildWeightScenario,
   buildRadarChart,
+  validateDashboardPayload,
   isDefaultWeights,
 };

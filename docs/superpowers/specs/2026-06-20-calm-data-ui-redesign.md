@@ -1,6 +1,6 @@
 # Calm Data UI Redesign — Design Spec
-**Date:** 2026-06-20  
-**Branch:** `feature/minimal-calm-ui`  
+**Date:** 2026-06-20
+**Branch:** `feature/minimal-calm-ui`
 **Approach:** B — Calm Data
 
 ---
