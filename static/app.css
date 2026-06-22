@@ -1,9 +1,9 @@
   :root {
     --bg:      #0a0f14;
     --surface: #111820;
-    --surface2:#111820;
+    --surface2:#161d27;
     --border:  #1e2b38;
-    --border2: #1e2b38;
+    --border2: #283747;
     --green:   #00e676;
     --yellow:  #ffd740;
     --orange:  #ffaa00;
@@ -108,11 +108,9 @@
   .tag.gray   { background: rgba(90,112,128,0.12); color: var(--muted2); }
 
   /* "Why" expandable */
-  .why-toggle { margin-top: auto; padding-top: 10px; font-size: 10px; color: var(--muted2); cursor: pointer; text-align: center; letter-spacing: 1px; text-transform: uppercase; border-top: 1px solid var(--border); padding-bottom: 2px; user-select: none; }
-  .why-toggle:hover { color: var(--accent); }
-  .why-body { display: none; margin-top: 8px; padding: 8px; background: rgba(0,176,255,0.04); border-radius: 3px; font-size: 9.5px; line-height: 1.6; color: var(--muted2); }
-  .why-body.open { display: block; }
-  .why-body .why-line { padding: 2px 0; }
+  .why-section { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .why-section-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .why-section .why-line { font-size: 10px; line-height: 1.6; color: var(--muted2); padding: 2px 0; }
 
   /* ── BOTTOM GRID ── */
   .bottom-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
@@ -154,11 +152,6 @@
   .sector-bar { height: 14px; border-radius: 2px; min-width: 2px; transition: width 0.8s ease; display: flex; align-items: center; padding: 0 4px; }
   .sector-pct { font-size: 10px; font-weight: 700; white-space: nowrap; }
 
-  /* execution window */
-  .exec-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-  .exec-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-  .exec-key { color: var(--muted); font-size: 10px; display: flex; align-items: center; gap: 6px; }
-  .exec-dot { width: 6px; height: 6px; border-radius: 50%; }
 
   /* scoring weights */
   .weight-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
@@ -285,8 +278,8 @@
   .pillar-sep { border-top: 1px solid rgba(255,255,255,0.05); margin: 5px 0 3px; }
   .detail-rows { display: none; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 4px; padding-top: 2px; }
   .detail-rows.open { display: block; }
-  .detail-toggle { font-size: 10px; color: var(--muted); cursor: pointer; padding: 4px 0; min-height: 24px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.5px; user-select: none; text-align: center; margin-bottom: 4px; }
-  .detail-toggle:hover { color: var(--accent2); }
+  .detail-toggle { font-size: 10px; color: var(--muted); cursor: pointer; padding: 8px 0 2px; min-height: 24px; display: flex; align-items: center; justify-content: center; letter-spacing: 0.5px; user-select: none; text-align: center; margin-top: auto; border-top: 1px solid var(--border); }
+  .detail-toggle:hover { color: var(--accent); }
 
   /* ── SECTOR RS CHIPS ── */
   .rs-chips { display: flex; gap: 4px; flex-wrap: wrap; padding: 3px 0 5px; }
@@ -328,9 +321,11 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* ── BUTTON RESET for semantic toggle elements ── */
-  button.why-toggle, button.detail-toggle {
+  button.detail-toggle {
     background: none;
-    border: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
     width: 100%;
     font-family: inherit;
   }

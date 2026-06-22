@@ -430,7 +430,6 @@ function renderPillars(d) {
     const c = scoreColor(sc);
     const reasons = (p.reasons || []).map(r => `<div class="why-line">${esc(r)}</div>`).join('');
     const detailId = `pillar-${def.key}-details`;
-    const whyId = `pillar-${def.key}-why`;
     return `
       <div class="pillar-card">
         <div class="pillar-head">
@@ -439,12 +438,14 @@ function renderPillars(d) {
         </div>
         <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
         ${def.primary(p)}
-        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false" aria-controls="${detailId}">▾ more</button>
+        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false" aria-controls="${detailId}">▾ More detail &amp; why</button>
         <div class="detail-rows" id="${detailId}">
           ${def.detail(p)}
+          <div class="why-section">
+            <div class="why-section-label">Why this score</div>
+            ${reasons || '<em>No reasons recorded</em>'}
+          </div>
         </div>
-        <button class="why-toggle" onclick="toggleWhy(this)" aria-expanded="false" aria-controls="${whyId}">▾ Why this score?</button>
-        <div class="why-body" id="${whyId}">${reasons || '<em>No reasons recorded</em>'}</div>
       </div>`;
   }).join('');
 }
@@ -453,14 +454,7 @@ function toggleDetail(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
   el.setAttribute('aria-expanded', open);
-  el.innerHTML = (open ? '▴' : '▾') + ' more';
-}
-
-function toggleWhy(el) {
-  const body = el.nextElementSibling;
-  const open = body.classList.toggle('open');
-  el.setAttribute('aria-expanded', open);
-  el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
+  el.innerHTML = (open ? '▴ Less detail' : '▾ More detail & why');
 }
 
 /* ── SECTOR + INDUSTRY BARS ────────────────────────────── */
@@ -1234,7 +1228,6 @@ if (!globalThis.__TESTING__) {
   window.applyWeights           = applyWeights;
   window.resetWeights           = resetWeights;
   window.toggleDetail           = toggleDetail;
-  window.toggleWhy              = toggleWhy;
   window.selectWatchlistView    = selectWatchlistView;
 
   initTheme();
