@@ -10,13 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 python3 server.py
 
 # Run all Python tests
-python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_contracts.py && python3 test_backtest_report.py && python3 test_analysis.py && python3 test_smoke.py
+python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_contracts.py && python3 test_backtest_report.py && python3 test_backtest_stats.py && python3 test_analysis.py && python3 test_smoke.py
 
 # Run a single test file
 python3 test_scoring.py
 
 # Syntax check all Python files
-python -m py_compile server.py scoring.py data.py analysis.py ai_synthesis.py watchlist.py models.py backtest_report.py
+python -m py_compile server.py scoring.py data.py analysis.py ai_synthesis.py watchlist.py models.py backtest_report.py backtest_stats.py
 ```
 
 ### JavaScript (frontend)
@@ -70,7 +70,7 @@ watchlist.py  TradingView-format watchlist health scoring
 - **Volatility** (15%): VIX level/trend/percentile, term structure (VIX9D/VIX3M), SKEW, option flow
 - **Macro** (10%): 10Y yield, DXY, yield curve, HYG credit, BTC, GLD, FOMC proximity
 
-Decision thresholds: ≥85 STRONG YES → 70 YES → 55 CAUTION → 40 NO → <40 WAIT.
+Decision bands: ≥85 RISK-ON → 70 CONSTRUCTIVE → 55 SELECTIVE → 40 DE-RISK → <40 RISK-OFF (descriptive bands, not validated thresholds).
 
 ### Caching & reliability patterns
 - Thread-safe global caches with locks; stale-while-revalidate background refresh

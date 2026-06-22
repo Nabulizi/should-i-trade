@@ -22,8 +22,8 @@ from data import (
     opex_proximity, seasonality, earnings_season, fetch_futures_tape,
     yf_last_bar_date,
 )
-from config import PILLAR_WEIGHTS
-from models import PillarResult, DashboardResult
+from config import PILLAR_WEIGHTS, VOL_TARGET_K, VOL_TARGET_WINDOW
+from models import PillarResult, DashboardResult, VolTargetInfo
 
 # ─── configuration ─────────────────────────────────────────────────────────
 
@@ -63,20 +63,22 @@ CRITICAL_HISTORY_REQUIREMENTS = {
 }
 MIN_SECTOR_HISTORY_SYMBOLS = 8
 MIN_SECTOR_HISTORY_POINTS = 64
-# De-risk gauge: a 2005-2026 walk-forward backtest showed the composite is a
-# drawdown/exposure timer, not a forward-return predictor. Labels describe how
-# much market risk the current regime is worth; the "engage" line is 55, not 70.
+# Market-conditions gauge: the 2005-2026 replay (docs/backtest-report.md) shows
+# the composite describes the current regime but has no demonstrated timing
+# edge over same-exposure baselines. Labels describe conditions and a suggested
+# exposure posture; they are not validated trade signals. 55/70/85 are
+# descriptive bands, not proven thresholds.
 DECISION_BANDS = [
     {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "FULL EXPOSURE",
-     "action": "Full exposure — low-drawdown regime, press the bid on A/B setups"},
+     "action": "Full exposure — calm, trending tape, press the bid on A/B setups"},
     {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "STANDARD EXPOSURE",
-     "action": "Standard exposure — constructive regime, run your normal game"},
+     "action": "Standard exposure — constructive tape, run your normal game"},
     {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MODERATE EXPOSURE",
-     "action": "Moderate exposure — engage selectively, A+ setups, tight stops"},
+     "action": "Moderate exposure — mixed tape, engage selectively, A+ setups, tight stops"},
     {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "REDUCED EXPOSURE",
-     "action": "Reduced exposure — de-risk, very selective or sit out"},
+     "action": "Reduced exposure — choppy tape, very selective or sit out"},
     {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "DEFENSIVE / FLAT",
-     "action": "Defensive — drawdown risk elevated, no new longs"},
+     "action": "Defensive — stressed tape, protect capital, no new longs"},
 ]
 
 
@@ -1367,6 +1369,29 @@ def _fetch_instruments() -> dict:
     }
 
 
+def vol_target_exposure(closes: list[float]) -> VolTargetInfo | None:
+    """Evidence-backed exposure dial: clamp(VOL_TARGET_K / realized vol, 0..100%).
+
+    closes: chronological adjusted closes (most recent last); needs at least
+    VOL_TARGET_WINDOW + 1 points. Returns None when history is insufficient,
+    contains non-positive prices, or volatility is zero. Vol units match the
+    backtest calibration: PERCENT daily returns (see config.VOL_TARGET_K).
+    """
+    if not closes or len(closes) < VOL_TARGET_WINDOW + 1:
+        return None
+    tail = closes[-(VOL_TARGET_WINDOW + 1):]
+    if any(c is None or c <= 0 for c in tail):
+        return None
+    rets = [(tail[i] / tail[i - 1] - 1) * 100 for i in range(1, len(tail))]
+    mean = sum(rets) / len(rets)
+    var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
+    vol = var ** 0.5
+    if vol <= 0:
+        return None
+    exposure = min(100.0, max(0.0, 100.0 * VOL_TARGET_K / vol))
+    return {"exposure_pct": round(exposure, 1), "realized_vol_pct": round(vol, 2)}
+
+
 def _day_streak(closes: list[float]) -> dict:
     """Count consecutive trading days SPY closed in the same direction.
 
@@ -1612,6 +1637,7 @@ def compute_dashboard() -> DashboardResult:
         "fear_greed_stock":  instruments["fng_stock"],
         "fear_greed_crypto": instruments["fng_crypto"],
         "spy_streak":        spy_streak,
+        "vol_target":        vol_target_exposure(spy_closes_spliced),
         "timestamp":         mstate["et_time"],
         "data_sources": {
             "vix": "CBOE",

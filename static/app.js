@@ -193,11 +193,11 @@ function renderHero(d) {
   const regime  = d.pillars?.trend?.details?.regime || null;
   const posture = d.action_hint
                 || (invalidData ? 'Exposure off — live market data is unavailable'
-                : s >= 85 ? 'Full exposure — low-drawdown regime, press the bid on A/B setups'
-                : s >= 70 ? 'Standard exposure — constructive regime, run your normal game'
-                : s >= 55 ? 'Moderate exposure — engage selectively, A+ setups, tight stops'
-                : s >= 40 ? 'Reduced exposure — de-risk, very selective or sit out'
-                :           'Defensive — drawdown risk elevated, no new longs');
+                : s >= 85 ? 'Full exposure — calm, trending tape, press the bid on A/B setups'
+                : s >= 70 ? 'Standard exposure — constructive tape, run your normal game'
+                : s >= 55 ? 'Moderate exposure — mixed tape, engage selectively, A+ setups, tight stops'
+                : s >= 40 ? 'Reduced exposure — choppy tape, very selective or sit out'
+                :           'Defensive — stressed tape, protect capital, no new longs');
   const confLevel = invalidData ? 0 : s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
   const confColor = invalidData ? 'var(--red)' : s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
   const confSegs  = [1,2,3,4,5].map(i =>
@@ -211,6 +211,7 @@ function renderHero(d) {
   ctx.innerHTML = `
     ${regime ? `<div class="dc-row"><span class="dc-label">Regime</span>${regimeTag}</div>` : ''}
     <div class="dc-posture">${posture}</div>
+    ${volTargetLine(d.vol_target)}
     <div class="dc-row"><span class="dc-label">Confidence</span><div class="confidence-bar">${confSegs}</div></div>
   `;
 
@@ -629,6 +630,16 @@ function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
     decision_color: band.color,
     position_size: band.position
   };
+}
+
+// Evidence-backed exposure dial (see docs/backtest-report.md): the no-pillar
+// vol-target baseline that beat the score-timing rule. Pure HTML-string
+// renderer so it is unit-testable; returns '' to hide the line when the
+// payload field is null or malformed.
+function volTargetLine(volTarget) {
+  if (!volTarget || typeof volTarget.exposure_pct !== 'number') return '';
+  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol-target</span>` +
+    `<span>~${Math.round(volTarget.exposure_pct)}% exposure — no-pillar baseline that beat the score in the 2005–2026 backtest</span></div>`;
 }
 
 function buildWeightScenario(data) {
@@ -1268,4 +1279,5 @@ export {
   buildRadarChart,
   validateDashboardPayload,
   isDefaultWeights,
+  volTargetLine,
 };

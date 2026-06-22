@@ -85,6 +85,17 @@ WL_EXTENDED_RSI: float = 72
 WL_EXTENDED_DIST: float = 0.08
 """Price more than this fraction above the 20d MA marks a symbol as extended."""
 
+# ── Vol-Target Exposure Dial ──────────────────────────────────────────────────
+# See docs/backtest-report.md, Strategy Comparison: the no-pillar baseline that
+# beat the Score>=55 rule on return, Sharpe, and max drawdown. VOL_TARGET_K was
+# derived 2026-06-12 by re-running the full-sample bisection from
+# backtest_stats.calibrate_vol_exposures against backtest_results.csv
+# (2005-2026, matched to the rule's 62.6% average exposure). Units: PERCENT
+# daily-return volatility (1.2 means 1.2%). Derivation snippet:
+# docs/superpowers/plans/2026-06-12-vol-target-display.md
+VOL_TARGET_K = 0.489724
+VOL_TARGET_WINDOW = 20   # trading days of realized vol
+
 # ── Local Overrides (git-ignored) ─────────────────────────────────────────────
 # Put machine-specific secrets/settings (e.g. GEMINI_API_KEY) in a
 # config_local.py next to this file. It is listed in .gitignore so a pasted
