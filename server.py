@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 HTML_FILE = "should-i-trade-v6.html"
+CLASSIC_HTML_FILE = "classic.html"   # original terminal UI, served at /classic
 HISTORY_FILE = os.path.join(SCRIPT_DIR, "history.json")
 # In production, allow all origins (public dashboard, no auth).
 # Locally, restrict to dev URL.
@@ -513,6 +514,9 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # ── html routes ────────────────────────────────────────────────────
+        if path in ("/classic", "/classic/"):
+            self._file(os.path.join(SCRIPT_DIR, CLASSIC_HTML_FILE))
+            return
         if path in ("/", "/index.html", "/v5", "/v5/", "/v6", "/v6/"):
             self._file(os.path.join(SCRIPT_DIR, HTML_FILE))
             return

@@ -3,45 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Should I Trade? — Market Quality Terminal v6</title>
+<meta name="theme-color" content="#0b1217">
+<title>Should I Trade? — Market posture, clearly</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/app.css">
 <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<script>
+  // Remember UI-version preference (set by the header toggle).
+  (function(){ try { if (localStorage.getItem('sit-ui') === 'classic') location.replace('/classic'); } catch(e){} })();
+</script>
 </head>
 <body>
 
-<!-- TICKER -->
-<div class="ticker-wrap"><div class="ticker-inner" id="ticker"></div></div>
+<a class="skip-link" href="#main-content">Skip to market decision</a>
 
 <!-- HEADER -->
-<div class="header">
+<header class="header">
   <div class="header-left">
     <span class="logo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>SHOULD I TRADE?</span>
-    <span class="subtitle">Quality Terminal v6</span>
     <span class="mkt-badge" id="mkt-badge"><span class="dot"></span><span id="mkt-label">—</span></span>
     <span class="fomc-badge" id="fomc-badge">FOMC <span class="date" id="fomc-text">—</span></span>
+    <span class="header-score" id="header-score" aria-live="polite"></span>
   </div>
   <div class="header-right">
-    <span class="ts" id="et-time">—</span>
-    <span class="ts" id="data-ts">—</span>
-    <span class="countdown" id="countdown">next refresh in —</span><span id="refresh-dot" title="Updating…"></span>
-    <button class="btn" onclick="copySnapshot()" title="Copy snapshot to clipboard (journal)" aria-label="Copy snapshot to clipboard">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      </button>
-      <button class="btn" id="alert-btn" onclick="toggleAlerts()" title="Score zone change notifications" aria-label="Toggle score alerts" style="opacity:0.45">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      </button>
-      <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      </button>
-      <button class="btn" onclick="toggleSettings()" title="Settings (S)" aria-label="Open settings">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-      <button class="btn" onclick="load(true)" aria-label="Refresh data">↺ REFRESH</button>
+    <a class="btn" href="/classic" onclick="try{localStorage.setItem('sit-ui','classic')}catch(e){}" title="Switch to the classic terminal UI" aria-label="Switch to the classic terminal UI">Classic</a>
+    <span id="refresh-dot" title="Updating…"></span>
+    <button class="btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light theme" aria-label="Toggle dark/light theme">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button class="btn" onclick="toggleSettings()" title="Settings" aria-label="Open settings">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="btn" onclick="load(true)" aria-label="Refresh data">↺ REFRESH</button>
   </div>
-</div>
+</header>
 
 <!-- ECON EVENTS ROW -->
 <div class="econ-row" id="econ-row" style="display:none">
@@ -50,55 +47,43 @@
 </div>
 
 <!-- CONTENT -->
-<div id="loading" class="loading">
+<div id="loading" class="loading" role="status" aria-live="polite">
   <div class="spinner"></div>
-  <div>Loading market data…</div>
+  <div>Building your market posture…</div>
 </div>
 
 <div id="content" style="display:none">
   <div id="coverage-warn" class="warn-banner" style="display:none"></div>
 
-  <div class="main">
+  <main class="main" id="main-content" tabindex="-1">
+    <h1 class="sr-only">Should I Trade? Market posture dashboard</h1>
 
-    <!-- HERO -->
-    <div class="hero">
-      <div class="decision-card">
-        <div class="decision-label">Risk Posture</div>
-        <div class="decision-badge" id="decision-badge">—</div>
-        <div class="decision-sub" id="decision-sub">Swing Trading</div>
+    <!-- SCORE STRIP -->
+    <div class="score-strip">
+      <div class="strip-circle">
+        <svg width="80" height="80" viewBox="0 0 110 110">
+          <circle class="track" cx="55" cy="55" r="46"/>
+          <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
+        </svg>
+        <div class="score-num">
+          <div class="val" id="score-val">—</div>
+          <div class="tot">/ 100</div>
+        </div>
+      </div>
+      <div class="strip-info">
+        <div class="strip-posture">
+          <span class="decision-badge" id="decision-badge">—</span>
+          <span class="strip-exposure" id="pos-text">—</span>
+        </div>
         <div class="decision-context" id="decision-context" style="display:none"></div>
+        <div class="score-freshness" id="score-freshness"></div>
+        <div class="streak-badge-wrap" style="display:none"></div>
       </div>
-
-      <div class="hero-mid">
-        <div class="score-circle-wrap">
-          <div class="score-circle">
-            <svg width="110" height="110" viewBox="0 0 110 110">
-              <circle class="track" cx="55" cy="55" r="46"/>
-              <circle class="fill" id="score-arc" cx="55" cy="55" r="46" stroke-dasharray="289" stroke-dashoffset="289"/>
-            </svg>
-            <div class="score-num">
-              <div class="val" id="score-val">—</div>
-              <div class="tot">/ 100</div>
-            </div>
-          </div>
-          <div class="score-label">Total Score</div>
-          <div class="score-caveat">not advice · not a return signal</div>
-          <div class="score-freshness" id="score-freshness"></div>
-          <div class="streak-badge-wrap" style="display:none"></div>
-        </div>
-        <div class="pillars-mini" id="pillars-mini"></div>
-      </div>
-
-      <div class="pos-card">
-        <div class="pos-label">Suggested Exposure</div>
-        <div class="pos-icon" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        <div class="pos-text" id="pos-text">—</div>
-        <div class="pos-sub">Drawdown-timed</div>
+      <div class="strip-right">
+        <div class="hero-radar" id="hero-radar"></div>
+        <div class="strip-caveat">not advice · not a return signal</div>
       </div>
     </div>
-
     <!-- 5 PILLAR CARDS -->
     <div class="futures-card" id="futures-card">
       <div>
@@ -115,7 +100,15 @@
       </div>
     </div>
 
-    <div class="pillars-row" id="pillars-row"></div>
+    <section class="section" aria-labelledby="drivers-heading">
+      <div class="section-heading">
+        <div>
+          <div class="section-kicker">Decision drivers</div>
+          <h2 id="drivers-heading">What is shaping the posture?</h2>
+        </div>
+      </div>
+      <div class="pillars-row" id="pillars-row"></div>
+    </section>
 
     <!-- OVERRIDE BANNER + CONFLICTS -->
     <div id="override-banner" class="override-banner" style="display:none"></div>
@@ -123,6 +116,10 @@
 
     <!-- FEAR & GREED -->
 
+    <!-- SUPPORTING DATA -->
+    <details class="workspace-disclosure">
+      <summary><span>Explore supporting data</span><span class="summary-hint">Breadth, history, and watchlist</span></summary>
+      <div class="supporting-content">
     <!-- BOTTOM -->
     <div class="bottom-row">
       <!-- Sector + Industry Performance -->
@@ -134,40 +131,18 @@
         <div id="industry-bars"></div>
       </div>
 
-      <!-- Execution Window -->
+      <!-- Score History Sparkline -->
       <div class="card">
-        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Execution Window</span></div>
-        <div id="exec-window"></div>
-      </div>
-
-      <!-- Scoring Weights + Sparkline -->
-      <div class="card">
-        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Scoring Weights</span> <button class="btn" style="font-size:9px;padding:2px 6px" onclick="toggleSettings()"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Edit</button></div>
-        <div id="score-weights"></div>
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
-          <span id="weight-total-label" style="color:var(--muted);font-size:10px;">OFFICIAL SCORE</span>
-          <span style="font-size:16px;font-weight:800;" id="total-score-bottom">—</span>
-        </div>
-        <div id="weight-scenario-note" style="display:none;margin-top:6px;font-size:9px;color:var(--muted);line-height:1.6;">
-          What-if only. The hero decision, alerts, conflicts, history, and roundtable use backend weights.
-        </div>
-        <div style="margin-top:8px;font-size:9px;color:var(--muted);line-height:1.7;">
-          <span style="color:var(--green);">●</span> 85+: RISK-ON (full exposure)<br>
-          <span style="color:var(--green);">●</span> 70–84: CONSTRUCTIVE (standard exposure)<br>
-          <span style="color:var(--yellow);">●</span> 55–69: SELECTIVE (moderate exposure)<br>
-          <span style="color:var(--orange);">●</span> 40–54: DE-RISK (reduced exposure)<br>
-          <span style="color:var(--red);">●</span> &lt;40: RISK-OFF (defensive / flat)
-        </div>
-
+        <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Score History</span></div>
         <div class="sparkline-wrap">
           <div class="sparkline-label">
-            <span>Score history <span id="spark-paused" style="display:none;color:var(--red);margin-left:6px;">⏸ paused — bad data</span></span>
+            <span>Last 12 hours <span id="spark-paused" style="display:none;color:var(--red);margin-left:6px;">⏸ paused — bad data</span></span>
             <span id="spark-range">—</span>
           </div>
           <svg class="sparkline" id="sparkline" viewBox="0 0 400 60" preserveAspectRatio="none"></svg>
           <div class="spark-legend" id="spark-legend" role="group" aria-label="Toggle sparkline series">
-            <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#e0e8f0"></div>Total</button>
-            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00b0ff"></div>Vol</button>
+            <button class="spark-leg-item" data-key="total" onclick="toggleSparkLine('total',this)" aria-pressed="true"><div class="spark-leg-dot" style="background:#dce6f0"></div>Total</button>
+            <button class="spark-leg-item dimmed" data-key="v" onclick="toggleSparkLine('v',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#3b82f6"></div>Vol</button>
             <button class="spark-leg-item dimmed" data-key="tr" onclick="toggleSparkLine('tr',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#00e676"></div>Trend</button>
             <button class="spark-leg-item dimmed" data-key="br" onclick="toggleSparkLine('br',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ffd740"></div>Breadth</button>
             <button class="spark-leg-item dimmed" data-key="mo" onclick="toggleSparkLine('mo',this)" aria-pressed="false"><div class="spark-leg-dot" style="background:#ff9100"></div>Mom</button>
@@ -176,59 +151,77 @@
         </div>
       </div>
     </div>
-
     <!-- WATCHLIST HEALTH -->
-    <div class="card watch-card">
-      <div class="card-title"><span class="icon-label"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Watchlist Health</span> <span class="watch-meta" id="watchlist-meta">TradingView export</span>
-        <select id="watchlist-select" style="margin-left:8px;font-size:10px;background:var(--bg2);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer;" aria-label="Select watchlist file" onchange="onWatchlistChange()"></select>
+    <div class="collapsible-section">
+      <div class="section-toggle-row">
+        <button class="section-toggle" id="section-toggle-watchlist" onclick="toggleSection('watchlist')" aria-expanded="false" aria-controls="section-body-watchlist">
+          <span class="toggle-chevron" aria-hidden="true">▶</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Watchlist Health
+          <span class="watch-meta" id="watchlist-meta"></span>
+        </button>
+        <label class="watchlist-picker">
+          <span class="sr-only">Select watchlist file</span>
+          <select id="watchlist-select" aria-label="Select watchlist file" onchange="onWatchlistChange()"></select>
+        </label>
       </div>
-      <div id="watchlist-health">
-        <div style="color:var(--muted);font-size:10px;">Loading watchlist…</div>
+      <div id="section-body-watchlist" class="section-body">
+        <div id="watchlist-health">
+          <div style="color:var(--muted);font-size:11px;">Click to load watchlist…</div>
+        </div>
       </div>
     </div>
+      </div>
+    </details>
 
     <!-- ROUNDTABLE -->
-    <div class="roundtable-section">
-      <div class="roundtable-head">
-        <span class="roundtable-title"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Trading Desk Roundtable</span>
-        <button class="btn" id="rt-btn" onclick="runRoundtable()" aria-label="Generate rule-based desk read"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>Rule-Based Read</button>
-        <button class="btn btn-ai" id="rt-ai-btn" onclick="runRoundtable(false, true)" aria-label="Run AI analysis — 5 specialist agents, approximately 10 seconds"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI Analysis</button>
+    <div class="collapsible-section">
+      <button class="section-toggle" id="section-toggle-roundtable" onclick="toggleSection('roundtable')" aria-expanded="false" aria-controls="section-body-roundtable">
+        <span class="toggle-chevron" aria-hidden="true">▶</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Trading Desk Roundtable
+      </button>
+      <div id="section-body-roundtable" class="section-body">
+        <div class="roundtable-head">
+          <button class="btn" id="rt-btn" onclick="runRoundtable()" aria-label="Generate rule-based desk read"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>Rule-Based Read</button>
+          <button class="btn btn-ai" id="rt-ai-btn" onclick="runRoundtable(false, true)" aria-label="Run AI analysis — 5 specialist agents, approximately 10 seconds"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI Analysis</button>
+        </div>
+        <div id="roundtable-grid" class="roundtable-grid"></div>
       </div>
-      <div id="roundtable-grid" class="roundtable-grid"></div>
     </div>
 
-  </div>
+  </main>
 </div>
 
 <!-- SETTINGS DRAWER -->
-<div class="settings-overlay" id="settings-overlay" onclick="closeSettingsOnOverlay(event)">
-  <div class="settings-drawer">
+<div class="settings-overlay" id="settings-overlay" onclick="closeSettingsOnOverlay(event)" aria-hidden="true">
+  <div class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title" tabindex="-1">
     <div class="settings-title">
-      <span>⚙ Settings</span>
-      <button class="btn" onclick="toggleSettings()" style="font-size:10px" aria-label="Close settings">✕</button>
+      <span id="settings-title">Score settings</span>
+      <button class="btn settings-close" onclick="toggleSettings()" aria-label="Close settings">Close</button>
     </div>
 
     <div class="settings-section">
       <div class="settings-section-title">Pillar Weights (must sum to 100)</div>
       <div class="weight-slider-row">
         <div class="weight-slider-label"><span>Volatility</span><span id="wlbl-v">15%</span></div>
-        <input type="range" min="5" max="50" step="5" value="15" id="ws-v" oninput="onWeightChange()">
+        <input type="range" min="5" max="50" step="5" value="15" id="ws-v" aria-label="Volatility weight" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
         <div class="weight-slider-label"><span>Trend</span><span id="wlbl-tr">30%</span></div>
-        <input type="range" min="5" max="50" step="5" value="30" id="ws-tr" oninput="onWeightChange()">
+        <input type="range" min="5" max="50" step="5" value="30" id="ws-tr" aria-label="Trend weight" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
         <div class="weight-slider-label"><span>Breadth</span><span id="wlbl-br">25%</span></div>
-        <input type="range" min="5" max="50" step="5" value="25" id="ws-br" oninput="onWeightChange()">
+        <input type="range" min="5" max="50" step="5" value="25" id="ws-br" aria-label="Breadth weight" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
         <div class="weight-slider-label"><span>Momentum</span><span id="wlbl-mo">20%</span></div>
-        <input type="range" min="5" max="50" step="5" value="20" id="ws-mo" oninput="onWeightChange()">
+        <input type="range" min="5" max="50" step="5" value="20" id="ws-mo" aria-label="Momentum weight" oninput="onWeightChange()">
       </div>
       <div class="weight-slider-row">
         <div class="weight-slider-label"><span>Macro</span><span id="wlbl-ma">10%</span></div>
-        <input type="range" min="5" max="50" step="5" value="10" id="ws-ma" oninput="onWeightChange()">
+        <input type="range" min="5" max="50" step="5" value="10" id="ws-ma" aria-label="Macro weight" oninput="onWeightChange()">
       </div>
       <div id="weight-sum-warn" style="font-size:9px;color:var(--red);display:none;margin-top:6px;">⚠ Weights must sum to 100</div>
       <div class="settings-footer">
@@ -236,6 +229,25 @@
         <button class="btn" onclick="resetWeights()">↺ Reset</button>
       </div>
       <div class="settings-info">Weights are saved locally and persist across sessions. They only affect the what-if score in the Scoring Weights card; the main dashboard decision remains backend-scored.</div>
+    </div>
+
+    <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">
+      <div class="settings-section-title">Score Weights — What-If View</div>
+      <div id="score-weights"></div>
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">
+        <span id="weight-total-label" style="color:var(--muted);font-size:10px;">OFFICIAL SCORE</span>
+        <span style="font-size:16px;font-weight:800;font-family:'Fira Code',monospace;" id="total-score-bottom">—</span>
+      </div>
+      <div id="weight-scenario-note" style="display:none;margin-top:6px;font-size:10px;color:var(--muted);line-height:1.6;">
+        What-if only. The hero decision, alerts, conflicts, history, and roundtable use backend weights.
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:var(--muted);line-height:1.9;">
+        <span style="color:var(--green);">●</span> 85+: RISK-ON — full exposure<br>
+        <span style="color:var(--green);">●</span> 70–84: CONSTRUCTIVE — standard exposure<br>
+        <span style="color:var(--yellow);">●</span> 55–69: SELECTIVE — moderate exposure<br>
+        <span style="color:var(--orange);">●</span> 40–54: DE-RISK — reduced exposure<br>
+        <span style="color:var(--red);">●</span> &lt;40: RISK-OFF — defensive / flat
+      </div>
     </div>
 
     <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">

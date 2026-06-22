@@ -7,12 +7,51 @@ import {
   FALLBACK_DECISION_BANDS,
   DEFAULT_WEIGHTS,
   buildWeightScenario,
+  buildRadarChart,
+  validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,
 } from './app.js';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+describe('buildRadarChart', () => {
+  it('renders an accessible SVG summary of all five pillar scores', () => {
+    const svg = buildRadarChart({
+      volatility: { score: 95 },
+      trend: { score: 100 },
+      breadth: { score: 87 },
+      momentum: { score: 75 },
+      macro: { score: 73 },
+    });
+
+    expect(svg).toContain('role="img"');
+    expect(svg).toContain('VOL 95, TREND 100, BREADTH 87, MOM 75, MACRO 73');
+    expect(svg).toContain('<polygon');
+  });
+});
+
+describe('validateDashboardPayload', () => {
+  const validPayload = {
+    total_score: 72,
+    decision: 'CONSTRUCTIVE',
+    position_size: 'STANDARD EXPOSURE',
+    pillars: Object.fromEntries(
+      ['volatility', 'trend', 'breadth', 'momentum', 'macro'].map(key => [key, { score: 72, details: {} }])
+    ),
+  };
+
+  it('accepts a complete dashboard payload', () => {
+    expect(validateDashboardPayload(validPayload)).toBe(true);
+  });
+
+  it('rejects missing and malformed pillar data', () => {
+    expect(validateDashboardPayload({})).toBe(false);
+    expect(validateDashboardPayload({ ...validPayload, pillars: {} })).toBe(false);
+    expect(validateDashboardPayload({ ...validPayload, total_score: 'not-a-score' })).toBe(false);
+  });
 });
 
 // ── scoreColor ────────────────────────────────────────────────────────────

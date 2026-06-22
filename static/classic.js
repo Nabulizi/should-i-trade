@@ -22,6 +22,17 @@ function colorClass(s) {
 function tagColor(c) { return ['green','yellow','orange','red','gray'].includes(c) ? c : 'gray'; }
 function chgStr(v)   { return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
 
+/* ── TICKER ─────────────────────────────────────────────── */
+function renderTicker(items) {
+  const doubled = [...items, ...items];
+  $('ticker').innerHTML = doubled.map(t => `
+    <span class="tick ${t.up ? 'up' : 'dn'}">
+      <span class="sym">${esc(t.symbol)}</span>
+      <span class="px">${esc(t.price)}</span>
+      <span class="chg"> ${t.up ? '\u25b4' : '\u25be'}${chgStr(t.change_pct)}</span>
+    </span>`).join('');
+}
+
 /* ── FUTURES TAPE ─────────────────────────────────────── */
 function fmtFuturePrice(v) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -72,7 +83,7 @@ function renderHeader(d) {
   const mkt = d.market_state || {};
   $('mkt-badge').className = 'mkt-badge ' + (mkt.state || 'closed');
   $('mkt-label').textContent = mkt.label || '—';
-  const etEl = $('et-time'); if (etEl) etEl.textContent = mkt.et_time ? `${mkt.et_date} · ${mkt.et_time}` : '—';
+  $('et-time').textContent = mkt.et_time ? `${mkt.et_date} · ${mkt.et_time}` : '—';
 
   const fomc = d.fomc || {};
   $('fomc-badge').className = 'fomc-badge ' + (fomc.color || 'gray');
@@ -82,7 +93,7 @@ function renderHeader(d) {
     $('fomc-badge').innerHTML = `${esc(fomc.label || '—')} <span class="date">${esc(fomc.date_pretty || '')}</span>`;
   }
 
-  const dtsEl = $('data-ts'); if (dtsEl) dtsEl.textContent = d.timestamp ? `updated ${d.timestamp}` : '';
+  $('data-ts').textContent = d.timestamp ? `updated ${d.timestamp}` : '';
   const freshEl = document.getElementById('score-freshness');
   if (freshEl) freshEl.textContent = d.timestamp ? `as of ${d.timestamp}` : '';
 
@@ -127,46 +138,42 @@ function renderHeader(d) {
 
 /* ── RADAR CHART ────────────────────────────────────────── */
 function buildRadarChart(pillars) {
-  const keys = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
-  const labels = ['VOL', 'TREND', 'BREADTH', 'MOM', 'MACRO'];
-  const cx = 100, cy = 100, maxR = 62;
-  const step = (2 * Math.PI) / keys.length;
+  const keys   = ['volatility','trend','breadth','momentum','macro'];
+  const labels = ['VOL','TREND','BREADTH','MOM','MACRO'];
+  const cx = 100, cy = 100, maxR = 72, sz = 200;
+  const n = keys.length;
+  const step = (2 * Math.PI) / n;
   const start = -Math.PI / 2;
-  const point = (index, radius) => {
-    const angle = start + index * step;
-    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
-  };
-  const scores = keys.map(key => Math.max(0, Math.min(100, Number(pillars?.[key]?.score) || 0)));
-  const scorePoints = scores.map((score, index) => point(index, maxR * score / 100));
-  const accessibleLabel = labels.map((label, index) => `${label} ${scores[index]}`).join(', ');
-
-  let svg = `<svg viewBox="0 0 200 200" role="img" aria-label="Decision driver scores: ${accessibleLabel}">`;
-  [25, 50, 75, 100].forEach(percent => {
-    const radius = maxR * percent / 100;
-    svg += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="var(--border2)" stroke-width="1"/>`;
+  function pt(i, r) {
+    const a = start + i * step;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  }
+  let svg = `<svg viewBox="0 0 ${sz} ${sz}" width="160" height="160">`;
+  // Grid rings
+  [25,50,75,100].forEach(pct => {
+    const r = maxR * pct / 100;
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
   });
-  keys.forEach((_, index) => {
-    const [x, y] = point(index, maxR);
-    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border2)" stroke-width="1"/>`;
+  // Axis lines
+  for (let i = 0; i < n; i++) {
+    const [x,y] = pt(i, maxR);
+    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
+  }
+  // Score polygon
+  const pts = keys.map((k,i) => pt(i, maxR * (pillars[k]?.score ?? 50) / 100));
+  svg += `<polygon points="${pts.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="rgba(0,176,255,0.15)" stroke="#00b0ff" stroke-width="1.5"/>`;
+  // Dots + labels
+  keys.forEach((k,i) => {
+    const sc = pillars[k]?.score ?? 50;
+    const [x,y] = pts[i];
+    const col = sc >= 70 ? '#00e676' : sc >= 45 ? '#ffd740' : '#ff1744';
+    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${col}"/>`;
+    const [lx,ly] = pt(i, maxR + 18);
+    svg += `<text x="${lx.toFixed(1)}" y="${(ly-2).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.80)" font-size="15" font-family="monospace">${labels[i]}</text>`;
+    svg += `<text x="${lx.toFixed(1)}" y="${(ly+13).toFixed(1)}" text-anchor="middle" fill="${col}" font-size="17" font-family="monospace" font-weight="700">${sc}</text>`;
   });
-  svg += `<polygon points="${scorePoints.map(coords => coords.map(value => value.toFixed(1)).join(',')).join(' ')}" fill="rgba(59,130,246,.14)" stroke="var(--accent)" stroke-width="1.5"/>`;
-  scores.forEach((score, index) => {
-    const [x, y] = scorePoints[index];
-    const color = scoreColor(score);
-    const [labelX, labelY] = point(index, maxR + 20);
-    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${color}"/>`;
-    svg += `<text x="${labelX.toFixed(1)}" y="${(labelY - 2).toFixed(1)}" text-anchor="middle" fill="var(--muted2)" font-size="12" font-family="ui-monospace, monospace">${labels[index]}</text>`;
-    svg += `<text x="${labelX.toFixed(1)}" y="${(labelY + 11).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="14" font-family="ui-monospace, monospace" font-weight="700">${score}</text>`;
-  });
-  return svg + '</svg>';
-}
-
-function validateDashboardPayload(data) {
-  const pillarKeys = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
-  const validScore = value => Number.isFinite(Number(value));
-  if (!data || typeof data !== 'object' || !validScore(data.total_score)) return false;
-  if (!data.pillars || !pillarKeys.every(key => validScore(data.pillars[key]?.score) && data.pillars[key]?.details)) return false;
-  return typeof data.decision === 'string' && typeof data.position_size === 'string';
+  svg += '</svg>';
+  return svg;
 }
 
 /* ── HERO ───────────────────────────────────────────────── */
@@ -221,8 +228,6 @@ function renderHero(d) {
   arc.style.stroke = scoreColor(s);
   $('score-val').textContent = s;
   $('score-val').style.color = scoreColor(s);
-  const radar = $('hero-radar');
-  if (radar) radar.innerHTML = buildRadarChart(d.pillars);
 
   // Score delta badge
   const delta = d.score_delta;
@@ -255,14 +260,8 @@ function renderHero(d) {
     }
   }
 
-  // Update header score badge
-  const headerScore = $('header-score');
-  if (headerScore) {
-    const invalidData = d.data_quality?.valid === false;
-    headerScore.textContent = invalidData ? '— · DATA UNAVAILABLE' : `${s} · ${d.decision}`;
-    headerScore.className = 'header-score loaded';
-    headerScore.style.color = invalidData ? 'var(--muted)' : scoreColor(s);
-  }
+  // Radar chart replaces pillar mini-bars
+  $('pillars-mini').innerHTML = `<div class="radar-wrap">${buildRadarChart(d.pillars)}</div>`;
 }
 
 /* ── PILLARS ────────────────────────────────────────────── */
@@ -429,7 +428,6 @@ function renderPillars(d) {
     const sc = p.score;
     const c = scoreColor(sc);
     const reasons = (p.reasons || []).map(r => `<div class="why-line">${esc(r)}</div>`).join('');
-    const detailId = `pillar-${def.key}-details`;
     return `
       <div class="pillar-card">
         <div class="pillar-head">
@@ -438,14 +436,12 @@ function renderPillars(d) {
         </div>
         <div class="pillar-bar"><div class="pillar-bar-fill" style="width:${sc}%;background:${c}"></div></div>
         ${def.primary(p)}
-        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false" aria-controls="${detailId}">▾ More detail &amp; why</button>
-        <div class="detail-rows" id="${detailId}">
+        <button class="detail-toggle" onclick="toggleDetail(this)" aria-expanded="false">▾ more</button>
+        <div class="detail-rows">
           ${def.detail(p)}
-          <div class="why-section">
-            <div class="why-section-label">Why this score</div>
-            ${reasons || '<em>No reasons recorded</em>'}
-          </div>
         </div>
+        <button class="why-toggle" onclick="toggleWhy(this)" aria-expanded="false">▾ Why this score?</button>
+        <div class="why-body">${reasons || '<em>No reasons recorded</em>'}</div>
       </div>`;
   }).join('');
 }
@@ -454,7 +450,14 @@ function toggleDetail(el) {
   const body = el.nextElementSibling;
   const open = body.classList.toggle('open');
   el.setAttribute('aria-expanded', open);
-  el.innerHTML = (open ? '▴ Less detail' : '▾ More detail & why');
+  el.innerHTML = (open ? '▴' : '▾') + ' more';
+}
+
+function toggleWhy(el) {
+  const body = el.nextElementSibling;
+  const open = body.classList.toggle('open');
+  el.setAttribute('aria-expanded', open);
+  el.innerHTML = (open ? '▴' : '▾') + ' Why this score?';
 }
 
 /* ── SECTOR + INDUSTRY BARS ────────────────────────────── */
@@ -473,6 +476,29 @@ function renderBars(elId, data) {
           <span class="sector-pct" style="color:${c}">${chgStr(v.change_pct)}</span>
         </div>
       </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── EXECUTION WINDOW ──────────────────────────────────── */
+function renderExecution(d) {
+  const t = d.pillars.trend.details;
+  const b = d.pillars.breadth.details;
+  const m = d.pillars.momentum.details;
+
+  const checks = [
+    { label: 'Breakouts working?', ok: m.sectors_positive >= 7,       t: 'Working',     f: 'Failing'  },
+    { label: 'Leaders holding?',   ok: t.above_50 && t.above_20,      t: 'Holding',     f: 'Breaking' },
+    { label: 'Pullbacks bought?',  ok: b.rsp_change_pct >= 0,         t: 'Supported',   f: 'Sold'     },
+    { label: 'Equal-weight leading?', ok: b.rsp_vs_spy > 0,             t: 'Equal-Wt Led', f: 'Large-Cap Led' },
+    { label: 'Follow-through?',    ok: d.total_score >= 70,           t: 'Conviction',  f: 'Weak'     },
+  ];
+
+  $('exec-window').innerHTML = checks.map(c => {
+    const col = c.ok ? 'var(--green)' : 'var(--red)';
+    return `<div class="exec-row">
+      <span class="exec-key"><span class="exec-dot" style="background:${col}"></span>${c.label}</span>
+      <span style="color:${col};font-size:10px;font-weight:700">${c.ok ? c.t : c.f}</span>
     </div>`;
   }).join('');
 }
@@ -660,24 +686,16 @@ function buildWeightScenario(data) {
 }
 
 /* ── SETTINGS DRAWER ───────────────────────────────────── */
-let _settingsReturnFocus = null;
-
 function toggleSettings() {
   const overlay = $('settings-overlay');
   const isOpen = overlay.classList.toggle('open');
-  overlay.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
   if (isOpen) {
-    _settingsReturnFocus = document.activeElement;
     const w = loadWeights();
     ['v','tr','br','mo','ma'].forEach((k, i) => {
       const key = ['volatility','trend','breadth','momentum','macro'][i];
       $(`ws-${k}`).value = w[key];
       $(`wlbl-${k}`).textContent = w[key] + '%';
     });
-    requestAnimationFrame(() => overlay.querySelector('.settings-close')?.focus());
-  } else if (_settingsReturnFocus?.focus) {
-    _settingsReturnFocus.focus();
-    _settingsReturnFocus = null;
   }
 }
 function closeSettingsOnOverlay(e) { if (e.target === $('settings-overlay')) toggleSettings(); }
@@ -717,20 +735,13 @@ function resetWeights() {
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light-theme');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
-  updateThemeButton(isLight);
-}
-function updateThemeButton(isLight) {
-  const btn = $('theme-btn');
-  if (!btn) return;
-  btn.textContent = isLight ? 'Use dark theme' : 'Use light theme';
-  btn.setAttribute('aria-label', btn.textContent);
-  const drawerBtn = $('theme-drawer-btn');
-  if (drawerBtn) drawerBtn.textContent = btn.textContent;
+  $('theme-btn').textContent = isLight ? '🌙' : '☀';
 }
 function initTheme() {
-  const isLight = localStorage.getItem('theme') === 'light';
-  document.body.classList.toggle('light-theme', isLight);
-  updateThemeButton(isLight);
+  if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light-theme');
+    $('theme-btn').textContent = '🌙';
+  }
 }
 
 /* ── EXPORT / COPY ─────────────────────────────────────── */
@@ -766,11 +777,7 @@ function copySnapshot() {
   }
   navigator.clipboard.writeText(lines.join('\n')).then(() => {
     const btn = document.querySelector('button[onclick="copySnapshot()"]');
-    if (btn) {
-      const previous = btn.innerHTML;
-      btn.textContent = 'Copied';
-      setTimeout(() => { btn.innerHTML = previous; }, 1500);
-    }
+    if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = '📋', 1500); }
   });
 }
 
@@ -865,36 +872,6 @@ async function renderSparkline() {
   }
 }
 
-/* ── COLLAPSIBLE SECTIONS ──────────────────────────────── */
-const _SECTION_DEFAULTS = { roundtable: false, watchlist: false };
-
-function _sectionExpanded(id) {
-  try { const v = localStorage.getItem(`section_${id}`); return v === null ? _SECTION_DEFAULTS[id] : v === 'true'; }
-  catch { return _SECTION_DEFAULTS[id]; }
-}
-
-function toggleSection(id) {
-  const body = document.getElementById(`section-body-${id}`);
-  const btn  = document.getElementById(`section-toggle-${id}`);
-  if (!body || !btn) return;
-  const nowOpen = body.classList.toggle('section-open');
-  btn.setAttribute('aria-expanded', String(nowOpen));
-  btn.querySelector('.toggle-chevron').style.transform = nowOpen ? 'rotate(90deg)' : '';
-  try { localStorage.setItem(`section_${id}`, String(nowOpen)); } catch {}
-  if (nowOpen && id === 'roundtable' && !document.querySelector('.persona-card')) runRoundtable(true);
-  if (nowOpen && id === 'watchlist' && !_watchlistData) loadWatchlistHealth();
-}
-
-function _initSection(id) {
-  const body = document.getElementById(`section-body-${id}`);
-  const btn  = document.getElementById(`section-toggle-${id}`);
-  if (!body || !btn) return;
-  const open = _sectionExpanded(id);
-  if (open) body.classList.add('section-open');
-  btn.setAttribute('aria-expanded', String(open));
-  btn.querySelector('.toggle-chevron').style.transform = open ? 'rotate(90deg)' : '';
-}
-
 /* ── ROUNDTABLE ────────────────────────────────────────── */
 // SVG icons used in roundtable buttons (match initial HTML renders in should-i-trade-v5.html)
 const _BTN_PLAY_SVG = '<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
@@ -906,8 +883,8 @@ async function runRoundtable(auto=false, useAi=false) {
   if (btn)    btn.disabled    = true;
   if (altBtn) altBtn.disabled = true;
   if (btn) btn.innerHTML = useAi
-    ? `${_BTN_STAR_SVG}Consulting AI desk…`
-    : (auto ? `${_BTN_PLAY_SVG}Rule-based read` : `${_BTN_PLAY_SVG}Refreshing…`);
+    ? `${_BTN_STAR_SVG}Consulting AI agents…`
+    : (auto ? `${_BTN_PLAY_SVG}Rule-Based Read` : `${_BTN_PLAY_SVG}Convening desk…`);
   try {
     const url = useAi ? '/api/analysis?ai=1' : '/api/analysis';
     const res = await fetch(url);
@@ -920,7 +897,7 @@ async function runRoundtable(auto=false, useAi=false) {
   } catch(e) {
     $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${esc(e.message)}</div>`;
   } finally {
-    if (btn)    { btn.disabled = false; btn.innerHTML = useAi ? `${_BTN_STAR_SVG}Ask AI desk again` : `${_BTN_PLAY_SVG}Refresh read`; }
+    if (btn)    { btn.disabled = false; btn.innerHTML = useAi ? `${_BTN_STAR_SVG}Re-run AI Analysis` : `${_BTN_PLAY_SVG}Refresh Read`; }
     if (altBtn) { altBtn.disabled = false; }
   }
 }
@@ -967,6 +944,9 @@ function renderRoundtable(personas) {
       </div>`;
   }).join('');
 
+  // Stagger fade-in
+  const cards = document.querySelectorAll('.persona-card');
+  cards.forEach((card, i) => setTimeout(() => card.classList.add('in'), i * 120));
 }
 
 /* ── FEAR & GREED (inline color helper, used in macro rows) ── */
@@ -1024,13 +1004,13 @@ async function load(isManual = false) {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const raw = await res.json();
     if (raw.error) throw new Error(raw.error);
-    if (!validateDashboardPayload(raw)) throw new Error('Invalid dashboard payload');
     _lastData = raw;
 
     const weightScenario = buildWeightScenario(raw);
 
     // Batch all DOM mutations in one animation frame to avoid layout thrashing
     requestAnimationFrame(() => {
+      renderTicker(raw.ticker || []);
       renderHeader(raw);
       renderHero(raw);
       renderFuturesTape(raw.futures_tape);
@@ -1038,6 +1018,7 @@ async function load(isManual = false) {
       renderConflicts(raw);
       renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
       renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
+      renderExecution(raw);
       renderWeights(weightScenario);
       // Show/hide sparkline paused indicator based on data quality
       const paused = $('spark-paused');
@@ -1045,34 +1026,31 @@ async function load(isManual = false) {
       if (isFirst) {
         $('loading').style.display = 'none';
         $('content').style.display = 'block';
-        _initSection('roundtable');
-        _initSection('watchlist');
       }
       // Stale-while-revalidate: keep pulse active while server refreshes in background.
       if (raw.stale) {
         $('refresh-dot').classList.add('active');
-        const cdBgEl = $('countdown'); if (cdBgEl) cdBgEl.textContent = 'refreshing in background…';
+        $('countdown').textContent = 'refreshing in background…';
       } else {
         $('refresh-dot').classList.remove('active');
       }
     });
 
     renderSparkline();
-    if ((isManual || isFirst) && _sectionExpanded('watchlist')) loadWatchlistHealth();
+    if (isManual || isFirst) loadWatchlistHealth();
     _nextRefreshAt = raw.stale ? 0 : Date.now() + AUTO_REFRESH_MS;
 
     // Fire alert if score zone changed since last load
     _maybeAlert(raw.total_score, raw.decision);
 
-    if ((isManual || isFirst) && _sectionExpanded('roundtable')) {
+    if (isManual || isFirst || !document.querySelector('.persona-card')) {
       setTimeout(() => runRoundtable(true), 400);
     }
   } catch(e) {
-    console.error('Dashboard load failed:', e);
     $('refresh-dot').classList.remove('active');
     if (isFirst) {
       $('loading').innerHTML = `<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">
-        We could not load current market data.<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
+        ⚠ Error: ${esc(e.message)}<br><button class="btn" style="margin-top:12px" onclick="load(true)">Retry</button></div>`;
     } else {
       // Background refresh failed — keep stale data visible, retry on next cycle
       _nextRefreshAt = Date.now() + AUTO_REFRESH_MS;
@@ -1082,18 +1060,17 @@ async function load(isManual = false) {
 
 /* ── AUTO-REFRESH + COUNTDOWN ──────────────────────────── */
 function tickCountdown() {
-  const cdEl = $('countdown');
-  if (!_nextRefreshAt) { if (cdEl) cdEl.textContent = ''; return; }
+  if (!_nextRefreshAt) { $('countdown').textContent = ''; return; }
   const left = Math.max(0, _nextRefreshAt - Date.now());
   if (left === 0) {
     _nextRefreshAt = 0;
-    if (cdEl) cdEl.textContent = 'refreshing…';
+    $('countdown').textContent = 'refreshing…';
     load(false);
     return;
   }
   const m = Math.floor(left / 60000);
   const s = Math.floor((left % 60000) / 1000);
-  if (cdEl) cdEl.textContent = `next refresh in ${m}:${s.toString().padStart(2, '0')}`;
+  $('countdown').textContent = `next refresh in ${m}:${s.toString().padStart(2, '0')}`;
 }
 setInterval(tickCountdown, 1000);
 
@@ -1117,8 +1094,6 @@ function _updateAlertBtn() {
   if (!btn) return;
   btn.style.opacity = _alertsEnabled ? '1' : '0.45';
   btn.title = _alertsEnabled ? 'Alerts ON — click to disable' : 'Score zone change notifications (click to enable)';
-  btn.textContent = `Score alerts: ${_alertsEnabled ? 'on' : 'off'}`;
-  btn.setAttribute('aria-pressed', _alertsEnabled ? 'true' : 'false');
 }
 
 async function toggleAlerts() {
@@ -1215,7 +1190,6 @@ if (!globalThis.__TESTING__) {
   // Expose functions used by HTML inline event handlers (onclick=, oninput=, etc.)
   // Required because ES modules don't leak to global scope.
   window.copySnapshot           = copySnapshot;
-  window.toggleSection          = toggleSection;
   window.toggleAlerts           = toggleAlerts;
   window.toggleTheme            = toggleTheme;
   window.toggleSettings         = toggleSettings;
@@ -1228,6 +1202,7 @@ if (!globalThis.__TESTING__) {
   window.applyWeights           = applyWeights;
   window.resetWeights           = resetWeights;
   window.toggleDetail           = toggleDetail;
+  window.toggleWhy              = toggleWhy;
   window.selectWatchlistView    = selectWatchlistView;
 
   initTheme();
@@ -1235,26 +1210,11 @@ if (!globalThis.__TESTING__) {
   connectSSE();
 
   document.addEventListener('keydown', e => {
-    const settingsOpen = $('settings-overlay').classList.contains('open');
-    if (settingsOpen && e.key === 'Tab') {
-      const focusable = [...$('settings-overlay').querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )];
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
-      return;
-    }
-    if (e.key === 'Escape' && settingsOpen) {
-      toggleSettings();
-      return;
-    }
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'r' || e.key === 'R') load(true);
+    if (e.key === 'd' || e.key === 'D') toggleTheme();
+    if (e.key === 's' || e.key === 'S') toggleSettings();
+    if (e.key === 'Escape') { if ($('settings-overlay').classList.contains('open')) toggleSettings(); }
   });
 
   load(true);
@@ -1269,8 +1229,6 @@ export {
   FALLBACK_DECISION_BANDS,
   DEFAULT_WEIGHTS,
   buildWeightScenario,
-  buildRadarChart,
-  validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,
 };
