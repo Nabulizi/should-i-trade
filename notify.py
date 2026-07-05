@@ -76,3 +76,67 @@ def build_report(data: dict, yesterday: dict | None) -> str:
 
     lines.append(config.DASHBOARD_URL)
     return "\n".join(lines)
+
+
+# ─── senders ──────────────────────────────────────────────────────────────
+
+_HTTP_TIMEOUT = 10
+
+
+def _channel(name: str) -> str:
+    """Config lookup with env-var priority (matches GEMINI_API_KEY pattern)."""
+    return os.environ.get(name) or getattr(config, name, "") or ""
+
+
+def _post_json(url: str, payload: dict, label: str) -> bool:
+    """POST JSON with one retry. Failures are logged, never raised."""
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body, headers={"Content-Type": "application/json"})
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:
+                if 200 <= resp.status < 300:
+                    return True
+                logger.warning("%s push HTTP %s (attempt %d)",
+                               label, resp.status, attempt)
+        except OSError as exc:
+            logger.warning("%s push failed (attempt %d): %s", label, attempt, exc)
+    return False
+
+
+def send_telegram(text: str) -> bool:
+    token, chat_id = _channel("TELEGRAM_BOT_TOKEN"), _channel("TELEGRAM_CHAT_ID")
+    if not (token and chat_id):
+        return False
+    return _post_json(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+        "telegram")
+
+
+def send_discord(text: str) -> bool:
+    url = _channel("DISCORD_WEBHOOK_URL")
+    if not url:
+        return False
+    return _post_json(url, {"content": text}, "discord")
+
+
+def channels_configured() -> bool:
+    return bool((_channel("TELEGRAM_BOT_TOKEN") and _channel("TELEGRAM_CHAT_ID"))
+                or _channel("DISCORD_WEBHOOK_URL"))
+
+
+def push_report(text: str, *, band_change: bool = True) -> int:
+    """Send to every configured channel; returns how many accepted."""
+    if not channels_configured():
+        return 0
+    if config.PUSH_ONLY_ON_BAND_CHANGE and not band_change:
+        logger.info("Push skipped: posture band unchanged (low-noise mode).")
+        return 0
+    sent = 0
+    if _channel("TELEGRAM_BOT_TOKEN") and _channel("TELEGRAM_CHAT_ID"):
+        sent += send_telegram(text)
+    if _channel("DISCORD_WEBHOOK_URL"):
+        sent += send_discord(text)
+    return sent

@@ -83,5 +83,60 @@ class TestBuildReport(unittest.TestCase):
         self.assertIn("FOMC", text)
 
 
+class TestSenders(unittest.TestCase):
+    def _mock_urlopen(self):
+        resp = MagicMock()
+        resp.status = 200
+        resp.__enter__ = lambda s: resp
+        resp.__exit__ = MagicMock(return_value=False)
+        return patch("notify.urllib.request.urlopen", return_value=resp)
+
+    def test_telegram_posts_token_chat_and_text(self):
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "tok123",
+                                     "TELEGRAM_CHAT_ID": "42"}):
+            with self._mock_urlopen() as mock_open:
+                self.assertTrue(notify.send_telegram("hello"))
+        req = mock_open.call_args[0][0]
+        self.assertIn("bottok123/sendMessage", req.full_url)
+        body = json.loads(req.data.decode())
+        self.assertEqual(body["chat_id"], "42")
+        self.assertEqual(body["text"], "hello")
+
+    def test_discord_posts_content(self):
+        with patch.dict(os.environ, {"DISCORD_WEBHOOK_URL": "https://d/hook"}):
+            with self._mock_urlopen() as mock_open:
+                self.assertTrue(notify.send_discord("hello"))
+        req = mock_open.call_args[0][0]
+        self.assertEqual(req.full_url, "https://d/hook")
+        self.assertEqual(json.loads(req.data.decode())["content"], "hello")
+
+    def test_failure_logged_not_raised_retries_once(self):
+        with patch.dict(os.environ, {"DISCORD_WEBHOOK_URL": "https://d/hook"}):
+            with patch("notify.urllib.request.urlopen",
+                       side_effect=OSError("boom")) as m:
+                self.assertFalse(notify.send_discord("hello"))
+        self.assertEqual(m.call_count, 2)   # one retry
+
+    def test_push_report_counts_configured_channels_only(self):
+        env = {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "c",
+               "DISCORD_WEBHOOK_URL": ""}
+        with patch.dict(os.environ, env):
+            with self._mock_urlopen():
+                self.assertEqual(notify.push_report("msg"), 1)
+
+    def test_push_report_zero_when_unconfigured(self):
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "",
+                                     "TELEGRAM_CHAT_ID": "",
+                                     "DISCORD_WEBHOOK_URL": ""}):
+            self.assertEqual(notify.push_report("msg"), 0)
+
+    def test_band_change_gate(self):
+        with patch.dict(os.environ, {"DISCORD_WEBHOOK_URL": "https://d/hook"}):
+            with patch.object(config, "PUSH_ONLY_ON_BAND_CHANGE", True):
+                with self._mock_urlopen():
+                    self.assertEqual(notify.push_report("msg", band_change=False), 0)
+                    self.assertEqual(notify.push_report("msg", band_change=True), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
