@@ -138,5 +138,19 @@ class TestSenders(unittest.TestCase):
                     self.assertEqual(notify.push_report("msg", band_change=True), 1)
 
 
+class TestJobDue(unittest.TestCase):
+    """server._job_due — pure scheduler due-logic."""
+
+    def test_fires_within_grace_window_once_per_day(self):
+        from datetime import datetime as dt
+        import server
+        et = dt(2026, 7, 6, 9, 12)          # Monday 09:12 ET
+        self.assertTrue(server._job_due("09:00", et, None, True))
+        self.assertFalse(server._job_due("09:00", et, "2026-07-06", True))   # fired
+        self.assertFalse(server._job_due("09:00", dt(2026, 7, 6, 8, 59), None, True))
+        self.assertFalse(server._job_due("09:00", dt(2026, 7, 6, 11, 0), None, True))
+        self.assertFalse(server._job_due("09:00", et, None, False))  # holiday/weekend
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
