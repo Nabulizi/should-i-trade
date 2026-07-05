@@ -348,6 +348,24 @@ class TestCalendarFreshness(unittest.TestCase):
         )
 
 
+class TestEtNow(unittest.TestCase):
+    """et_now() returns DST-aware US/Eastern wall-clock time."""
+
+    def test_et_now_applies_dst_offset(self):
+        with patch("data.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 7, 4, 12, 0, tzinfo=timezone.utc)
+            mock_dt.side_effect = lambda *a, **k: datetime(*a, **k)
+            et = data.et_now()
+        self.assertEqual(et.hour, 8)   # July = EDT = UTC-4
+
+    def test_et_now_applies_standard_offset(self):
+        with patch("data.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+            mock_dt.side_effect = lambda *a, **k: datetime(*a, **k)
+            et = data.et_now()
+        self.assertEqual(et.hour, 7)   # January = EST = UTC-5
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Runner
 # ═══════════════════════════════════════════════════════════════════════════
