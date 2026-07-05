@@ -96,6 +96,35 @@ WL_EXTENDED_DIST: float = 0.08
 VOL_TARGET_K = 0.489724
 VOL_TARGET_WINDOW = 20   # trading days of realized vol
 
+# ── Daily Push Report & Day-over-Day Delta ───────────────────────────────────
+
+DAILY_HISTORY_MAXLEN: int = 90
+"""Trading-day close snapshots kept in daily_history.json (~4.5 months)."""
+
+EOD_SNAPSHOT_TIME_ET: str = "16:05"
+"""ET wall-clock time the end-of-day snapshot job runs (trading days only)."""
+
+PUSH_TIME_ET: str = "09:00"
+"""ET wall-clock time the morning push report is sent (trading days only)."""
+
+PUSH_ONLY_ON_BAND_CHANGE: bool = False
+"""When True, the morning push is sent only if the posture band changed
+   vs the previous close (low-noise mode)."""
+
+DASHBOARD_URL: str = "http://localhost:8765"
+"""Link shown in the push message footer."""
+
+TELEGRAM_BOT_TOKEN: str = ""
+"""Telegram bot token from @BotFather for the morning push report.
+   ⚠ Do NOT paste it here — set it in config_local.py or the env var."""
+
+TELEGRAM_CHAT_ID: str = ""
+"""Telegram chat ID the report is sent to. Set in config_local.py or env."""
+
+DISCORD_WEBHOOK_URL: str = ""
+"""Discord channel webhook URL for the morning push report.
+   ⚠ Do NOT paste it here — set it in config_local.py or the env var."""
+
 # ── Local Overrides (git-ignored) ─────────────────────────────────────────────
 # Put machine-specific secrets/settings (e.g. GEMINI_API_KEY) in a
 # config_local.py next to this file. It is listed in .gitignore so a pasted

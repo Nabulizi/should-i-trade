@@ -278,6 +278,27 @@ function mrow(key, val, tagLabel, tagCol, src) {
   </div>`;
 }
 
+
+// ── "Since yesterday" strip — day-over-day delta vs previous close ───────
+function renderYesterdayStrip(d) {
+  const y = d.yesterday;
+  if (!y || !y.pillars) return '';
+  const delta = (cur, prev) => {
+    const df = cur - prev;
+    if (df > 0) return `<span class="y-delta up">▲ +${df}</span>`;
+    if (df < 0) return `<span class="y-delta dn">▼ ${df}</span>`;
+    return `<span class="y-delta flat">—</span>`;
+  };
+  const pillars = ['trend', 'breadth', 'momentum', 'volatility', 'macro']
+    .map((p) => `<span class="y-pillar">${p[0].toUpperCase() + p.slice(1)} ${delta(d.pillars[p].score, y.pillars[p])}</span>`)
+    .join('');
+  const band = y.decision && y.decision !== d.decision
+    ? `<span class="y-band">${esc(y.decision)} → ${esc(d.decision)}</span>` : '';
+  return `<span class="y-label">Since yesterday <span class="y-date">(${esc(y.date)})</span></span>
+    <span class="y-total">Score ${delta(d.total_score, y.total)}</span>
+    ${band}${pillars}`;
+}
+
 function renderPillars(d) {
   const ds = d.data_sources || {};
   const defs = [
@@ -1033,6 +1054,12 @@ async function load(isManual = false) {
     requestAnimationFrame(() => {
       renderHeader(raw);
       renderHero(raw);
+      const ystrip = $('yesterday-strip');
+      if (ystrip) {
+        const yhtml = renderYesterdayStrip(raw);
+        ystrip.innerHTML = yhtml;
+        ystrip.style.display = yhtml ? 'flex' : 'none';
+      }
       renderFuturesTape(raw.futures_tape);
       renderPillars(raw);
       renderConflicts(raw);
@@ -1273,4 +1300,5 @@ export {
   validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,
+  renderYesterdayStrip,
 };

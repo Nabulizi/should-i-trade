@@ -673,11 +673,16 @@ def _nyse_holidays(y: int) -> set:
     return holidays
 
 
-def market_state() -> dict:
-    """Return current NYSE trading state + local ET time string."""
+def et_now() -> datetime:
+    """Current US/Eastern wall-clock time as a naive datetime (DST-aware)."""
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     offset = -4 if _is_dst_et(now_utc) else -5
-    et = now_utc + timedelta(hours=offset)
+    return now_utc + timedelta(hours=offset)
+
+
+def market_state() -> dict:
+    """Return current NYSE trading state + local ET time string."""
+    et = et_now()
     hour, minute = et.hour, et.minute
     minutes = hour * 60 + minute
     today = et.date()

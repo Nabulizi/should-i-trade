@@ -18,9 +18,13 @@ from urllib.parse import urlparse
 from scoring import compute_dashboard
 from analysis import roundtable
 from watchlist import compute_watchlist_health
+from data import et_now, market_state
+from daily_history import record_daily_snapshot, yesterday_snapshot
+import notify
 from config import (
     PORT as _CONFIG_PORT, DASHBOARD_TTL, WATCHLIST_TTL, HISTORY_MAXLEN,
     RATE_LIMIT_MAX, RATE_LIMIT_WINDOW, SSE_KEEPALIVE_SECS,
+    EOD_SNAPSHOT_TIME_ET, PUSH_TIME_ET,
 )
 
 # Production-aware PORT: Render (and most PaaS) inject PORT as env var.
@@ -163,6 +167,8 @@ def _do_recompute() -> dict:
         data["score_delta"] = None
 
     data["stale"] = False
+    # Previous trading day's close snapshot for the "Since yesterday" strip.
+    data["yesterday"] = yesterday_snapshot(et_now().date().isoformat())
 
     with _DASHBOARD_LOCK:
         _DASHBOARD_CACHE["data"] = data
@@ -539,6 +545,57 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"error": "not found"}, 404)
 
 
+# ─── daily scheduler (EOD snapshot + morning push) ────────────────────────
+
+def _job_due(job_hhmm: str, et, last_fired_date: str | None,
+             tradable: bool, grace_min: int = 90) -> bool:
+    """True when the ET clock is within [job_time, job_time+grace) today,
+    the market traded today, and the job hasn't fired today yet."""
+    if not tradable or last_fired_date == et.date().isoformat():
+        return False
+    jh, jm = map(int, job_hhmm.split(":"))
+    start = jh * 60 + jm
+    now = et.hour * 60 + et.minute
+    return start <= now < start + grace_min
+
+
+def _fresh_dashboard() -> dict:
+    with _COMPUTE_LOCK:
+        return _do_recompute()
+
+
+def _run_due_jobs(last_fired: dict) -> None:
+    et = et_now()
+    today = et.date().isoformat()
+    tradable = market_state()["state"] not in ("weekend", "closed")
+
+    if _job_due(EOD_SNAPSHOT_TIME_ET, et, last_fired["eod"], tradable):
+        last_fired["eod"] = today
+        record_daily_snapshot(_fresh_dashboard(), today)
+        logger.info("EOD snapshot recorded for %s", today)
+
+    if notify.channels_configured() and \
+            _job_due(PUSH_TIME_ET, et, last_fired["push"], tradable):
+        last_fired["push"] = today
+        data = _fresh_dashboard()
+        yday = yesterday_snapshot(today)
+        sent = notify.push_report(notify.build_report(data, yday),
+                                  band_change=notify.band_changed(data, yday))
+        logger.info("Morning push: %d channel(s) delivered", sent)
+
+
+def _scheduler_loop() -> None:
+    """Daemon thread: fire the EOD-snapshot and morning-push jobs at their
+    configured ET times on trading days. Errors never kill the loop."""
+    last_fired: dict[str, str | None] = {"eod": None, "push": None}
+    while True:
+        try:
+            _run_due_jobs(last_fired)
+        except Exception:
+            logger.exception("Scheduler job failed — will retry next cycle")
+        time.sleep(30)
+
+
 def main():
     logging.basicConfig(
         level=logging.INFO,
@@ -561,6 +618,9 @@ def main():
     print("\n  Press Ctrl+C to stop.\n")
 
     _load_history()
+
+    threading.Thread(target=_scheduler_loop, daemon=True,
+                     name="daily-scheduler").start()
 
     # Only auto-open browser locally (would fail on a headless server)
     if not IS_PRODUCTION:

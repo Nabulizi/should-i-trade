@@ -43,6 +43,9 @@ server.py (ThreadingHTTPServer, port 8765)
   ├─ /api/watchlist-health → watchlist.compute_watchlist_health() [5min cache]
   ├─ /api/stream      → SSE broadcast of score updates
   └─ /health, /metrics
+  └─ daily scheduler thread: 16:05 ET close snapshot (daily_history.py),
+     09:00 ET push report (notify.py) — trading days only, silent no-op
+     when no Telegram/Discord channel is configured
        ↕
 data.py   Yahoo Finance v8 (primary) → Stooq CSV → CoinGecko/Binance (BTC fallback)
 scoring.py  5-pillar engine: trend(30%) breadth(25%) momentum(20%) volatility(15%) macro(10%)
@@ -60,6 +63,8 @@ watchlist.py  TradingView-format watchlist health scoring
 | `data.py` | Parallel symbol fetches (ThreadPoolExecutor), circuit breaker per symbol |
 | `analysis.py` | Rule-based trading desk personas |
 | `ai_synthesis.py` | Gemini 2.5 Flash persona chain (graceful fallback to rule-based) |
+| `notify.py` | Morning push report: Markdown builder + Telegram/Discord senders (stdlib urllib) |
+| `daily_history.py` | One close snapshot per trading day (daily_history.json); feeds "Since yesterday" delta + push |
 | `config.py` | All user-tunable settings: weights, TTLs, rate limits, API keys |
 | `models.py` | `Quote`, `PillarResult`, `DashboardResult` TypedDicts |
 

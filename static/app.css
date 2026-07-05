@@ -291,6 +291,19 @@
   .score-delta.dn   { color: var(--red); }
   .score-delta.flat { color: var(--muted); }
 
+  /* ── SINCE-YESTERDAY STRIP ── */
+  .yesterday-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+    padding: 8px 14px; margin-top: 8px; border: 1px solid var(--border);
+    border-radius: 4px; font-size: 11px; color: var(--muted); }
+  .yesterday-strip .y-label { font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; font-size: 10px; }
+  .yesterday-strip .y-date  { font-weight: 400; text-transform: none; }
+  .yesterday-strip .y-total { font-weight: 700; color: var(--text); }
+  .yesterday-strip .y-band  { font-weight: 700; color: var(--amber, var(--yellow)); }
+  .yesterday-strip .y-pillar { white-space: nowrap; }
+  .yesterday-strip .y-delta.up   { color: var(--green); font-weight: 700; }
+  .yesterday-strip .y-delta.dn   { color: var(--red); font-weight: 700; }
+  .yesterday-strip .y-delta.flat { color: var(--muted); }
+
   /* ── STREAK BADGE ── */
   .streak-badge-wrap { margin-top: 6px; text-align: center; }
   .streak-up   { background: rgba(0,230,118,0.12); color: var(--green); border: 1px solid rgba(0,230,118,0.3); }
