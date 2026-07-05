@@ -140,3 +140,24 @@ def push_report(text: str, *, band_change: bool = True) -> int:
     if _channel("DISCORD_WEBHOOK_URL"):
         sent += send_discord(text)
     return sent
+
+
+def send_now() -> int:
+    """Compute a fresh dashboard and push the report once. Returns channels sent."""
+    from scoring import compute_dashboard
+    from daily_history import yesterday_snapshot
+    from data import et_now
+    data = compute_dashboard()
+    yday = yesterday_snapshot(et_now().date().isoformat())
+    text = build_report(data, yday)
+    print(text)
+    if not channels_configured():
+        print("\n(no channel configured — set TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID "
+              "or DISCORD_WEBHOOK_URL in config_local.py)")
+        return 0
+    return push_report(text, band_change=band_changed(data, yday))
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    print(f"\nDelivered to {send_now()} channel(s).")

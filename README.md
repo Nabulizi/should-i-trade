@@ -38,6 +38,8 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 | **Economic Calendar** | FOMC & key econ event proximity alerts (through Dec 2027) |
 | **Sector Heatmap** | All 11 SPDR sectors + 9 industry subsector ETFs |
 | **Market Conditions** | SPY, QQQ, VIX, VIX3M, HYG, GLD, DXY, TLT, 10Y yield, BTC |
+| **Daily Push Report** | Optional morning conditions report to Telegram / Discord (09:00 ET, trading days) |
+| **Since-Yesterday Delta** | Day-over-day score, pillar, and posture-band changes vs previous close |
 | **Watchlist Health** | Scores your personal watchlist symbols (TradingView format supported) |
 | **Health & Metrics** | `/health` and `/metrics` endpoints for monitoring |
 | **Rate Limiting** | 30 req/min per IP — protects against runaway polling |
@@ -86,6 +88,8 @@ should-i-trade/
 ├── analysis.py            # Rule-based multi-persona trading desk roundtable
 ├── ai_synthesis.py        # Optional Gemini-powered roundtable (falls back to analysis.py)
 ├── watchlist.py           # TradingView watchlist import + symbol health scorer
+├── notify.py              # Morning push report (Telegram/Discord, stdlib only)
+├── daily_history.py       # One close snapshot per trading day (feeds delta + push)
 ├── backtest.py            # Walk-forward replay: IC, decile, regime & strategy tests
 ├── backtest_report.py     # Offline Markdown report generator for backtest_results.csv
 ├── backtest_stats.py      # Pure offline stats: baselines, bootstrap CIs, costs
@@ -257,6 +261,49 @@ GEMINI_API_KEY = "your-key-here"
 ```
 
 The `GEMINI_API_KEY` environment variable still takes priority over both files.
+
+---
+
+## Daily Push Report
+
+Every trading morning at **09:00 ET** the server can push a one-message
+conditions report — score with delta vs yesterday's close, posture band (and
+any band change), per-pillar deltas, data-quality state, and near-term
+econ/FOMC events — to Telegram and/or Discord. A close snapshot is recorded
+at **16:05 ET** each trading day (`daily_history.json`, git-ignored) and also
+powers the "Since yesterday" strip on the dashboard.
+
+**Disabled by default** — with no channel configured, nothing is sent and
+nothing changes. Weekends and NYSE holidays are skipped automatically.
+
+### Setup (~2 minutes)
+
+**Telegram:** message [@BotFather](https://t.me/BotFather) → `/newbot` → copy
+the token. Send your new bot any message, then open
+`https://api.telegram.org/bot<TOKEN>/getUpdates` and copy `chat.id`.
+
+**Discord:** channel settings → Integrations → Webhooks → New Webhook → copy URL.
+
+Put the values in git-ignored `config_local.py` (env vars take priority):
+
+```python
+# config_local.py  (never committed)
+TELEGRAM_BOT_TOKEN = "123456:ABC..."
+TELEGRAM_CHAT_ID   = "123456789"
+# and/or
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/..."
+```
+
+Test immediately (also usable from cron/launchd/CI — no server needed):
+
+```bash
+python3 notify.py    # prints the report; sends it if a channel is configured
+```
+
+Tuning in `config.py`: `PUSH_TIME_ET`, `EOD_SNAPSHOT_TIME_ET`,
+`PUSH_ONLY_ON_BAND_CHANGE` (low-noise mode: only push when the posture band
+changed), `DASHBOARD_URL` (footer link). The public Render demo never pushes —
+it has no secrets.
 
 ---
 
