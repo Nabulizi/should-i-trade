@@ -270,3 +270,38 @@ describe('volTargetLine', () => {
     expect(volTargetLine({})).toBe('');
   });
 });
+
+// ── renderYesterdayStrip ──────────────────────────────────────────────────
+import { renderYesterdayStrip } from './app.js';
+
+describe('renderYesterdayStrip', () => {
+  const d = {
+    total_score: 72, decision: 'CONSTRUCTIVE',
+    pillars: {
+      volatility: { score: 88 }, trend: { score: 72 }, breadth: { score: 88 },
+      momentum: { score: 50 }, macro: { score: 61 },
+    },
+    yesterday: {
+      date: '2026-07-03', total: 68, decision: 'SELECTIVE',
+      pillars: { volatility: 88, trend: 69, breadth: 82, momentum: 52, macro: 61 },
+    },
+  };
+
+  it('renders total delta, pillar deltas, and band transition', () => {
+    const html = renderYesterdayStrip(d);
+    expect(html).toContain('+4');
+    expect(html).toContain('SELECTIVE');
+    expect(html).toContain('CONSTRUCTIVE');
+    expect(html).toContain('Trend');
+    expect(html).toContain('2026-07-03');
+  });
+
+  it('returns empty string when no yesterday snapshot', () => {
+    expect(renderYesterdayStrip({ ...d, yesterday: null })).toBe('');
+  });
+
+  it('omits the transition when the band is unchanged', () => {
+    const same = { ...d, yesterday: { ...d.yesterday, decision: 'CONSTRUCTIVE' } };
+    expect(renderYesterdayStrip(same)).not.toContain('→');
+  });
+});
