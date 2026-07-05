@@ -84,6 +84,19 @@ class TestBuildReport(unittest.TestCase):
 
 
 class TestSenders(unittest.TestCase):
+    def setUp(self):
+        # Hermetic isolation: a developer's real config_local.py (or env)
+        # must never leak into these tests — or worse, send real messages.
+        for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "DISCORD_WEBHOOK_URL"):
+            p = patch.object(config, key, "", create=True)
+            p.start()
+            self.addCleanup(p.stop)
+        envp = patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "",
+                                       "TELEGRAM_CHAT_ID": "",
+                                       "DISCORD_WEBHOOK_URL": ""})
+        envp.start()
+        self.addCleanup(envp.stop)
+
     def _mock_urlopen(self):
         resp = MagicMock()
         resp.status = 200
@@ -109,6 +122,8 @@ class TestSenders(unittest.TestCase):
         req = mock_open.call_args[0][0]
         self.assertEqual(req.full_url, "https://d/hook")
         self.assertEqual(json.loads(req.data.decode())["content"], "hello")
+        # Cloudflare 403s the default Python-urllib UA — must send a real one.
+        self.assertIn("ShouldITrade", req.get_header("User-agent", ""))
 
     def test_failure_logged_not_raised_retries_once(self):
         with patch.dict(os.environ, {"DISCORD_WEBHOOK_URL": "https://d/hook"}):
@@ -125,10 +140,9 @@ class TestSenders(unittest.TestCase):
                 self.assertEqual(notify.push_report("msg"), 1)
 
     def test_push_report_zero_when_unconfigured(self):
-        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "",
-                                     "TELEGRAM_CHAT_ID": "",
-                                     "DISCORD_WEBHOOK_URL": ""}):
+        with patch("notify.urllib.request.urlopen") as m:
             self.assertEqual(notify.push_report("msg"), 0)
+        m.assert_not_called()   # nothing configured → no network, ever
 
     def test_band_change_gate(self):
         with patch.dict(os.environ, {"DISCORD_WEBHOOK_URL": "https://d/hook"}):

@@ -91,8 +91,10 @@ def _channel(name: str) -> str:
 def _post_json(url: str, payload: dict, label: str) -> bool:
     """POST JSON with one retry. Failures are logged, never raised."""
     body = json.dumps(payload).encode("utf-8")
+    # Discord/Cloudflare 403s the default Python-urllib UA; send a real one.
     req = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json"})
+        url, data=body, headers={"Content-Type": "application/json",
+                                 "User-Agent": "Mozilla/5.0 (compatible; ShouldITrade/5.0)"})
     for attempt in (1, 2):
         try:
             with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT) as resp:
