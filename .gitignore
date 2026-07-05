@@ -42,3 +42,4 @@ env/
 
 # Node.js
 node_modules/
+daily_history.json
