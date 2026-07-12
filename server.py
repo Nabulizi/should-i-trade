@@ -29,10 +29,13 @@ from config import (
     EOD_SNAPSHOT_TIME_ET, PUSH_TIME_ET,
 )
 
-# Production-aware PORT: Render (and most PaaS) inject PORT as env var.
-# Falls back to config.PORT for local dev.
+# PORT env var overrides config.PORT (Render and most PaaS inject it; a
+# local launchd agent may set it too — that must NOT imply production).
+# Production is detected by the RENDER marker only: it drives CORS ("*"),
+# X-Forwarded-For trust, and the forecast-log persistence flag, all of
+# which would be wrong on a local always-on launchd server.
 PORT = int(os.environ.get("PORT", _CONFIG_PORT))
-IS_PRODUCTION = bool(os.environ.get("PORT") or os.environ.get("RENDER"))
+IS_PRODUCTION = bool(os.environ.get("RENDER"))
 
 # ─── logging ──────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
@@ -720,8 +723,11 @@ def main():
     threading.Thread(target=_scheduler_loop, daemon=True,
                      name="daily-scheduler").start()
 
-    # Only auto-open browser locally (would fail on a headless server)
-    if not IS_PRODUCTION:
+    # Auto-open the browser only for interactive local runs: never in
+    # production, and never under launchd/cron (no TTY) — a background
+    # restart must not pop a browser window.
+    import sys as _sys
+    if not IS_PRODUCTION and _sys.stdout.isatty():
         threading.Thread(
             target=lambda: (time.sleep(1.2), webbrowser.open(f"http://localhost:{PORT}")),
             daemon=True,
