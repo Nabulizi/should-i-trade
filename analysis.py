@@ -492,11 +492,11 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
     elif bulls >= 3 and bears == 0 and n_warn > 0:
         read = f"Desk is aligned long but {n_warn} active conflict{'s' if n_warn > 1 else ''}: {warn_names}. The warning signs are real — don't treat alignment as confirmation."
     elif bears >= 3:
-        read = f"Desk is aligned defensive. {bears}/4 analysts negative. Capital preservation trumps opportunity cost here."
+        read = f"Desk lenses aligned defensive: {bears}/4 read negative — they share inputs, so treat this as one strong caution signal."
     elif bulls >= 2 and bears <= 1 and n_warn > 0:
-        read = f"Desk leans constructive ({bulls} bulls, {bears} defensive) but {n_warn} active conflict{'s' if n_warn > 1 else ''}: {warn_names}. Trade selectively — not every setup is equal right now."
+        read = f"Desk lenses lean constructive ({bulls} supportive, {bears} defensive) but {n_warn} active conflict{'s' if n_warn > 1 else ''}: {warn_names}. Conditions are uneven under the surface."
     elif bulls >= 2 and bears <= 1:
-        read = f"Desk leans constructive but not unanimous — {bulls} bulls, {cautious} cautious, {bears} defensive. Trade it, but don't force it."
+        read = f"Desk lenses lean constructive but not unanimous — {bulls} supportive, {cautious} cautious, {bears} defensive. Mixed but leaning positive."
     elif bulls == bears:
         read = "Split desk. That usually means chop. Smallest setups only, or sit on hands."
     else:
@@ -568,7 +568,7 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
 
     return {
         "persona": "The Desk Head",
-        "role": "Synthesis · Final call · Execution",
+        "role": "Synthesis · Agreement & Conflicts",
         "avatar": "🎯",
         "stance": stance, "stance_color": color,
         "read": read,
@@ -602,4 +602,10 @@ def roundtable(dashboard: dict, use_ai: bool = False) -> dict:
         "personas": [tech, macro, risk, rot, head],
         "timestamp": time.strftime("%H:%M UTC", time.gmtime()),
         "ai_used": False,
+        # Provenance (P1-024) — same contract as the Gemini path.
+        "engine":       "rule-based",
+        "model":        None,
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "note": ("5 rule-based lenses over one shared data snapshot — "
+                 "not independent analysts; agreement is overlap, not confirmation."),
     }

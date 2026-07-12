@@ -295,11 +295,11 @@ Reliability is independent of direction. A low score can have high reliability.
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P1-007 | pending | Rename as illustrative SPY volatility budget | Copy includes target, realized vol, horizon, and “not personalized” |
-| P1-008 | pending | Express in annualized-volatility units | API/UI expose target and realized annual vol |
-| P1-009 | pending | Add optional user-selected target volatility | Bounded presets/input persist locally |
-| P1-010 | pending | Resolve posture-versus-vol contradiction | No unexplained “standard/full” beside a different percentage |
-| P1-011 | pending | Disclose formula and limitations | SPY-only, trailing window, no covariance/suitability are visible |
+| P1-007 | done | Rename as illustrative SPY volatility budget | Copy includes target, realized vol, horizon, and “not personalized” |
+| P1-008 | done | Express in annualized-volatility units | API/UI expose target and realized annual vol |
+| P1-009 | done | Add optional user-selected target volatility | Bounded presets/input persist locally |
+| P1-010 | done | Resolve posture-versus-vol contradiction | No unexplained “standard/full” beside a different percentage |
+| P1-011 | done | Disclose formula and limitations | SPY-only, trailing window, no covariance/suitability are visible |
 
 Reference formula:
 
@@ -620,3 +620,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-07-11 | 1.0 | Consolidated repository audit and independent review convergence | Codex |
 | 2026-07-12 | 1.1 | P0 complete — PRs #50–#53, #55 merged; all P0-001..P0-026 done | Claude |
 | 2026-07-12 | 1.2 | PR-5 merged (#56) — P1-001..P1-006 done; Q-001 resolved: keep calibrated 7.8% default, rounded presets in UI | Claude |
+| 2026-07-12 | 1.3 | PR-6 merged (#57) — P1-007..P1-011 done; conditions-band positions replace exposure directives | Claude |

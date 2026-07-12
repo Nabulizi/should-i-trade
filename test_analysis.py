@@ -513,6 +513,32 @@ class TestRoundtable(unittest.TestCase):
         self.assertIn(head["stance"], ("Bearish", "Defensive"))
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. roundtable provenance (P1-024)
+# ═══════════════════════════════════════════════════════════════════════════
+class TestRoundtableProvenance(unittest.TestCase):
+
+    def test_rule_based_payload_declares_engine_and_shared_input_note(self):
+        r = roundtable(_make_dashboard(), use_ai=False)
+        self.assertEqual(r["engine"], "rule-based")
+        self.assertIsNone(r["model"])
+        self.assertFalse(r["ai_used"])
+        self.assertIn("generated_at", r)
+        self.assertIn("not independent analysts", r["note"])
+
+    def test_desk_head_reads_use_lens_language_not_analyst_votes(self):
+        """P1-019/P1-020: no read presents the personas as independent
+        analysts, and aligned reads carry the shared-input caveat."""
+        for kwargs in ({"trend_score": 90, "vol_score": 88, "breadth_score": 85,
+                        "momentum_score": 86, "macro_score": 84},
+                       {"trend_score": 20, "vol_score": 25, "breadth_score": 30,
+                        "momentum_score": 22, "macro_score": 28}):
+            d = _make_dashboard(**kwargs)
+            r = roundtable(d, use_ai=False)
+            head = r["personas"][-1]
+            self.assertNotIn("analysts", head["read"].lower())
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Runner
 # ═══════════════════════════════════════════════════════════════════════════

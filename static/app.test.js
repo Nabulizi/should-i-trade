@@ -12,6 +12,7 @@ import {
   isDefaultWeights,
   volTargetLine,
   loadVolTarget,
+  roundtableProvenance,
   reliabilityLine,
   asOfLine,
 } from './app.js';
@@ -395,5 +396,28 @@ describe('asOfLine (P1-004/P1-005)', () => {
     expect(asOfLine({ session: 'weekend', history_last_bar: '2026-07-10' })).toContain('2026-07-10');
     expect(asOfLine({ session: 'weekend' })).toBe('');
     expect(asOfLine(null)).toBe('');
+  });
+});
+
+describe('roundtableProvenance (P1-024)', () => {
+  it('shows engine, model, time, and the shared-input note for AI reads', () => {
+    const html = roundtableProvenance({
+      engine: 'gemini', model: 'models/gemini-2.5-flash',
+      generated_at: '2026-07-12T14:00:00Z',
+      note: '5 AI lenses over one shared data snapshot — not independent analysts; agreement is overlap, not confirmation.',
+    });
+    expect(html).toContain('AI · models/gemini-2.5-flash');
+    expect(html).toContain('2026-07-12T14:00:00Z');
+    expect(html).toContain('not independent analysts');
+  });
+
+  it('labels rule-based reads as deterministic', () => {
+    const html = roundtableProvenance({ engine: 'rule-based', generated_at: '2026-07-12T14:00:00Z' });
+    expect(html).toContain('Rule-based (deterministic)');
+  });
+
+  it('returns empty string for legacy payloads without provenance', () => {
+    expect(roundtableProvenance({})).toBe('');
+    expect(roundtableProvenance(null)).toBe('');
   });
 });
