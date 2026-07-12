@@ -671,13 +671,15 @@ function volTargetLine(volTarget) {
   const realized = volTarget.realized_annual_vol_pct;
   const target = volTarget.target_annual_vol_pct;
   const windowDays = volTarget.window_days ?? 20;
-  const realizedTxt = typeof realized === 'number'
-    ? `${windowDays}d realized vol ${realized}% annualized`
-    : `daily vol ${volTarget.realized_vol_pct}%`;
-  const targetTxt = typeof target === 'number' ? `${target}% annual-vol target` : 'vol target';
-  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol budget</span>` +
-    `<span>~${Math.round(volTarget.exposure_pct)}% SPY-equivalent exposure for a ${targetTxt} · ${realizedTxt} · ` +
-    `illustrative and SPY-only, before costs — not personalized advice</span></div>`;
+  const full = `SPY-equivalent exposure sized so trailing ${windowDays}-day volatility`
+    + (typeof realized === 'number' ? ` (now ${realized}% annualized)` : '')
+    + (typeof target === 'number' ? ` hits a ${target}% annual-vol target.` : ' hits the vol target.')
+    + ' Illustrative and SPY-only, before costs — not personalized advice.';
+  // Classic's left column is narrow — tightest possible line; the tooltip
+  // carries the full method and limitations.
+  const targetTxt = typeof target === 'number' ? ` (${target}%/yr)` : '';
+  return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
+    `<span>~${Math.round(volTarget.exposure_pct)}% SPY exposure${targetTxt}</span></div>`;
 }
 
 // P1-001/D-004: the old "confidence" bar was the score re-banded — score
@@ -697,15 +699,12 @@ function asOfLine(asOf) {
   if (!asOf || !asOf.session || asOf.session === 'open') return '';
   const dataDate = asOf.market_data_as_of || asOf.history_last_bar;
   if (!dataDate) return '';
-  const framing = {
-    weekend:    'Market closed (weekend)',
-    closed:     'Market closed',
-    afterhours: 'After hours',
-    premarket:  'Premarket',
-  }[asOf.session] || 'Market closed';
+  // The header badge already names the session (WEEKEND / PREMARKET / ...) —
+  // repeating it here was noise. This line only says which close the
+  // reading is based on.
   const note = (asOf.session === 'weekend' || asOf.session === 'closed')
     ? ' · planning context only' : '';
-  return `<div class="dc-asof">${esc(framing)} — based on ${esc(dataDate)} regular-session close${note}</div>`;
+  return `<div class="dc-asof">Based on ${esc(dataDate)} regular-session close${note}</div>`;
 }
 
 function buildWeightScenario(data) {

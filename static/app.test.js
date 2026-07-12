@@ -277,32 +277,33 @@ describe('volTargetLine (P1-007..009)', () => {
     realized_annual_vol_pct: 10.8, target_annual_vol_pct: 7.8, window_days: 20,
   };
 
-  it('renders exposure, target, realized vol, horizon, and the not-personalized note', () => {
+  it('shows a short line on screen with the full method in the tooltip', () => {
     const html = volTargetLine(vt);
-    expect(html).toContain('~72% SPY-equivalent exposure');
-    expect(html).toContain('7.8% annual-vol target');
-    expect(html).toContain('20d realized vol 10.8% annualized');
-    expect(html).toContain('not personalized');
+    expect(html).toContain('~72% SPY exposure (targets 7.8%/yr vol)');
+    expect(html).toContain('illustrative — not advice');
+    // Full disclosure (realized vol, horizon, not-personalized) lives in title=
+    expect(html).toContain('10.8% annualized');
+    expect(html).toContain('not personalized advice');
     expect(html).toContain('vol-target-line');
   });
 
   it('recomputes exposure from a user-selected target (what-if)', () => {
     const html = volTargetLine(vt, 15);
     // 15 / 10.8 = 138.9% → capped at 100%
-    expect(html).toContain('~100% SPY-equivalent exposure');
-    expect(html).toContain('15% annual-vol target (your setting)');
+    expect(html).toContain('~100% SPY exposure');
+    expect(html).toContain('targets 15%/yr vol');
+    expect(html).toContain('your setting');
   });
 
   it('user target of 5% halves the default-target exposure', () => {
     const html = volTargetLine(vt, 5);
     // 5 / 10.8 = 46.3%
-    expect(html).toContain('~46% SPY-equivalent exposure');
+    expect(html).toContain('~46% SPY exposure');
   });
 
-  it('falls back to daily-vol copy for legacy payloads without annual fields', () => {
+  it('renders legacy payloads without annual fields', () => {
     const html = volTargetLine({ exposure_pct: 72.4, realized_vol_pct: 0.7 });
-    expect(html).toContain('~72% SPY-equivalent exposure');
-    expect(html).toContain('daily vol 0.7%');
+    expect(html).toContain('~72% SPY exposure');
   });
 
   it('returns an empty string for null, undefined, or malformed input', () => {
@@ -388,18 +389,19 @@ describe('reliabilityLine (P1-001/P1-002)', () => {
 describe('asOfLine (P1-004/P1-005)', () => {
   it('frames weekend readings as based on the last close, planning only', () => {
     const html = asOfLine({ session: 'weekend', market_data_as_of: '2026-07-10', calculated_at: '2026-07-11T23:22:00-04:00' });
-    expect(html).toContain('Market closed (weekend)');
-    expect(html).toContain('2026-07-10');
+    expect(html).toContain('Based on 2026-07-10 regular-session close');
     expect(html).toContain('planning context only');
+    // The header badge already names the session — no duplicate label here.
+    expect(html).not.toContain('weekend');
   });
 
   it('is empty during regular hours', () => {
     expect(asOfLine({ session: 'open', market_data_as_of: '2026-07-10' })).toBe('');
   });
 
-  it('labels premarket without the planning-only note', () => {
+  it('premarket shows the reference close without the planning-only note', () => {
     const html = asOfLine({ session: 'premarket', market_data_as_of: '2026-07-09' });
-    expect(html).toContain('Premarket');
+    expect(html).toContain('Based on 2026-07-09');
     expect(html).not.toContain('planning context only');
   });
 
