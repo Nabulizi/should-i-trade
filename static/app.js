@@ -667,18 +667,20 @@ function volTargetLine(volTarget, userTarget = null) {
   if (userTarget && typeof realized === 'number' && realized > 0) {
     target = userTarget;
     exposure = Math.min(100, Math.max(0, (userTarget / realized) * 100));
-    suffix = ' · your setting';
+    suffix = ' — your setting';
   }
   const windowDays = volTarget.window_days ?? 20;
-  // Short on screen; the full method and limitations live in the tooltip
-  // and README — a first-time user should not need a glossary for one line.
+  // Short on screen as a plain SPY/cash split; the full method and
+  // limitations live in the tooltip and README — a first-time user
+  // should not need a glossary for one line.
   const full = `SPY-equivalent exposure sized so trailing ${windowDays}-day volatility`
     + (typeof realized === 'number' ? ` (now ${realized}% annualized)` : '')
     + (typeof target === 'number' ? ` hits a ${target}% annual-vol target.` : ' hits the vol target.')
     + ' Illustrative and SPY-only, before costs — not personalized advice.';
-  const targetTxt = typeof target === 'number' ? ` (targets ${target}%/yr vol)` : '';
+  const spyPct = Math.round(exposure);
+  const cashPct = 100 - spyPct;   // complement of the rounded SPY% — always sums to 100
   return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
-    `<span>~${Math.round(exposure)}% SPY exposure${targetTxt}${suffix} · <span style="color:var(--muted)">illustrative — not advice</span></span></div>`;
+    `<span>Suggested split: ${spyPct}% SPY / ${cashPct}% cash (to hold steady risk)${suffix}</span></div>`;
 }
 
 function onVolTargetChange() {
@@ -698,14 +700,16 @@ function initVolTargetSelect() {
 }
 
 // P1-001/D-004: the old "confidence" bar was the score re-banded — score
-// direction is not model confidence. Reliability comes from the backend and
-// reflects input trust only (coverage, critical inputs, band-edge distance).
+// direction is not model confidence. Data coverage only (P1-002 "reliability
+// level" was removed per user feedback: paired with 100% coverage it read
+// as contradictory, and near-boundary status duplicates the score itself).
+// Coverage floors at 80% before the whole dashboard falls back to a
+// data-unavailable state (scoring.MIN_DATA_COVERAGE), so anything shown
+// here is real 80-100%.
 function reliabilityLine(rel) {
-  if (!rel || !rel.level) return '';
-  const names  = { high: 'High', medium: 'Medium', low: 'Low', none: 'Data unavailable' };
-  const colors = { high: 'green', medium: 'yellow', low: 'orange', none: 'red' };
-  const label = `${names[rel.level] || rel.level} · ${Math.round(rel.coverage_pct ?? 0)}% coverage`;
-  return `<div class="dc-row" id="reliability-line"><span class="dc-label">Reliability</span>${tag(label, colors[rel.level] || 'gray')}</div>`;
+  if (!rel || typeof rel.coverage_pct !== 'number') return '';
+  const pct = Math.round(rel.coverage_pct);
+  return `<div class="dc-row" id="reliability-line"><span class="dc-label">Data</span>${tag(`${pct}% coverage`, pct >= 100 ? 'green' : 'yellow')}</div>`;
 }
 
 // P1-004/P1-005: computation time ≠ observation time. Outside regular hours,

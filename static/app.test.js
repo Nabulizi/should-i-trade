@@ -277,10 +277,11 @@ describe('volTargetLine (P1-007..009)', () => {
     realized_annual_vol_pct: 10.8, target_annual_vol_pct: 7.8, window_days: 20,
   };
 
-  it('shows a short line on screen with the full method in the tooltip', () => {
+  it('shows a plain SPY/cash split on screen with the full method in the tooltip', () => {
     const html = volTargetLine(vt);
-    expect(html).toContain('~72% SPY exposure (targets 7.8%/yr vol)');
-    expect(html).toContain('illustrative — not advice');
+    // 72.4 rounds to 72% SPY, complement is 28% cash — always sums to 100.
+    expect(html).toContain('Suggested split: 72% SPY / 28% cash');
+    expect(html).toContain('to hold steady risk');
     // Full disclosure (realized vol, horizon, not-personalized) lives in title=
     expect(html).toContain('10.8% annualized');
     expect(html).toContain('not personalized advice');
@@ -289,21 +290,28 @@ describe('volTargetLine (P1-007..009)', () => {
 
   it('recomputes exposure from a user-selected target (what-if)', () => {
     const html = volTargetLine(vt, 15);
-    // 15 / 10.8 = 138.9% → capped at 100%
-    expect(html).toContain('~100% SPY exposure');
-    expect(html).toContain('targets 15%/yr vol');
+    // 15 / 10.8 = 138.9% → capped at 100%, cash complement 0%
+    expect(html).toContain('100% SPY / 0% cash');
     expect(html).toContain('your setting');
   });
 
   it('user target of 5% halves the default-target exposure', () => {
     const html = volTargetLine(vt, 5);
-    // 5 / 10.8 = 46.3%
-    expect(html).toContain('~46% SPY exposure');
+    // 5 / 10.8 = 46.3% → 46% SPY, 54% cash
+    expect(html).toContain('46% SPY / 54% cash');
+  });
+
+  it('SPY% and cash% always sum to exactly 100', () => {
+    for (const pct of [0, 1, 33.3, 46.5, 53.5, 99.9, 100]) {
+      const html = volTargetLine({ ...vt, exposure_pct: pct });
+      const m = html.match(/(\d+)% SPY \/ (\d+)% cash/);
+      expect(Number(m[1]) + Number(m[2])).toBe(100);
+    }
   });
 
   it('renders legacy payloads without annual fields', () => {
     const html = volTargetLine({ exposure_pct: 72.4, realized_vol_pct: 0.7 });
-    expect(html).toContain('~72% SPY exposure');
+    expect(html).toContain('72% SPY / 28% cash');
   });
 
   it('returns an empty string for null, undefined, or malformed input', () => {
@@ -361,23 +369,24 @@ describe('renderYesterdayStrip', () => {
   });
 });
 
-describe('reliabilityLine (P1-001/P1-002)', () => {
-  it('renders the backend reliability level and coverage', () => {
-    const html = reliabilityLine({ level: 'high', coverage_pct: 100, critical_ok: true });
-    expect(html).toContain('Reliability');
-    expect(html).toContain('High');
+describe('reliabilityLine — data coverage only', () => {
+  it('renders coverage as a plain percentage', () => {
+    const html = reliabilityLine({ coverage_pct: 100 });
+    expect(html).toContain('Data');
     expect(html).toContain('100% coverage');
+    expect(html).not.toContain('Reliability');   // renamed per user feedback
   });
 
-  it('is independent of score direction — level comes only from the payload', () => {
-    // A low-score day with clean data must still render as high reliability.
-    const html = reliabilityLine({ level: 'high', coverage_pct: 97.3 });
-    expect(html).toContain('High');
+  it('is independent of score — a low-score day with complete data still reads 100%', () => {
+    const html = reliabilityLine({ coverage_pct: 100, level: 'low', boundary_distance: 1 });
+    expect(html).toContain('100% coverage');
     expect(html).toContain('green');
   });
 
-  it('renders none as data unavailable', () => {
-    expect(reliabilityLine({ level: 'none', coverage_pct: 0 })).toContain('Data unavailable');
+  it('rounds and colors partial coverage', () => {
+    const html = reliabilityLine({ coverage_pct: 97.3 });
+    expect(html).toContain('97% coverage');
+    expect(html).toContain('yellow');
   });
 
   it('returns empty string for missing payload', () => {
