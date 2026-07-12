@@ -195,10 +195,17 @@ class DataQuality(TypedDict):
 
 
 class VolTargetInfo(TypedDict):
-    """Evidence-backed vol-target exposure dial (see docs/backtest-report.md)."""
+    """Illustrative SPY volatility budget (P1-007/008, D-003).
+
+    SPY-only, trailing-window, before costs — a comparative market-level
+    calculation, not a personalized allocation. See docs/backtest-report.md.
+    """
 
     exposure_pct: float
-    realized_vol_pct: float
+    realized_vol_pct: float          # daily %, legacy field
+    realized_annual_vol_pct: float
+    target_annual_vol_pct: float
+    window_days: int
 
 
 class AsOf(TypedDict):

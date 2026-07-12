@@ -235,6 +235,18 @@
     </div>
 
     <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">
+      <div class="settings-section-title">Vol Budget Target</div>
+      <select id="vol-target-select" aria-label="Annual volatility target" onchange="onVolTargetChange()" style="width:100%;">
+        <option value="default">Backtest default (~7.8% annual vol)</option>
+        <option value="5">5% annual vol (conservative)</option>
+        <option value="8">8% annual vol</option>
+        <option value="10">10% annual vol</option>
+        <option value="15">15% annual vol (aggressive)</option>
+      </select>
+      <div class="settings-info">Illustrative SPY-equivalent exposure = target ÷ trailing 20-day realized vol (annualized), capped at 100%. SPY-only, before costs, no covariance with anything else you hold — not personalized advice. Formula and limitations: see README.</div>
+    </div>
+
+    <div class="settings-section" style="border-top:1px solid var(--border);padding-top:16px;">
       <div class="settings-section-title">Score Weights — What-If View</div>
       <div id="score-weights"></div>
       <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;">

@@ -172,6 +172,29 @@ class TestDashboardContracts(unittest.TestCase):
             self.assertLessEqual(vt["exposure_pct"], 100.0)
             # Rounded to 2 decimals; near-zero-vol fixtures may round to 0.0.
             self.assertGreaterEqual(vt["realized_vol_pct"], 0.0)
+            # P1-008: annualized units exposed alongside the legacy daily field
+            self.assertIn("realized_annual_vol_pct", vt)
+            self.assertIn("target_annual_vol_pct", vt)
+            self.assertIn("window_days", vt)
+            self.assertAlmostEqual(vt["target_annual_vol_pct"], 7.8, places=1)
+
+    def test_positions_are_condition_bands_not_exposure_directives(self):
+        """P1-010 (D-001): the band 'position' labels describe conditions —
+        the only exposure percentage on the dashboard is the vol budget."""
+        for band in scoring.DECISION_BANDS:
+            self.assertNotIn("EXPOSURE", band["position"])
+            self.assertIn("CONDITIONS", band["position"])
+        self.assertIn(self.payload["position_size"],
+                      {b["position"] for b in scoring.DECISION_BANDS})
+
+    def test_vol_target_annualization_consistency(self):
+        """exposure must equal clamp(target/realized) in annual units too —
+        the annualization changes labels, not the number (P1-008)."""
+        vt = self.payload["vol_target"]
+        if vt is None or vt["realized_annual_vol_pct"] <= 0:
+            self.skipTest("no vol_target in fixture payload")
+        expected = min(100.0, 100.0 * vt["target_annual_vol_pct"] / vt["realized_annual_vol_pct"])
+        self.assertAlmostEqual(vt["exposure_pct"], expected, delta=1.5)  # rounding of components
 
     def test_pillars_contain_all_five(self):
         self.assertEqual(set(self.payload["pillars"].keys()), KNOWN_PILLAR_NAMES)

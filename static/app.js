@@ -209,7 +209,7 @@ function renderHero(d) {
     ${asOfLine(d.as_of)}
     ${regime ? `<div class="dc-row"><span class="dc-label">Regime</span>${regimeTag}</div>` : ''}
     <div class="dc-posture">${posture}</div>
-    ${volTargetLine(d.vol_target)}
+    ${volTargetLine(d.vol_target, loadVolTarget())}
     ${reliabilityLine(d.reliability)}
   `;
 
@@ -636,11 +636,11 @@ function saveWeightsLS(w) { localStorage.setItem('pillarWeights', JSON.stringify
 function isDefaultWeights(w) { return WEIGHT_KEYS.every(k => Number(w[k]) === DEFAULT_WEIGHTS[k]); }
 
 const FALLBACK_DECISION_BANDS = [
-  { min: 85, decision: 'RISK-ON', color: 'green', position: 'FULL EXPOSURE' },
-  { min: 70, decision: 'CONSTRUCTIVE', color: 'green', position: 'STANDARD EXPOSURE' },
-  { min: 55, decision: 'SELECTIVE', color: 'yellow', position: 'MODERATE EXPOSURE' },
-  { min: 40, decision: 'DE-RISK', color: 'orange', position: 'REDUCED EXPOSURE' },
-  { min: 0, decision: 'RISK-OFF', color: 'red', position: 'DEFENSIVE / FLAT' }
+  { min: 85, decision: 'RISK-ON', color: 'green', position: 'STRONGEST CONDITIONS' },
+  { min: 70, decision: 'CONSTRUCTIVE', color: 'green', position: 'CONSTRUCTIVE CONDITIONS' },
+  { min: 55, decision: 'SELECTIVE', color: 'yellow', position: 'MIXED CONDITIONS' },
+  { min: 40, decision: 'DE-RISK', color: 'orange', position: 'WEAK CONDITIONS' },
+  { min: 0, decision: 'RISK-OFF', color: 'red', position: 'STRESSED CONDITIONS' }
 ];
 
 function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
@@ -658,10 +658,52 @@ function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
 // vol-target baseline that beat the score-timing rule. Pure HTML-string
 // renderer so it is unit-testable; returns '' to hide the line when the
 // payload field is null or malformed.
-function volTargetLine(volTarget) {
+// P1-007..P1-009 (D-003): illustrative SPY volatility budget. Annualized
+// units, explicit target/realized/horizon, and a not-personalized note. A
+// user-selected annual-vol target (bounded presets) recomputes the exposure
+// client-side from the backend's realized vol — a what-if, like the weights.
+const VOL_TARGET_PRESETS = [5, 8, 10, 15];
+
+function loadVolTarget() {
+  const v = Number(localStorage.getItem('volTargetAnnual'));
+  return VOL_TARGET_PRESETS.includes(v) ? v : null;   // null → backend default
+}
+
+function volTargetLine(volTarget, userTarget = null) {
   if (!volTarget || typeof volTarget.exposure_pct !== 'number') return '';
-  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol-target</span>` +
-    `<span>~${Math.round(volTarget.exposure_pct)}% exposure — no-pillar baseline that beat the score in the 2005–2026 backtest</span></div>`;
+  const realized = volTarget.realized_annual_vol_pct;
+  let target = volTarget.target_annual_vol_pct;
+  let exposure = volTarget.exposure_pct;
+  let suffix = ' (backtest-calibrated default)';
+  if (userTarget && typeof realized === 'number' && realized > 0) {
+    target = userTarget;
+    exposure = Math.min(100, Math.max(0, (userTarget / realized) * 100));
+    suffix = ' (your setting)';
+  }
+  const windowDays = volTarget.window_days ?? 20;
+  const realizedTxt = typeof realized === 'number'
+    ? `${windowDays}d realized vol ${realized}% annualized`
+    : `daily vol ${volTarget.realized_vol_pct}%`;
+  const targetTxt = typeof target === 'number' ? `${target}% annual-vol target${suffix}` : 'vol target';
+  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol budget</span>` +
+    `<span>~${Math.round(exposure)}% SPY-equivalent exposure for a ${targetTxt} · ${realizedTxt} · ` +
+    `illustrative and SPY-only, before costs — not personalized advice</span></div>`;
+}
+
+function onVolTargetChange() {
+  const sel = $('vol-target-select');
+  if (!sel) return;
+  const v = Number(sel.value);
+  if (VOL_TARGET_PRESETS.includes(v)) localStorage.setItem('volTargetAnnual', String(v));
+  else localStorage.removeItem('volTargetAnnual');
+  if (_lastData) renderHero(_lastData);
+}
+
+function initVolTargetSelect() {
+  const sel = $('vol-target-select');
+  if (!sel) return;
+  const saved = loadVolTarget();
+  sel.value = saved === null ? 'default' : String(saved);
 }
 
 // P1-001/D-004: the old "confidence" bar was the score re-banded — score
@@ -798,9 +840,9 @@ function copySnapshot() {
   const now = new Date().toLocaleString();
   const lines = [
     `=== Should I Trade? — ${now} ===`,
-    `Decision: ${d.decision}  |  Score: ${d.total_score}/100  |  Size: ${d.position_size}`,
+    `Decision: ${d.decision}  |  Score: ${d.total_score}/100  |  Band: ${d.position_size}`,
     ...(scenario._customWeights ? [
-      `Custom-weight what-if: ${scenario.decision}  |  Score: ${scenario.total_score}/100  |  Size: ${scenario.position_size}`,
+      `Custom-weight what-if: ${scenario.decision}  |  Score: ${scenario.total_score}/100  |  Band: ${scenario.position_size}`,
     ] : []),
     ``,
     `Pillars:`,
@@ -1287,6 +1329,7 @@ if (!globalThis.__TESTING__) {
   window.runRoundtable          = runRoundtable;
   window.closeSettingsOnOverlay = closeSettingsOnOverlay;
   window.onWeightChange         = onWeightChange;
+  window.onVolTargetChange      = onVolTargetChange;
   window.applyWeights           = applyWeights;
   window.resetWeights           = resetWeights;
   window.toggleDetail           = toggleDetail;
@@ -1319,6 +1362,7 @@ if (!globalThis.__TESTING__) {
     }
   });
 
+  initVolTargetSelect();
   load(true);
 }
 
@@ -1335,6 +1379,8 @@ export {
   validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,
+  VOL_TARGET_PRESETS,
+  loadVolTarget,
   reliabilityLine,
   asOfLine,
   renderYesterdayStrip,

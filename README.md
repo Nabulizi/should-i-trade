@@ -174,13 +174,32 @@ Data flows: `data.py` fetches from Yahoo Finance (primary), falling back to Stoo
 
 The score is a conditions/exposure dial. The **engage line is 55** (the tested engagement threshold), not 70.
 
-| Score | Posture | Suggested Exposure |
+| Score | Posture | Conditions Band |
 |---|---|---|
-| ≥ 85 | **RISK-ON** 🟢 | Full |
-| 70–84 | **CONSTRUCTIVE** 🟢 | Standard |
-| 55–69 | **SELECTIVE** 🟡 | Moderate — engage selectively |
-| 40–54 | **DE-RISK** 🟠 | Reduced |
-| < 40 | **RISK-OFF** 🔴 | Defensive / flat |
+| ≥ 85 | **RISK-ON** 🟢 | Strongest — calm, broad, established uptrend |
+| 70–84 | **CONSTRUCTIVE** 🟢 | Constructive — positive trend, supportive participation |
+| 55–69 | **SELECTIVE** 🟡 | Mixed — internal signals disagree |
+| 40–54 | **DE-RISK** 🟠 | Weak — choppy, elevated adverse-move risk |
+| < 40 | **RISK-OFF** 🔴 | Stressed — descriptive only, not a timing signal |
+
+Bands describe conditions; they do not size positions. The only exposure
+percentage on the dashboard is the **volatility budget** below.
+
+### Volatility Budget (illustrative)
+
+```text
+realized_annual_vol   = std(SPY daily returns, 20d) × sqrt(252)
+SPY-equivalent expo.  = clamp(target_annual_vol / realized_annual_vol, 0, 100%)
+```
+
+The default target (~7.8% annual vol) is the backtest calibration — the
+no-pillar baseline that beat the score rule on return, Sharpe, and max
+drawdown (see [Backtest Report](docs/backtest-report.md)). You can pick a
+different target in Settings (bounded presets; stored locally).
+
+**Limitations:** SPY-only, trailing 20-day window, before costs, no
+covariance with anything else you hold, no suitability assessment — an
+illustrative market-level calculation, **not personalized advice**.
 
 ---
 

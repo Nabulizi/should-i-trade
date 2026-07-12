@@ -282,12 +282,12 @@ P1 is a product-truth and behavioral-safety change, not merely a redesign.
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P1-001 | pending | Remove score-derived confidence bar | Score direction is never called confidence |
-| P1-002 | pending | Define reliability schema | Coverage, critical inputs, age, availability, agreement, boundary distance |
-| P1-003 | pending | Add per-source timestamps and ages | Quote/history/calculation times are distinguishable |
-| P1-004 | pending | Add closed-market framing | Weekend/holiday UI identifies represented session and planning-only state |
-| P1-005 | pending | Split `calculated_at` and `market_data_as_of` | Ambiguous timestamp removed via migration/versioning |
-| P1-006 | pending | Add next-session context | Header correctly states premarket/open/after-hours/weekend/holiday/closed |
+| P1-001 | done | Remove score-derived confidence bar | Score direction is never called confidence |
+| P1-002 | done | Define reliability schema | Coverage, critical inputs, age, availability, agreement, boundary distance |
+| P1-003 | done | Add per-source timestamps and ages | Quote/history/calculation times are distinguishable |
+| P1-004 | done | Add closed-market framing | Weekend/holiday UI identifies represented session and planning-only state |
+| P1-005 | done | Split `calculated_at` and `market_data_as_of` | Ambiguous timestamp removed via migration/versioning |
+| P1-006 | done | Add next-session context | Header correctly states premarket/open/after-hours/weekend/holiday/closed |
 
 Reliability is independent of direction. A low score can have high reliability.
 
@@ -619,3 +619,4 @@ A task or phase is complete only when applicable conditions hold:
 |---|---|---|---|
 | 2026-07-11 | 1.0 | Consolidated repository audit and independent review convergence | Codex |
 | 2026-07-12 | 1.1 | P0 complete — PRs #50–#53, #55 merged; all P0-001..P0-026 done | Claude |
+| 2026-07-12 | 1.2 | PR-5 merged (#56) — P1-001..P1-006 done; Q-001 resolved: keep calibrated 7.8% default, rounded presets in UI | Claude |

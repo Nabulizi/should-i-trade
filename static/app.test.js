@@ -11,6 +11,7 @@ import {
   validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,
+  loadVolTarget,
   reliabilityLine,
   asOfLine,
 } from './app.js';
@@ -133,11 +134,11 @@ describe('decisionForScore', () => {
   });
 
   it('returns position_size in the result', () => {
-    expect(decisionForScore(90).position_size).toBe('FULL EXPOSURE');
-    expect(decisionForScore(72).position_size).toBe('STANDARD EXPOSURE');
-    expect(decisionForScore(60).position_size).toBe('MODERATE EXPOSURE');
-    expect(decisionForScore(45).position_size).toBe('REDUCED EXPOSURE');
-    expect(decisionForScore(10).position_size).toBe('DEFENSIVE / FLAT');
+    expect(decisionForScore(90).position_size).toBe('STRONGEST CONDITIONS');
+    expect(decisionForScore(72).position_size).toBe('CONSTRUCTIVE CONDITIONS');
+    expect(decisionForScore(60).position_size).toBe('MIXED CONDITIONS');
+    expect(decisionForScore(45).position_size).toBe('WEAK CONDITIONS');
+    expect(decisionForScore(10).position_size).toBe('STRESSED CONDITIONS');
   });
 
   it('boundary: score 85 is RISK-ON, score 84 is CONSTRUCTIVE', () => {
@@ -258,18 +259,57 @@ describe('custom weight scenarios', () => {
 });
 
 // ── volTargetLine ─────────────────────────────────────────────────────────
-describe('volTargetLine', () => {
-  it('renders the rounded exposure percentage and the evidence label', () => {
-    const html = volTargetLine({ exposure_pct: 72.4, realized_vol_pct: 0.7 });
-    expect(html).toContain('~72% exposure');
+describe('volTargetLine (P1-007..009)', () => {
+  const vt = {
+    exposure_pct: 72.4, realized_vol_pct: 0.68,
+    realized_annual_vol_pct: 10.8, target_annual_vol_pct: 7.8, window_days: 20,
+  };
+
+  it('renders exposure, target, realized vol, horizon, and the not-personalized note', () => {
+    const html = volTargetLine(vt);
+    expect(html).toContain('~72% SPY-equivalent exposure');
+    expect(html).toContain('7.8% annual-vol target');
+    expect(html).toContain('20d realized vol 10.8% annualized');
+    expect(html).toContain('not personalized');
     expect(html).toContain('vol-target-line');
-    expect(html).toContain('beat the score');
+  });
+
+  it('recomputes exposure from a user-selected target (what-if)', () => {
+    const html = volTargetLine(vt, 15);
+    // 15 / 10.8 = 138.9% → capped at 100%
+    expect(html).toContain('~100% SPY-equivalent exposure');
+    expect(html).toContain('15% annual-vol target (your setting)');
+  });
+
+  it('user target of 5% halves the default-target exposure', () => {
+    const html = volTargetLine(vt, 5);
+    // 5 / 10.8 = 46.3%
+    expect(html).toContain('~46% SPY-equivalent exposure');
+  });
+
+  it('falls back to daily-vol copy for legacy payloads without annual fields', () => {
+    const html = volTargetLine({ exposure_pct: 72.4, realized_vol_pct: 0.7 });
+    expect(html).toContain('~72% SPY-equivalent exposure');
+    expect(html).toContain('daily vol 0.7%');
   });
 
   it('returns an empty string for null, undefined, or malformed input', () => {
     expect(volTargetLine(null)).toBe('');
     expect(volTargetLine(undefined)).toBe('');
     expect(volTargetLine({})).toBe('');
+  });
+});
+
+describe('loadVolTarget (P1-009)', () => {
+  it('returns null when nothing stored (backend default)', () => {
+    expect(loadVolTarget()).toBe(null);
+  });
+
+  it('returns a stored preset and rejects out-of-bounds values', () => {
+    localStorage.setItem('volTargetAnnual', '10');
+    expect(loadVolTarget()).toBe(10);
+    localStorage.setItem('volTargetAnnual', '99');
+    expect(loadVolTarget()).toBe(null);
   });
 });
 
