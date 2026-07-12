@@ -49,6 +49,24 @@ class TestBandChanged(unittest.TestCase):
         self.assertFalse(band_changed(_payload(), None))
 
 
+class TestNoiseFraming(unittest.TestCase):
+    """P1-031: small day-over-day deltas are labeled as typical noise."""
+
+    def test_small_delta_same_band_flagged_as_noise(self):
+        import notify, config
+        data = _payload(total=60, decision="SELECTIVE")
+        yday = _yesterday(total=60 - config.SCORE_NOISE_DELTA_1D, decision="SELECTIVE")
+        report = notify.build_report(data, yday)
+        self.assertIn("typical daily noise", report)
+
+    def test_large_delta_not_flagged(self):
+        import notify, config
+        data = _payload(total=80, decision="CONSTRUCTIVE")
+        yday = _yesterday(total=80 - config.SCORE_NOISE_DELTA_1D - 10, decision="SELECTIVE")
+        report = notify.build_report(data, yday)
+        self.assertNotIn("typical daily noise", report)
+
+
 class TestBuildReport(unittest.TestCase):
     def test_full_report_contains_score_delta_bands_pillars(self):
         text = build_report(_payload(), _yesterday())

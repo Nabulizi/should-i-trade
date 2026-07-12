@@ -50,6 +50,13 @@ def build_report(data: dict, yesterday: dict | None) -> str:
     delta_part = f" ({delta} vs prev close)" if delta else ""
     lines.append(f"*Score {data['total_score']}*{delta_part} — {data.get('decision', '')}")
 
+    # P1-031: day-over-day deltas at or below the historical median move are
+    # typical noise — say so instead of presenting them as signal.
+    if (prev_total is not None
+            and abs(data["total_score"] - prev_total) <= config.SCORE_NOISE_DELTA_1D
+            and not band_changed(data, yesterday)):
+        lines.append(f"Δ within typical daily noise (median move ±{config.SCORE_NOISE_DELTA_1D} pts) — no posture change.")
+
     if band_changed(data, yesterday):
         lines.append(f"Posture change: {yesterday['decision']} → {data['decision']}")
 

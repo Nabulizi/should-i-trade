@@ -28,7 +28,7 @@ from data import (
     opex_proximity, seasonality, earnings_season, fetch_futures_tape,
     yf_last_bar_date,
 )
-from config import PILLAR_WEIGHTS, VOL_TARGET_K, VOL_TARGET_WINDOW
+from config import PILLAR_WEIGHTS, VOL_TARGET_K, VOL_TARGET_WINDOW, BAND_HYSTERESIS_PTS
 from models import PillarResult, DashboardResult, VolTargetInfo
 
 # ─── configuration ─────────────────────────────────────────────────────────
@@ -166,6 +166,31 @@ def decision_for_score(total: int) -> tuple[str, str, str]:
         if total >= band["min"]:
             return band["decision"], band["color"], band["position"]
     return "RISK-OFF", "red", "STRESSED CONDITIONS"
+
+
+def decision_with_hysteresis(total: int, prev_decision: str | None,
+                             pts: int = BAND_HYSTERESIS_PTS) -> tuple[tuple[str, str, str], bool]:
+    """Sticky band labels (P1-030): a band change only takes effect once the
+    score clears the boundary between the previous and natural band by `pts`
+    points, so a 54/55/54 sequence doesn't churn DE-RISK/SELECTIVE/DE-RISK.
+
+    Display-level only — the score is untouched and the natural band is
+    reported alongside. Returns ((decision, color, position), applied).
+    Callers must bypass this when a safety cap set the total (the cap's band
+    must always show) and when data quality is invalid.
+    """
+    natural = decision_for_score(total)
+    if not prev_decision or prev_decision == natural[0]:
+        return natural, False
+    bands = {b["decision"]: b for b in DECISION_BANDS}
+    prev = bands.get(prev_decision)
+    if prev is None:                      # e.g. server restart / legacy label
+        return natural, False
+    # Boundary crossed between the two bands: the higher band's lower edge.
+    edge = max(bands[natural[0]]["min"], prev["min"])
+    if abs(total - edge) < pts:
+        return (prev["decision"], prev["color"], prev["position"]), True
+    return natural, False
 
 
 def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[str],
@@ -1637,8 +1662,12 @@ def _build_ticker(quotes: dict, btc_q: dict | None) -> list:
     return ticker
 
 
-def compute_dashboard() -> DashboardResult:
-    """Orchestrate a full dashboard refresh in four clean phases."""
+def compute_dashboard(prev_decision: str | None = None) -> DashboardResult:
+    """Orchestrate a full dashboard refresh in four clean phases.
+
+    prev_decision: the band shown on the previous refresh (server-supplied);
+    enables display-level band hysteresis (P1-030). None → natural band.
+    """
     # 1. Fetch
     instruments = _fetch_instruments()
     instruments.update({
@@ -1670,6 +1699,13 @@ def compute_dashboard() -> DashboardResult:
     )
     total, _, safety_max, override_reasons, decision, dc, pos = _apply_overrides(
         raw_total, pillars, data_quality)
+    natural_decision = decision
+    hysteresis_applied = False
+    # Hysteresis only for ordinary band flips — never over safety caps or
+    # invalid data, where the capped/disabled label must always show.
+    if data_quality["valid"] and safety_max is None and prev_decision:
+        (decision, dc, pos), hysteresis_applied = decision_with_hysteresis(
+            total, prev_decision)
     conflicts = detect_conflicts(pillars, total)
 
     # SPY consecutive-day win/loss streak — uses spliced history so today counts.
@@ -1721,6 +1757,8 @@ def compute_dashboard() -> DashboardResult:
         # P1-003/P1-005: computation time and market-observation time are
         # different facts — a Saturday-night calculation shows Friday's close.
         "model_version": MODEL_VERSION,
+        "natural_decision": natural_decision,
+        "hysteresis_applied": hysteresis_applied,
         "as_of": {
             "calculated_at":      et_now().isoformat(timespec="seconds"),
             "market_data_as_of":  (spy_q.get("trade_date").isoformat()
