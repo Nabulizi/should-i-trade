@@ -676,20 +676,20 @@ function volTargetLine(volTarget) {
     + ' Illustrative and SPY-only, before costs — not personalized advice.';
   // Classic's left column is narrow — tightest possible line; the tooltip
   // carries the full method and limitations.
-  const targetTxt = typeof target === 'number' ? ` (${target}%/yr)` : '';
+  const spyPct = Math.round(volTarget.exposure_pct);
+  const cashPct = 100 - spyPct;   // complement of the rounded SPY% — always sums to 100
   return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
-    `<span>~${Math.round(volTarget.exposure_pct)}% SPY exposure${targetTxt}</span></div>`;
+    `<span>Suggested: ${spyPct}% SPY / ${cashPct}% cash</span></div>`;
 }
 
 // P1-001/D-004: the old "confidence" bar was the score re-banded — score
 // direction is not model confidence. Reliability comes from the backend and
 // reflects input trust only (coverage, critical inputs, band-edge distance).
+// Data coverage only — see static/app.js reliabilityLine for the rationale.
 function reliabilityLine(rel) {
-  if (!rel || !rel.level) return '';
-  const names  = { high: 'High', medium: 'Medium', low: 'Low', none: 'Data unavailable' };
-  const colors = { high: 'green', medium: 'yellow', low: 'orange', none: 'red' };
-  const label = `${names[rel.level] || rel.level} · ${Math.round(rel.coverage_pct ?? 0)}% coverage`;
-  return `<div class="dc-row" id="reliability-line"><span class="dc-label">Reliability</span>${tag(label, colors[rel.level] || 'gray')}</div>`;
+  if (!rel || typeof rel.coverage_pct !== 'number') return '';
+  const pct = Math.round(rel.coverage_pct);
+  return `<div class="dc-row" id="reliability-line"><span class="dc-label">Data</span>${tag(`${pct}% coverage`, pct >= 100 ? 'green' : 'yellow')}</div>`;
 }
 
 // P1-004/P1-005: computation time ≠ observation time. Outside regular hours,
