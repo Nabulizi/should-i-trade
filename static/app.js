@@ -140,7 +140,7 @@ function buildPillarBars(pillars) {
                     && Object.keys(pillar.details || {}).length === 0;
     const fill = missing
       ? `<div class="hero-pillar-fill missing" style="width:100%"></div>`
-      : `<div class="hero-pillar-fill" style="width:${score}%"></div>`;
+      : `<div class="hero-pillar-fill" style="width:${score}%;background:${scoreColor(score)}"></div>`;
     return `<div class="hero-pillar-row" role="img" aria-label="${labels[i]} pillar ${missing ? 'no data' : score + ' of 100'}">
       <span>${labels[i]}</span>
       <div class="hero-pillar-track">${fill}</div>
@@ -481,10 +481,8 @@ function renderBars(elId, data) {
   const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
   $(elId).innerHTML = entries.map(([, v]) => {
     const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
-    // P1-016: data renders monochrome — sign lives in the printed number,
-    // magnitude in the bar width. Color stays reserved for warnings/regime.
-    const bg = v.change_pct >= 0 ? 'var(--border2)' : 'var(--border)';
-    const c  = v.change_pct >= 0 ? 'var(--text)' : 'var(--muted2)';
+    const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
+    const c  = 'var(--text)';
     return `<div class="sector-row">
       <span class="sector-name">${esc(v.name)}</span>
       <div class="sector-bar-wrap">
@@ -552,7 +550,7 @@ function renderWatchlistHealth(w, selectedView = _watchlistView) {
     ['pullback',  'Pullback',    counts.pullback  || 0, 'var(--yellow)'],
     ...(counts.bear_regime ? [['bear_regime', 'Wait (Bear)', counts.bear_regime, 'var(--red)']] : []),
     ['extended',  'Extended',   counts.extended  || 0, 'var(--orange)'],
-    ['broken',    'Below Trend', counts.broken   || 0, 'var(--muted2)'],
+    ['broken',    'Below Trend', counts.broken   || 0, 'var(--red)'],
   ];
   if (counts.neutral) stats.push(['neutral', 'Neutral', counts.neutral, 'var(--muted2)']);
   if (counts.unavailable) stats.push(['unavailable', 'No Data', counts.unavailable, 'var(--muted)']);
@@ -665,20 +663,22 @@ function volTargetLine(volTarget, userTarget = null) {
   const realized = volTarget.realized_annual_vol_pct;
   let target = volTarget.target_annual_vol_pct;
   let exposure = volTarget.exposure_pct;
-  let suffix = ' (backtest-calibrated default)';
+  let suffix = '';
   if (userTarget && typeof realized === 'number' && realized > 0) {
     target = userTarget;
     exposure = Math.min(100, Math.max(0, (userTarget / realized) * 100));
-    suffix = ' (your setting)';
+    suffix = ' · your setting';
   }
   const windowDays = volTarget.window_days ?? 20;
-  const realizedTxt = typeof realized === 'number'
-    ? `${windowDays}d realized vol ${realized}% annualized`
-    : `daily vol ${volTarget.realized_vol_pct}%`;
-  const targetTxt = typeof target === 'number' ? `${target}% annual-vol target${suffix}` : 'vol target';
-  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol budget</span>` +
-    `<span>~${Math.round(exposure)}% SPY-equivalent exposure for a ${targetTxt} · ${realizedTxt} · ` +
-    `illustrative and SPY-only, before costs — not personalized advice</span></div>`;
+  // Short on screen; the full method and limitations live in the tooltip
+  // and README — a first-time user should not need a glossary for one line.
+  const full = `SPY-equivalent exposure sized so trailing ${windowDays}-day volatility`
+    + (typeof realized === 'number' ? ` (now ${realized}% annualized)` : '')
+    + (typeof target === 'number' ? ` hits a ${target}% annual-vol target.` : ' hits the vol target.')
+    + ' Illustrative and SPY-only, before costs — not personalized advice.';
+  const targetTxt = typeof target === 'number' ? ` (targets ${target}%/yr vol)` : '';
+  return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
+    `<span>~${Math.round(exposure)}% SPY exposure${targetTxt}${suffix} · <span style="color:var(--muted)">illustrative — not advice</span></span></div>`;
 }
 
 function onVolTargetChange() {
@@ -714,15 +714,12 @@ function asOfLine(asOf) {
   if (!asOf || !asOf.session || asOf.session === 'open') return '';
   const dataDate = asOf.market_data_as_of || asOf.history_last_bar;
   if (!dataDate) return '';
-  const framing = {
-    weekend:    'Market closed (weekend)',
-    closed:     'Market closed',
-    afterhours: 'After hours',
-    premarket:  'Premarket',
-  }[asOf.session] || 'Market closed';
+  // The header badge already names the session (WEEKEND / PREMARKET / ...) —
+  // repeating it here was noise. This line only says which close the
+  // reading is based on.
   const note = (asOf.session === 'weekend' || asOf.session === 'closed')
     ? ' · planning context only' : '';
-  return `<div class="dc-asof">${esc(framing)} — based on ${esc(dataDate)} regular-session close${note}</div>`;
+  return `<div class="dc-asof">Based on ${esc(dataDate)} regular-session close${note}</div>`;
 }
 
 function buildWeightScenario(data) {

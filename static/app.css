@@ -1,21 +1,21 @@
   :root {
-    /* Swiss monochrome base + single amber accent (P1-016). Semantic colors
-       are muted and reserved for regime reads, warnings, and reliability
-       failures — data itself renders monochrome. */
-    --bg:      #0c0c0d;
-    --surface: #131315;
-    --surface2:#19191c;
-    --border:  #242428;
-    --border2: #303036;
-    --green:   #7fb794;
-    --yellow:  #d9a441;
-    --orange:  #cf8a4e;
-    --red:     #d96262;
-    --text:    #e7e5e0;
-    --muted:   #82828a;
-    --muted2:  #a3a3ab;
-    --accent:  #d9a441;
-    --accent2: #d9a441;
+    /* Palette matches the Classic view exactly (user decision 2026-07-12 —
+       supersedes the earlier monochrome+amber direction). Values mirror
+       static/classic.css :root; keep the two files in sync. */
+    --bg:      #020617;
+    --surface: #0e1419;
+    --surface2:#131b22;
+    --border:  #1a2530;
+    --border2: #243342;
+    --green:   #00e676;
+    --yellow:  #ffd740;
+    --orange:  #ffaa00;
+    --red:     #ff1744;
+    --text:    #e0e8f0;
+    --muted:   #7e94a9;
+    --muted2:  #8aa0b4;
+    --accent:  #00b0ff;
+    --accent2: #7c4dff;
     --sans:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -63,7 +63,7 @@
   .main { width: min(1760px, 100%); display: flex; flex-direction: column; gap: 24px; margin: 0 auto; padding: 28px 24px 64px; }
 
   /* ── SCORE STRIP ── */
-  .score-strip { display: grid; grid-template-columns: 68px minmax(0, 1fr) 190px; align-items: center; gap: 16px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+  .score-strip { display: grid; grid-template-columns: 68px minmax(0, 1fr) 240px; align-items: center; gap: 16px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
   .strip-circle { position: relative; width: 68px; height: 68px; flex-shrink: 0; }
   .strip-circle svg { width: 68px; height: 68px; transform: rotate(-90deg); display: block; }
   .strip-circle .track { fill: none; stroke: var(--border); stroke-width: 8; }
@@ -75,7 +75,7 @@
   .strip-posture { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
   .decision-badge { margin: 0 0 4px; color: inherit; font: 800 clamp(28px, 2.4vw, 36px)/1.05 'Fira Code', monospace; letter-spacing: -.035em; white-space: normal; }
   .strip-exposure { font-size: 13px; color: var(--muted); font-weight: 500; }
-  .strip-caveat { align-self: end; color: var(--muted2); font-size: 10px; opacity: 1; white-space: normal; max-width: 220px; text-align: right; line-height: 1.5; border-top: 1px solid var(--border); padding-top: 6px; }
+  .strip-caveat { align-self: end; color: var(--muted2); font-size: 10px; opacity: 1; white-space: normal; max-width: 100%; text-align: right; line-height: 1.5; border-top: 1px solid var(--border); padding-top: 6px; }
   .decision-context { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 0; border-top: none; color: var(--muted); }
   .dc-row { display: flex; align-items: center; gap: 8px; }
   .dc-label { letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 70px; }
@@ -416,8 +416,8 @@
 }
 
 .strip-right { display: grid; justify-items: stretch; align-self: stretch; align-content: center; gap: 6px; }
-.hero-pillars { display: grid; gap: 5px; width: 220px; }
-.hero-pillar-row { display: grid; grid-template-columns: 34px 1fr 24px; align-items: center; gap: 8px; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.hero-pillars { display: grid; gap: 5px; width: 100%; }
+.hero-pillar-row { display: grid; grid-template-columns: 34px 1fr 28px; align-items: center; gap: 8px; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .hero-pillar-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
 .hero-pillar-fill { height: 100%; background: var(--muted2); border-radius: 3px; }
 .hero-pillar-fill.missing { background: repeating-linear-gradient(45deg, var(--border), var(--border) 3px, transparent 3px, transparent 6px); }
@@ -431,20 +431,20 @@
 
 .light-theme {
   color-scheme: light;
-  --bg: #f6f5f2;
+  --bg: #f5f7f6;
   --surface: #ffffff;
-  --surface2: #efeeea;
-  --border: #dcdad4;
-  --border2: #c4c2ba;
-  --text: #1e1d1a;
-  --muted: #6d6c66;
-  --muted2: #52514b;
-  --accent: #9a6b12;
-  --accent2: #9a6b12;
-  --green: #3d7a55;
+  --surface2: #edf3f1;
+  --border: #d5dfdc;
+  --border2: #b8c8c3;
+  --text: #172321;
+  --muted: #586b67;
+  --muted2: #405550;
+  --accent: #087f70;
+  --accent2: #087f70;
+  --green: #087b4f;
   --yellow: #8a6500;
-  --orange: #9a5a1e;
-  --red: #a84444;
+  --orange: #9a4d0b;
+  --red: #b4233b;
 }
 .light-theme .header { background: color-mix(in srgb, var(--bg) 94%, transparent); }
 
