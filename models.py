@@ -236,6 +236,7 @@ class _DashboardResultRequired(TypedDict):
 
     total_score: int
     raw_total_score: int
+    model_version: str
     safety_max_score: int | None
     decision: str
     decision_color: str

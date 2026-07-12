@@ -291,6 +291,11 @@ class TestDashboardContracts(unittest.TestCase):
         """raw_total_score >= total_score (safety cap can only reduce)."""
         self.assertGreaterEqual(self.payload["raw_total_score"], self.payload["total_score"])
 
+    def test_model_version_present(self):
+        """P1-028 / D-006: numerical changes are versioned in the payload."""
+        self.assertEqual(self.payload["model_version"], scoring.MODEL_VERSION)
+        self.assertRegex(scoring.MODEL_VERSION, r"^v\d+\.\d+$")
+
     def test_as_of_distinguishes_calc_and_observation_time(self):
         """P1-003/P1-005: computation time vs market-data time are separate."""
         as_of = self.payload["as_of"]

@@ -12,6 +12,12 @@ import logging, time
 from datetime import date
 
 logger = logging.getLogger(__name__)
+
+# Model version — bump whenever a change alters the numerical composite
+# (D-006). v6.1: calendar overlays (FOMC/OpEx/seasonality) became context-only,
+# which ALIGNS the live model with the replayed one — the backtest had always
+# neutralized them, so the published report validates v6.1 exactly.
+MODEL_VERSION = "v6.1"
 from concurrent.futures import ThreadPoolExecutor as _TPE
 from typing import Any
 
@@ -1177,34 +1183,32 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
             score += d
             reasons.append(f"+{d} Yield curve {curve_spread:+.2f}% — steep curve, growth priced in")
 
-    # FOMC event risk — dampen score if meeting is imminent (markets pin)
+    # Calendar overlays — CONTEXT ONLY as of model v6.1 (P1-025..P1-027).
+    # The 2005-2026 replay neutralized these date-deterministic adjustments
+    # (see backtest.py "Honest scope note"), so they were never part of the
+    # validated composite. Keeping them scored made the live model differ
+    # from the tested one. Events stay fully visible in details/reasons and
+    # the header; they just no longer move the score.
     fomc_days = fomc.get("days_until")
     if fomc_days is not None:
         if fomc_days <= 1:
-            score -= 15
-            reasons.append(f"-15 FOMC in {fomc_days}d — event-risk freeze")
+            reasons.append(f"+0 FOMC in {fomc_days}d — binary event risk (context only, not scored)")
         elif fomc_days <= 3:
-            score -= 8
-            reasons.append(f"-8 FOMC in {fomc_days}d — reduce size")
+            reasons.append(f"+0 FOMC in {fomc_days}d — event risk approaching (context only, not scored)")
         elif fomc_days <= 7:
-            score -= 3
-            reasons.append(f"-3 FOMC in {fomc_days}d — stay nimble")
+            reasons.append(f"+0 FOMC in {fomc_days}d — on the radar (context only, not scored)")
 
-    # Options Expiration — gamma pinning, false breakouts, vol squeezes near OpEx
     opex_days = opex.get("days_until") if opex else None
-    if opex_days is not None:
-        if opex_days == 0:
-            score -= 5
-            reasons.append(f"-5 {opex.get('kind', 'OpEx')} today — gamma pinning, use caution")
-        elif opex_days <= 2:
-            score -= 3
-            reasons.append(f"-3 {opex.get('kind', 'OpEx')} in {opex_days}d — approaching expiration")
+    if opex_days is not None and opex_days <= 2:
+        when = "today" if opex_days == 0 else f"in {opex_days}d"
+        reasons.append(f"+0 {opex.get('kind', 'OpEx')} {when} — gamma-pinning window (context only, not scored)")
 
-    # Seasonality — monthly historical bias (weak signal, small adjustment)
+    # Seasonality — historical monthly bias, unvalidated → context only.
+    # season_adj is kept in details as a bias-strength indicator for the
+    # conflict detector and UI; it is NOT added to the score.
     season_adj = season.get("score_adj", 0) if season else 0
     if season and season_adj != 0:
-        score += season_adj
-        reasons.append(f"{'+' if season_adj>=0 else ''}{season_adj} Seasonality: {season.get('label')} — {season.get('bias')}")
+        reasons.append(f"+0 Seasonality: {season.get('label')} — {season.get('bias')} (context only, not scored)")
 
     details = {
         "tnx_value": round(tnx_val, 3) if tnx_val else None,
@@ -1362,7 +1366,7 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
     # Seasonal headwind + intact uptrend
     if season_adj <= -5 and regime == "Uptrend":
         conflicts.append({"title": f"Seasonal Headwind ({season_lbl}) + Uptrend",
-            "detail": "Historically weak period but price trend is intact. Seasonality is a low-weight signal — don't fight the trend, but stay alert for the first sign of weakness.",
+            "detail": "Historically weak period but price trend is intact. Seasonality is context-only (not scored) — informational, not a signal to act on.",
             "severity": "info"})
 
     # ── 2. Pillar divergence checks (declarative table) ────────────────────
@@ -1716,6 +1720,7 @@ def compute_dashboard() -> DashboardResult:
         "timestamp":         mstate["et_time"],
         # P1-003/P1-005: computation time and market-observation time are
         # different facts — a Saturday-night calculation shows Friday's close.
+        "model_version": MODEL_VERSION,
         "as_of": {
             "calculated_at":      et_now().isoformat(timespec="seconds"),
             "market_data_as_of":  (spy_q.get("trade_date").isoformat()

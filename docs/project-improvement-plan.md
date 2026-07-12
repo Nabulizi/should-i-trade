@@ -324,12 +324,12 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P1-019 | pending | Explain personas as shared-input lenses | UI does not imply independent analysts |
-| P1-020 | pending | Remove vote-count sizing escalation | No action depends on N-of-4 consensus |
-| P1-021 | pending | Remove fictional Gemini credentials | No invented experience/employment/best-analyst claims |
-| P1-022 | pending | Remove AI size/entry/stop directives | Output bounded to evidence, disagreement, missing data, falsification |
-| P1-023 | pending | Validate AI values and lengths | Stances, point counts, text lengths, fields constrained |
-| P1-024 | pending | Make AI provenance visible | Model, time, shared-input limitation, fallback explicit |
+| P1-019 | done | Explain personas as shared-input lenses | UI does not imply independent analysts |
+| P1-020 | done | Remove vote-count sizing escalation | No action depends on N-of-4 consensus |
+| P1-021 | done | Remove fictional Gemini credentials | No invented experience/employment/best-analyst claims |
+| P1-022 | done | Remove AI size/entry/stop directives | Output bounded to evidence, disagreement, missing data, falsification |
+| P1-023 | done | Validate AI values and lengths | Stances, point counts, text lengths, fields constrained |
+| P1-024 | done | Make AI provenance visible | Model, time, shared-input limitation, fallback explicit |
 
 ### P1-E — Calendar overlays become context-only
 
@@ -621,3 +621,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-07-12 | 1.1 | P0 complete — PRs #50–#53, #55 merged; all P0-001..P0-026 done | Claude |
 | 2026-07-12 | 1.2 | PR-5 merged (#56) — P1-001..P1-006 done; Q-001 resolved: keep calibrated 7.8% default, rounded presets in UI | Claude |
 | 2026-07-12 | 1.3 | PR-6 merged (#57) — P1-007..P1-011 done; conditions-band positions replace exposure directives | Claude |
+| 2026-07-12 | 1.4 | PR-7 merged (#58) — P1-019..P1-024 done. PR-8 introduces model v6.1: calendar overlays context-only, aligning live model with the replayed one | Claude |

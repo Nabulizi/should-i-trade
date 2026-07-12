@@ -164,7 +164,7 @@ Data flows: `data.py` fetches from Yahoo Finance (primary), falling back to Stoo
 | **Breadth** | 25% | Sector & industry advance/decline, RSP vs SPY, % sectors above 200d |
 | **Momentum** | 20% | RSP/SPY relative strength, IWM leadership, sector RS rotation |
 | **Volatility** | 15% | VIX level/trend/percentile, VIX term structure, VIX9D, SKEW, flow |
-| **Macro** | 10% | 10Y yield, DXY, yield curve, HYG credit, BTC, GLD, FOMC proximity |
+| **Macro** | 10% | 10Y yield, DXY, yield curve, HYG credit, BTC, GLD (FOMC/OpEx/seasonality shown as context, not scored — v6.1) |
 
 > Weights are defined in `config.py` and can be adjusted without touching logic files.
 
