@@ -213,7 +213,6 @@ function renderHero(d) {
   const ctx = $('decision-context');
   ctx.style.display = 'flex';
   ctx.innerHTML = `
-    ${asOfLine(d.as_of)}
     ${regime ? `<div class="dc-row"><span class="dc-label">Regime</span>${regimeTag}</div>` : ''}
     <div class="dc-posture">${posture}</div>
     ${volTargetLine(d.vol_target)}
