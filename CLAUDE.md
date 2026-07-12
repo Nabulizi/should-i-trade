@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Shared Improvement Plan
+
+Before starting product, scoring, reliability, UX, or credibility work, read
+[`docs/project-improvement-plan.md`](docs/project-improvement-plan.md). It is the
+canonical shared plan for human contributors, Claude, and Codex. Reference its
+stable task IDs in commits and pull requests, preserve its accepted decisions,
+and update task status and changelog when work is merged.
+
 ## Commands
 
 ### Python (backend)
