@@ -70,6 +70,15 @@ CB_RESET_SECS: int = 60
 SSE_KEEPALIVE_SECS: int = 30
 """How often the SSE stream sends a keepalive comment to prevent proxy timeouts."""
 
+SSE_MAX_CLIENTS: int = 32
+"""Maximum concurrent SSE connections; extra clients get HTTP 503. Each open
+stream pins one server thread, so keep this bounded on small deployments."""
+
+SSE_MAX_LIFETIME_SECS: int = 3600
+"""Maximum lifetime of a single SSE connection. After this the stream closes
+cleanly and the browser's EventSource reconnects, so threads stuck on dead
+peers cannot accumulate."""
+
 # ── Watchlist Scoring Thresholds ─────────────────────────────────────────────
 # Used by watchlist.py to classify symbols as "near MA" or "extended".
 

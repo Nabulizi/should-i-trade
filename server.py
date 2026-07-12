@@ -24,6 +24,7 @@ import notify
 from config import (
     PORT as _CONFIG_PORT, DASHBOARD_TTL, WATCHLIST_TTL, HISTORY_MAXLEN,
     RATE_LIMIT_MAX, RATE_LIMIT_WINDOW, SSE_KEEPALIVE_SECS,
+    SSE_MAX_CLIENTS, SSE_MAX_LIFETIME_SECS,
     EOD_SNAPSHOT_TIME_ET, PUSH_TIME_ET,
 )
 
@@ -81,13 +82,33 @@ def _sse_broadcast(event_type: str, data: dict) -> None:
             pass   # slow client; they'll rely on the next event
 
 
+def _sse_register(client_queue: queue.Queue) -> bool:
+    """Register an SSE client. Returns False when SSE_MAX_CLIENTS is reached —
+    each open stream pins one server thread, so the count must stay bounded."""
+    with _SSE_LOCK:
+        if len(_SSE_CLIENTS) >= SSE_MAX_CLIENTS:
+            return False
+        _SSE_CLIENTS.append(client_queue)
+        return True
+
+
+def _sse_unregister(client_queue: queue.Queue) -> None:
+    with _SSE_LOCK:
+        try:
+            _SSE_CLIENTS.remove(client_queue)
+        except ValueError:
+            pass
+
+
 # ─── Rate Limiter ──────────────────────────────────────────────────────────
 class RateLimiter:
     """Sliding-window per-IP rate limiter: max_requests per window_seconds."""
 
-    def __init__(self, max_requests: int = 30, window_seconds: int = 60):
+    def __init__(self, max_requests: int = 30, window_seconds: int = 60,
+                 max_ips: int = 10_000):
         self.max_requests = max_requests
         self.window = window_seconds
+        self.max_ips = max_ips
         self._buckets: dict[str, list[float]] = {}
         self._lock = threading.Lock()
 
@@ -101,10 +122,14 @@ class RateLimiter:
                 return False
             timestamps.append(now)
             self._buckets[client_ip] = timestamps
-            # Periodically evict IPs whose entire window has expired to prevent
-            # unbounded dict growth under bot traffic on a public deployment.
-            if len(self._buckets) > 10_000:
-                self._buckets = {ip: ts for ip, ts in self._buckets.items() if ts}
+            # Evict IPs whose entire window has expired so the dict stays
+            # bounded under bot traffic on a public deployment. (Idle buckets
+            # keep their stale timestamps until this pass prunes them.)
+            if len(self._buckets) > self.max_ips:
+                self._buckets = {
+                    ip: kept for ip, ts in self._buckets.items()
+                    if (kept := [t for t in ts if t > cutoff])
+                }
             return True
 
 
@@ -333,6 +358,11 @@ def list_watchlist_files() -> list[str]:
 
 
 # ─── HTTP handler ──────────────────────────────────────────────────────────
+_CTYPES = {"html": "text/html", "js": "application/javascript",
+           "css": "text/css", "json": "application/json",
+           "svg": "image/svg+xml", "png": "image/png", "ico": "image/x-icon"}
+
+
 class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
@@ -366,21 +396,24 @@ class Handler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             pass
 
-    def _file(self, path: str, ctype: str = "text/html; charset=utf-8"):
+    def _file(self, path: str, ctype: str = "text/html; charset=utf-8",
+              head_only: bool = False):
         try:
             with open(path, "rb") as f:
                 body = f.read()
         except FileNotFoundError:
             self.send_response(404)
             self.end_headers()
-            self.wfile.write(b"Not found")
+            if not head_only:
+                self.wfile.write(b"Not found")
             return
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        if not head_only:
+            self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -390,19 +423,27 @@ class Handler(BaseHTTPRequestHandler):
     def _sse_stream(self):
         """Keep the connection open and push `dashboard` events via SSE."""
         client_queue: queue.Queue = queue.Queue(maxsize=10)
+        if not _sse_register(client_queue):
+            logger.warning("SSE client rejected: %d connections at cap", SSE_MAX_CLIENTS)
+            self._json({"error": "Too many event-stream connections. Retry later."}, 503)
+            return
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "keep-alive")
         self._cors()
         self.end_headers()
-        with _SSE_LOCK:
-            _SSE_CLIENTS.append(client_queue)
         logger.debug("SSE client connected (%d total)", len(_SSE_CLIENTS))
+        # A peer that stops reading would otherwise block writes forever and
+        # pin this thread; a socket timeout turns that into OSError → cleanup.
+        self.connection.settimeout(SSE_KEEPALIVE_SECS * 2)
+        # Bounded lifetime: close after SSE_MAX_LIFETIME_SECS and let the
+        # browser's EventSource reconnect, so dead streams can't accumulate.
+        deadline = time.time() + SSE_MAX_LIFETIME_SECS
         try:
             self.wfile.write(b": connected\n\n")
             self.wfile.flush()
-            while True:
+            while time.time() < deadline:
                 try:
                     payload = client_queue.get(timeout=SSE_KEEPALIVE_SECS)
                     self.wfile.write(payload.encode())
@@ -414,12 +455,52 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
         finally:
-            with _SSE_LOCK:
-                try:
-                    _SSE_CLIENTS.remove(client_queue)
-                except ValueError:
-                    pass
+            _sse_unregister(client_queue)
             logger.debug("SSE client disconnected (%d remaining)", len(_SSE_CLIENTS))
+
+    def _client_ip(self) -> str:
+        """Rate-limit identity. Behind Render's proxy every socket peer is the
+        load balancer, so the real client is the first X-Forwarded-For hop
+        (set by the platform; not client-spoofable there). Locally only the
+        socket address is trusted — a direct client could forge the header."""
+        if IS_PRODUCTION:
+            xff = self.headers.get("X-Forwarded-For", "")
+            if xff:
+                return xff.split(",")[0].strip()
+        return self.client_address[0]
+
+    def _static_path(self, path: str) -> str | None:
+        """Resolve a static file request; None unless it is a real file that
+        stays inside SCRIPT_DIR (path-traversal-safe)."""
+        joined = os.path.join(SCRIPT_DIR, path.lstrip("/"))
+        resolved = os.path.realpath(joined)
+        if not resolved.startswith(os.path.realpath(SCRIPT_DIR) + os.sep):
+            return None
+        return resolved if os.path.isfile(resolved) else None
+
+    def do_HEAD(self):
+        """HEAD support for uptime monitors and link checkers (P0-014)."""
+        path = urlparse(self.path).path
+        if path in ("/health", "/metrics"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self._cors()
+            self.end_headers()
+            return
+        if path in ("/classic", "/classic/"):
+            self._file(os.path.join(SCRIPT_DIR, CLASSIC_HTML_FILE), head_only=True)
+            return
+        if path in ("/", "/index.html", "/v5", "/v5/", "/v6", "/v6/"):
+            self._file(os.path.join(SCRIPT_DIR, HTML_FILE), head_only=True)
+            return
+        static_path = self._static_path(path)
+        if static_path:
+            ext = path.rsplit(".", 1)[-1]
+            self._file(static_path, _CTYPES.get(ext, "application/octet-stream"),
+                       head_only=True)
+            return
+        self.send_response(404)
+        self.end_headers()
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -427,7 +508,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── rate limit /api/* endpoints ────────────────────────────────────
         if path.startswith("/api/"):
-            client_ip = self.client_address[0]
+            client_ip = self._client_ip()
             if not _RATE_LIMITER.is_allowed(client_ip):
                 logger.warning("Rate limit exceeded for %s", client_ip)
                 self._json({"error": "Rate limit exceeded. Max 30 requests/minute."}, 429)
@@ -529,17 +610,13 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── static files (path-traversal-safe) ────────────────────────────
         joined = os.path.join(SCRIPT_DIR, path.lstrip("/"))
-        static_path = os.path.realpath(joined)
-        # Ensure resolved path stays inside SCRIPT_DIR
-        if not static_path.startswith(os.path.realpath(SCRIPT_DIR) + os.sep):
+        if not os.path.realpath(joined).startswith(os.path.realpath(SCRIPT_DIR) + os.sep):
             self._json({"error": "forbidden"}, 403)
             return
-        if os.path.isfile(static_path):
+        static_path = self._static_path(path)
+        if static_path:
             ext = path.rsplit(".", 1)[-1]
-            types = {"html": "text/html", "js": "application/javascript",
-                     "css": "text/css", "json": "application/json",
-                     "svg": "image/svg+xml", "png": "image/png", "ico": "image/x-icon"}
-            self._file(static_path, types.get(ext, "application/octet-stream"))
+            self._file(static_path, _CTYPES.get(ext, "application/octet-stream"))
             return
 
         self._json({"error": "not found"}, 404)

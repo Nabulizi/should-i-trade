@@ -2,6 +2,9 @@
   "name": "should-i-trade",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "vitest run",
     "lint": "eslint static/app.js"

@@ -225,6 +225,12 @@ All `/api/*` endpoints are rate-limited to **30 requests per minute per IP**.
 Exceeding the limit returns `HTTP 429 Too Many Requests`.  
 Limits are configurable in `config.py` (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW`).
 
+On proxied deployments (Render), every socket peer is the platform load
+balancer, so the limiter keys on the first `X-Forwarded-For` hop (set by the
+platform). Locally only the socket address is trusted, since a direct client
+could forge that header. SSE connections are capped at `SSE_MAX_CLIENTS`
+(default 32, HTTP 503 beyond that) with a bounded per-connection lifetime.
+
 ---
 
 ## Configuration

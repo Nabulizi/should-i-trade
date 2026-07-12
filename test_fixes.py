@@ -86,6 +86,33 @@ check("Different IP unaffected", rl.is_allowed("10.0.0.2"))
 time.sleep(2.1)
 check("Requests allowed after window expires", rl.is_allowed(ip))
 
+# P0-010: idle IPs with fully-expired windows are purged once max_ips is
+# exceeded, so the bucket dict stays bounded under bot traffic.
+rl3 = RateLimiter(max_requests=5, window_seconds=1, max_ips=50)
+for i in range(60):
+    rl3.is_allowed(f"192.0.2.{i}")
+time.sleep(1.1)
+rl3.is_allowed("fresh-ip")   # exceeds max_ips → triggers the eviction pass
+check("Rate limiter purges expired idle buckets", len(rl3._buckets) == 1,
+      f"{len(rl3._buckets)} buckets remain")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+print("\n── 2b. SSE client cap (P0-011) ───────────────────────────────────")
+import queue as _queue
+from server import _sse_register, _sse_unregister
+from config import SSE_MAX_CLIENTS
+
+_qs = [_queue.Queue() for _ in range(SSE_MAX_CLIENTS)]
+check("SSE clients up to cap accepted", all(_sse_register(q) for q in _qs))
+_extra = _queue.Queue()
+check("SSE client beyond cap rejected", not _sse_register(_extra))
+for _q in _qs:
+    _sse_unregister(_q)
+check("SSE unregister frees capacity", _sse_register(_extra))
+_sse_unregister(_extra)
+check("SSE unregister of unknown queue is a no-op", (_sse_unregister(_extra) or True))
+
 
 # ══════════════════════════════════════════════════════════════════════════
 print("\n── 3. Atomic history.json write ──────────────────────────────────")
@@ -210,6 +237,26 @@ check("Path traversal via HTTP → 403 or 404", status in (403, 404), f"got {sta
 # 404 for unknown route
 status, _, _ = get("/nonexistent-route-xyz")
 check("Unknown route → 404", status == 404, f"got {status}")
+
+# HEAD support (P0-014) — uptime monitors and link checkers
+def head(path):
+    req = urllib.request.Request(f"http://127.0.0.1:{TEST_PORT}{path}", method="HEAD")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.status, dict(r.headers), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, {}, b""
+
+status, hdrs, body = head("/")
+check("HEAD / → 200", status == 200, f"got {status}")
+check("HEAD / body is empty", body == b"")
+check("HEAD / has Content-Length", int(hdrs.get("Content-Length", 0)) > 0)
+status, _, body = head("/health")
+check("HEAD /health → 200, empty body", status == 200 and body == b"")
+status, _, _ = head("/static/app.css")
+check("HEAD static file → 200", status == 200, f"got {status}")
+status, _, _ = head("/nonexistent-route-xyz")
+check("HEAD unknown route → 404", status == 404, f"got {status}")
 
 # Rate limiter — hammer /health 35 times, expect a 429
 hit_429 = False
