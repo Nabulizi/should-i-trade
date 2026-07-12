@@ -312,13 +312,13 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P1-012 | pending | Make regime band primary and integer secondary | Environment, reliability, and as-of precede details |
-| P1-013 | pending | Make evidence disclaimer prominent | States no demonstrated return-timing edge |
-| P1-014 | pending | Remove radar chart | Correlated pillars not presented as independent axes |
-| P1-015 | pending | Use evidence bars with uncertain/missing states | Contribution and availability are clear |
-| P1-016 | pending | Reduce semantic color overload | Color reserved for regime, warnings, and reliability failures |
-| P1-017 | pending | Rename emotional watchlist labels | “Broken/Avoid” replaced with neutral structural language |
-| P1-018 | pending | Make persona output concise by default | One-line lenses first; detail expands on demand |
+| P1-012 | done | Make regime band primary and integer secondary | Environment, reliability, and as-of precede details |
+| P1-013 | done | Make evidence disclaimer prominent | States no demonstrated return-timing edge |
+| P1-014 | done | Remove radar chart | Correlated pillars not presented as independent axes |
+| P1-015 | done | Use evidence bars with uncertain/missing states | Contribution and availability are clear |
+| P1-016 | done | Reduce semantic color overload | Color reserved for regime, warnings, and reliability failures |
+| P1-017 | done | Rename emotional watchlist labels | “Broken/Avoid” replaced with neutral structural language |
+| P1-018 | done | Make persona output concise by default | One-line lenses first; detail expands on demand |
 
 ### P1-D — Remove manufactured authority
 
@@ -624,3 +624,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-07-12 | 1.4 | PR-7 merged (#58) — P1-019..P1-024 done. PR-8 introduces model v6.1: calendar overlays context-only, aligning live model with the replayed one | Claude |
 | 2026-07-12 | 1.5 | PR-8 merged (#59) — P1-025..P1-028 done. PR-9: band hysteresis (3 pts), SCORE_NOISE_DELTA_1D=14 derived from replay (median daily move), band-change-only push default | Claude |
 | 2026-07-12 | 1.6 | PR-9 merged (#60) — P1-029..P1-032 done. PR-10: prospective forecast log MVP (P3-001, P3-005..P3-013) — EOD track, predeclared outcomes (docs/prospective-log.md), idempotent JSONL + hash audit, /health visibility; Q-006 resolved local-first. CI gap closed: notify/watchlist/claims/ai-lens suites now enumerated | Claude |
+| 2026-07-12 | 1.7 | #61/#62/#63 merged (forecast log, eod_job.py standalone runner, RENDER-only production detection). Local launchd agents live (server + EOD backup). P1-C shipped: P1-012..P1-018 done — monochrome+amber palette, radar→evidence bars with missing states, prominent no-timing-edge disclaimer, monochrome data bars, watchlist labels neutralized, collapsible lens cards | Claude |

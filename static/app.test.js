@@ -7,7 +7,7 @@ import {
   FALLBACK_DECISION_BANDS,
   DEFAULT_WEIGHTS,
   buildWeightScenario,
-  buildRadarChart,
+  buildPillarBars,
   validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,
@@ -21,19 +21,30 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-describe('buildRadarChart', () => {
-  it('renders an accessible SVG summary of all five pillar scores', () => {
-    const svg = buildRadarChart({
-      volatility: { score: 95 },
-      trend: { score: 100 },
-      breadth: { score: 87 },
-      momentum: { score: 75 },
-      macro: { score: 73 },
-    });
+describe('buildPillarBars (P1-014/P1-015)', () => {
+  const pillars = {
+    volatility: { score: 95, details: { vix_level: 15 }, reasons: ['+35 VIX'] },
+    trend: { score: 100, details: { regime: 'Uptrend' }, reasons: ['+25 SPY > 20d'] },
+    breadth: { score: 87, details: { rsp_price: 1 }, reasons: ['+35 Sectors'] },
+    momentum: { score: 75, details: { rsp_vs_spy: 0.1 }, reasons: ['+20 RSP'] },
+    macro: { score: 73, details: { tnx_value: 4 }, reasons: ['+15 10Y'] },
+  };
 
-    expect(svg).toContain('role="img"');
-    expect(svg).toContain('VOL 95, TREND 100, BREADTH 87, MOM 75, MACRO 73');
-    expect(svg).toContain('<polygon');
+  it('renders one accessible bar per pillar with its score', () => {
+    const html = buildPillarBars(pillars);
+    expect(html).toContain('VOL');
+    expect(html).toContain('pillar 95 of 100');
+    expect(html).toContain('width:100%');
+    expect((html.match(/hero-pillar-row/g) || []).length).toBe(5);
+    expect(html).not.toContain('<polygon');    // the radar is gone (P1-014)
+  });
+
+  it('marks a neutral-fallback pillar as no data, not as a score', () => {
+    const withMissing = { ...pillars,
+      macro: { score: 50, details: {}, reasons: ['⚠ Macro data unavailable — neutral 50'] } };
+    const html = buildPillarBars(withMissing);
+    expect(html).toContain('missing');
+    expect(html).toContain('no data');
   });
 });
 
