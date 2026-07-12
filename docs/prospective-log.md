@@ -55,7 +55,10 @@ are noise theater; the raw records are still available for export.
 Records are local JSONL files next to the code, git-ignored. **The public
 Render demo's filesystem is ephemeral** — records vanish on spin-down, so
 `/health` reports `forecast_log.persistent: false` there. A real archive
-requires running locally (launchd/cron) or attaching durable storage.
+requires running locally (launchd/cron) or attaching durable storage —
+`python3 eod_job.py` runs the snapshot + forecast + grading standalone
+(no server needed), no-ops on non-trading days, and is idempotent, so a
+launchd job can fire it after the close with a retry.
 
 ## Integrity (P3-011, P3-012)
 
