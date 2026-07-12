@@ -1,5 +1,7 @@
 # Runtime / generated
 history.json
+forecasts.jsonl
+forecast_outcomes.jsonl
 __pycache__/
 *.pyc
 *.pyo
@@ -47,3 +49,5 @@ env/
 # Node.js
 node_modules/
 daily_history.json
+forecasts.jsonl
+forecast_outcomes.jsonl

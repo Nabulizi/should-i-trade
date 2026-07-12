@@ -207,6 +207,7 @@ check("/health has 'status: ok'",               data.get("status") == "ok")
 check("/health has uptime_seconds",             "uptime_seconds" in data)
 check("/health has dashboard_cache_valid",      "dashboard_cache_valid" in data)
 check("/health has history_snapshots",          "history_snapshots" in data)
+check("/health has forecast_log status (P3-013)", "forecast_log" in data and "persistent" in data["forecast_log"])
 
 # /metrics
 status, hdrs, body = get("/metrics")
