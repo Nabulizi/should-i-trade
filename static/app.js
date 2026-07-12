@@ -126,39 +126,28 @@ function renderHeader(d) {
 }
 
 /* ── RADAR CHART ────────────────────────────────────────── */
-function buildRadarChart(pillars) {
+// P1-014/P1-015: the radar implied five independent axes — the pillars are
+// substantially correlated (the README says ~3 effective inputs), and radar
+// area is order-dependent. Plain bars, with an explicit "no data" state when
+// a pillar fell back to neutral because its inputs were unavailable.
+function buildPillarBars(pillars) {
   const keys = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
-  const labels = ['VOL', 'TREND', 'BREADTH', 'MOM', 'MACRO'];
-  const cx = 100, cy = 100, maxR = 62;
-  const step = (2 * Math.PI) / keys.length;
-  const start = -Math.PI / 2;
-  const point = (index, radius) => {
-    const angle = start + index * step;
-    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
-  };
-  const scores = keys.map(key => Math.max(0, Math.min(100, Number(pillars?.[key]?.score) || 0)));
-  const scorePoints = scores.map((score, index) => point(index, maxR * score / 100));
-  const accessibleLabel = labels.map((label, index) => `${label} ${scores[index]}`).join(', ');
-
-  let svg = `<svg viewBox="0 0 200 200" role="img" aria-label="Decision driver scores: ${accessibleLabel}">`;
-  [25, 50, 75, 100].forEach(percent => {
-    const radius = maxR * percent / 100;
-    svg += `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="var(--border2)" stroke-width="1"/>`;
-  });
-  keys.forEach((_, index) => {
-    const [x, y] = point(index, maxR);
-    svg += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--border2)" stroke-width="1"/>`;
-  });
-  svg += `<polygon points="${scorePoints.map(coords => coords.map(value => value.toFixed(1)).join(',')).join(' ')}" fill="rgba(59,130,246,.14)" stroke="var(--accent)" stroke-width="1.5"/>`;
-  scores.forEach((score, index) => {
-    const [x, y] = scorePoints[index];
-    const color = scoreColor(score);
-    const [labelX, labelY] = point(index, maxR + 20);
-    svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${color}"/>`;
-    svg += `<text x="${labelX.toFixed(1)}" y="${(labelY - 2).toFixed(1)}" text-anchor="middle" fill="var(--muted2)" font-size="12" font-family="ui-monospace, monospace">${labels[index]}</text>`;
-    svg += `<text x="${labelX.toFixed(1)}" y="${(labelY + 11).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="14" font-family="ui-monospace, monospace" font-weight="700">${score}</text>`;
-  });
-  return svg + '</svg>';
+  const labels = ['VOL', 'TRND', 'BRDT', 'MOM', 'MACR'];
+  const rows = keys.map((key, i) => {
+    const pillar = pillars?.[key] || {};
+    const score = Math.max(0, Math.min(100, Number(pillar.score) || 0));
+    const missing = (pillar.reasons || []).some(r => String(r).includes('unavailable'))
+                    && Object.keys(pillar.details || {}).length === 0;
+    const fill = missing
+      ? `<div class="hero-pillar-fill missing" style="width:100%"></div>`
+      : `<div class="hero-pillar-fill" style="width:${score}%"></div>`;
+    return `<div class="hero-pillar-row" role="img" aria-label="${labels[i]} pillar ${missing ? 'no data' : score + ' of 100'}">
+      <span>${labels[i]}</span>
+      <div class="hero-pillar-track">${fill}</div>
+      <span class="hero-pillar-score">${missing ? '—' : score}</span>
+    </div>`;
+  }).join('');
+  return `<div class="hero-pillars">${rows}</div>`;
 }
 
 function validateDashboardPayload(data) {
@@ -220,7 +209,7 @@ function renderHero(d) {
   $('score-val').textContent = s;
   $('score-val').style.color = scoreColor(s);
   const radar = $('hero-radar');
-  if (radar) radar.innerHTML = buildRadarChart(d.pillars);
+  if (radar) radar.innerHTML = buildPillarBars(d.pillars);
 
   // Score delta badge
   const delta = d.score_delta;
@@ -492,8 +481,10 @@ function renderBars(elId, data) {
   const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
   $(elId).innerHTML = entries.map(([, v]) => {
     const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
-    const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
-    const c  = 'var(--text)';
+    // P1-016: data renders monochrome — sign lives in the printed number,
+    // magnitude in the bar width. Color stays reserved for warnings/regime.
+    const bg = v.change_pct >= 0 ? 'var(--border2)' : 'var(--border)';
+    const c  = v.change_pct >= 0 ? 'var(--text)' : 'var(--muted2)';
     return `<div class="sector-row">
       <span class="sector-name">${esc(v.name)}</span>
       <div class="sector-bar-wrap">
@@ -552,7 +543,7 @@ function renderWatchlistHealth(w, selectedView = _watchlistView) {
     pullback:    'Pullback',
     bear_regime: 'Wait (Bear)',
     extended:    'Extended',
-    broken:      'Broken',
+    broken:      'Below Trend',
     neutral:     'Neutral',
     unavailable: 'No Data',
   };
@@ -561,7 +552,7 @@ function renderWatchlistHealth(w, selectedView = _watchlistView) {
     ['pullback',  'Pullback',    counts.pullback  || 0, 'var(--yellow)'],
     ...(counts.bear_regime ? [['bear_regime', 'Wait (Bear)', counts.bear_regime, 'var(--red)']] : []),
     ['extended',  'Extended',   counts.extended  || 0, 'var(--orange)'],
-    ['broken',    'Broken',     counts.broken    || 0, 'var(--red)'],
+    ['broken',    'Below Trend', counts.broken   || 0, 'var(--muted2)'],
   ];
   if (counts.neutral) stats.push(['neutral', 'Neutral', counts.neutral, 'var(--muted2)']);
   if (counts.unavailable) stats.push(['unavailable', 'No Data', counts.unavailable, 'var(--muted)']);
@@ -1051,8 +1042,9 @@ function renderRoundtable(personas, meta = {}) {
       ? ` <span class="ai-badge" aria-label="AI-generated, ${esc(p.latency_ms || '?')}ms total roundtable"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:2px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI</span>`
       : '';
     return `
-      <div class="persona-card ${isHead ? 'desk-head' : ''}" data-i="${i}">
-        <div class="persona-header">
+      <div class="persona-card ${isHead ? 'desk-head' : 'collapsed'}" data-i="${i}">
+        <div class="persona-header" role="button" tabindex="0" aria-expanded="${isHead}"
+             onclick="togglePersona(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePersona(this);}">
           <div class="persona-id">
             <div class="persona-name">${AVATAR_SVG[p.avatar] || esc(p.avatar)} ${esc(p.persona)}${aiBadge}</div>
             <div class="persona-role">${esc(p.role)}</div>
@@ -1062,6 +1054,7 @@ function renderRoundtable(personas, meta = {}) {
         <div class="persona-read">"${esc(p.read)}"</div>
         <div class="persona-points">${pts}</div>
         <div class="persona-verdict">${esc(p.verdict)}</div>
+        ${isHead ? '' : '<div class="persona-toggle">details</div>'}
       </div>`;
   }).join('') + roundtableProvenance(meta);
 
@@ -1069,6 +1062,16 @@ function renderRoundtable(personas, meta = {}) {
 
 // P1-024: provenance is part of the display — engine, generation time, and
 // the shared-input limitation, whether the read is rule-based or AI.
+// P1-018: one-line lenses by default; click the header to expand.
+function togglePersona(headerEl) {
+  const card = headerEl.closest('.persona-card');
+  if (!card) return;
+  const collapsed = card.classList.toggle('collapsed');
+  headerEl.setAttribute('aria-expanded', String(!collapsed));
+  const t = card.querySelector('.persona-toggle');
+  if (t) t.textContent = collapsed ? 'details' : 'collapse';
+}
+
 function roundtableProvenance(meta) {
   if (!meta || (!meta.engine && !meta.note)) return '';
   const engine = meta.engine === 'gemini'
@@ -1342,6 +1345,7 @@ if (!globalThis.__TESTING__) {
   window.closeSettingsOnOverlay = closeSettingsOnOverlay;
   window.onWeightChange         = onWeightChange;
   window.onVolTargetChange      = onVolTargetChange;
+  window.togglePersona          = togglePersona;
   window.applyWeights           = applyWeights;
   window.resetWeights           = resetWeights;
   window.toggleDetail           = toggleDetail;
@@ -1387,7 +1391,7 @@ export {
   FALLBACK_DECISION_BANDS,
   DEFAULT_WEIGHTS,
   buildWeightScenario,
-  buildRadarChart,
+  buildPillarBars,
   validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,

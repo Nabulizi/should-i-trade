@@ -181,7 +181,7 @@ def _entry_state(bucket: str, ret_1m: float | None) -> tuple[str, str]:
     if bucket == "extended":
         return "Wait", "orange"
     if bucket == "broken":
-        return "Avoid", "red"
+        return "Weak", "orange"
     if bucket == "unavailable":
         return "No Data", "gray"
     return "Watch", "yellow"
@@ -275,9 +275,9 @@ def _classify(symbol: str, tv_symbol: str, asset_type: str,
     elif above50 and (above200 or ma200 is None) and (near_20 or near_50) and not extended:
         bucket, label = "pullback", "Pullback Watch"
     elif extended:
-        bucket, label = "extended", "Do Not Chase"
+        bucket, label = "extended", "Extended"
     elif (ma50 and price and price < ma50) or (ma200 and price and price < ma200) or score < 45:
-        bucket, label = "broken", "Broken/Avoid"
+        bucket, label = "broken", "Below Trend"
     else:
         bucket, label = "neutral", "Neutral"
     entry_state, entry_color = _entry_state(bucket, ret_1m)

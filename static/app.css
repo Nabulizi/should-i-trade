@@ -1,18 +1,21 @@
   :root {
-    --bg:      #0a0f14;
-    --surface: #111820;
-    --surface2:#161d27;
-    --border:  #1e2b38;
-    --border2: #283747;
-    --green:   #00e676;
-    --yellow:  #ffd740;
-    --orange:  #ffaa00;
-    --red:     #ff1744;
-    --text:    #dce6f0;
-    --muted:   #75869a;
-    --muted2:  #93a1b2;
-    --accent:  #3b82f6;
-    --accent2: #3b82f6;
+    /* Swiss monochrome base + single amber accent (P1-016). Semantic colors
+       are muted and reserved for regime reads, warnings, and reliability
+       failures — data itself renders monochrome. */
+    --bg:      #0c0c0d;
+    --surface: #131315;
+    --surface2:#19191c;
+    --border:  #242428;
+    --border2: #303036;
+    --green:   #7fb794;
+    --yellow:  #d9a441;
+    --orange:  #cf8a4e;
+    --red:     #d96262;
+    --text:    #e7e5e0;
+    --muted:   #82828a;
+    --muted2:  #a3a3ab;
+    --accent:  #d9a441;
+    --accent2: #d9a441;
     --sans:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -72,7 +75,7 @@
   .strip-posture { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
   .decision-badge { margin: 0 0 4px; color: inherit; font: 800 clamp(28px, 2.4vw, 36px)/1.05 'Fira Code', monospace; letter-spacing: -.035em; white-space: normal; }
   .strip-exposure { font-size: 13px; color: var(--muted); font-weight: 500; }
-  .strip-caveat { align-self: end; color: var(--muted); font-size: 10px; opacity: 1; white-space: nowrap; }
+  .strip-caveat { align-self: end; color: var(--muted2); font-size: 10px; opacity: 1; white-space: normal; max-width: 220px; text-align: right; line-height: 1.5; border-top: 1px solid var(--border); padding-top: 6px; }
   .decision-context { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 0; border-top: none; color: var(--muted); }
   .dc-row { display: flex; align-items: center; gap: 8px; }
   .dc-label { letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 70px; }
@@ -412,8 +415,13 @@
   padding: 0 0 16px;
 }
 
-.strip-right { display: grid; justify-items: center; align-self: stretch; }
-.hero-radar { width: 170px; height: 170px; display: grid; place-items: center; }
+.strip-right { display: grid; justify-items: stretch; align-self: stretch; align-content: center; gap: 6px; }
+.hero-pillars { display: grid; gap: 5px; width: 220px; }
+.hero-pillar-row { display: grid; grid-template-columns: 34px 1fr 24px; align-items: center; gap: 8px; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.hero-pillar-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.hero-pillar-fill { height: 100%; background: var(--muted2); border-radius: 3px; }
+.hero-pillar-fill.missing { background: repeating-linear-gradient(45deg, var(--border), var(--border) 3px, transparent 3px, transparent 6px); }
+.hero-pillar-score { text-align: right; font-family: 'Fira Code', monospace; color: var(--muted2); font-size: 10px; }
 .hero-radar svg { width: 100%; height: 100%; display: block; }
 .dc-posture { color: var(--muted2); font-size: 12px; line-height: 1.55; }
 .dc-row, .dc-label { font-size: 11px; }
@@ -423,20 +431,20 @@
 
 .light-theme {
   color-scheme: light;
-  --bg: #f5f7f6;
+  --bg: #f6f5f2;
   --surface: #ffffff;
-  --surface2: #edf3f1;
-  --border: #d5dfdc;
-  --border2: #b8c8c3;
-  --text: #172321;
-  --muted: #586b67;
-  --muted2: #405550;
-  --accent: #087f70;
-  --accent2: #087f70;
-  --green: #087b4f;
+  --surface2: #efeeea;
+  --border: #dcdad4;
+  --border2: #c4c2ba;
+  --text: #1e1d1a;
+  --muted: #6d6c66;
+  --muted2: #52514b;
+  --accent: #9a6b12;
+  --accent2: #9a6b12;
+  --green: #3d7a55;
   --yellow: #8a6500;
-  --orange: #9a4d0b;
-  --red: #b4233b;
+  --orange: #9a5a1e;
+  --red: #a84444;
 }
 .light-theme .header { background: color-mix(in srgb, var(--bg) 94%, transparent); }
 
@@ -499,3 +507,10 @@
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* P1-018: lenses are one-line by default; detail expands on demand. */
+.persona-card.collapsed { align-self: start; }
+.persona-card.collapsed .persona-read,
+.persona-card.collapsed .persona-points { display: none; }
+.persona-card .persona-header { cursor: pointer; }
+.persona-toggle { color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
