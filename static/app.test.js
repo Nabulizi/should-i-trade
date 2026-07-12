@@ -11,6 +11,8 @@ import {
   validateDashboardPayload,
   isDefaultWeights,
   volTargetLine,
+  reliabilityLine,
+  asOfLine,
 } from './app.js';
 
 beforeEach(() => {
@@ -303,5 +305,55 @@ describe('renderYesterdayStrip', () => {
   it('omits the transition when the band is unchanged', () => {
     const same = { ...d, yesterday: { ...d.yesterday, decision: 'CONSTRUCTIVE' } };
     expect(renderYesterdayStrip(same)).not.toContain('→');
+  });
+});
+
+describe('reliabilityLine (P1-001/P1-002)', () => {
+  it('renders the backend reliability level and coverage', () => {
+    const html = reliabilityLine({ level: 'high', coverage_pct: 100, critical_ok: true });
+    expect(html).toContain('Reliability');
+    expect(html).toContain('High');
+    expect(html).toContain('100% coverage');
+  });
+
+  it('is independent of score direction — level comes only from the payload', () => {
+    // A low-score day with clean data must still render as high reliability.
+    const html = reliabilityLine({ level: 'high', coverage_pct: 97.3 });
+    expect(html).toContain('High');
+    expect(html).toContain('green');
+  });
+
+  it('renders none as data unavailable', () => {
+    expect(reliabilityLine({ level: 'none', coverage_pct: 0 })).toContain('Data unavailable');
+  });
+
+  it('returns empty string for missing payload', () => {
+    expect(reliabilityLine(null)).toBe('');
+    expect(reliabilityLine({})).toBe('');
+  });
+});
+
+describe('asOfLine (P1-004/P1-005)', () => {
+  it('frames weekend readings as based on the last close, planning only', () => {
+    const html = asOfLine({ session: 'weekend', market_data_as_of: '2026-07-10', calculated_at: '2026-07-11T23:22:00-04:00' });
+    expect(html).toContain('Market closed (weekend)');
+    expect(html).toContain('2026-07-10');
+    expect(html).toContain('planning context only');
+  });
+
+  it('is empty during regular hours', () => {
+    expect(asOfLine({ session: 'open', market_data_as_of: '2026-07-10' })).toBe('');
+  });
+
+  it('labels premarket without the planning-only note', () => {
+    const html = asOfLine({ session: 'premarket', market_data_as_of: '2026-07-09' });
+    expect(html).toContain('Premarket');
+    expect(html).not.toContain('planning context only');
+  });
+
+  it('falls back to the last history bar date and empty when no date is known', () => {
+    expect(asOfLine({ session: 'weekend', history_last_bar: '2026-07-10' })).toContain('2026-07-10');
+    expect(asOfLine({ session: 'weekend' })).toBe('');
+    expect(asOfLine(null)).toBe('');
   });
 });

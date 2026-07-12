@@ -189,11 +189,11 @@ unless explicitly stated.
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P0-001 | pending | Fix missing `f` prefix for `{skew_label}` | No literal placeholder; regression test covers branch |
-| P0-002 | pending | Define shared SKEW/VIX9D/MACD label constants or literals | Scoring and analysis use the same contract |
-| P0-003 | pending | Repair unreachable SKEW branches | Every compared label is producible or removed; reachability tested |
-| P0-004 | pending | Add producer-consumer label contract test | Test fails on unemittable labels |
-| P0-005 | pending | Audit other cross-module label contracts | Findings recorded; risky contracts centralized/tested |
+| P0-001 | done | Fix missing `f` prefix for `{skew_label}` | No literal placeholder; regression test covers branch |
+| P0-002 | done | Define shared SKEW/VIX9D/MACD label constants or literals | Scoring and analysis use the same contract |
+| P0-003 | done | Repair unreachable SKEW branches | Every compared label is producible or removed; reachability tested |
+| P0-004 | done | Add producer-consumer label contract test | Test fails on unemittable labels |
+| P0-005 | done | Audit other cross-module label contracts | Findings recorded; risky contracts centralized/tested |
 
 Known affected files: `analysis.py`, `scoring.py`, `test_analysis.py`, and
 `test_scoring.py`.
@@ -202,10 +202,10 @@ Known affected files: `analysis.py`, `scoring.py`, `test_analysis.py`, and
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P0-006 | pending | Rewrite backend `DECISION_BANDS` actions as context | No press/full-size/entry/stop/directional instruction |
-| P0-007 | pending | Update duplicated frontend fallback actions | Backend and frontend agree semantically |
-| P0-008 | pending | Remove prescriptive sizing from rule-based personas | Prohibited phrases absent outside intentional historical quotes |
-| P0-009 | pending | Add claim-hygiene tests | CI blocks reintroduction of unsupported authority |
+| P0-006 | done | Rewrite backend `DECISION_BANDS` actions as context | No press/full-size/entry/stop/directional instruction |
+| P0-007 | done | Update duplicated frontend fallback actions | Backend and frontend agree semantically |
+| P0-008 | done | Remove prescriptive sizing from rule-based personas | Prohibited phrases absent outside intentional historical quotes |
+| P0-009 | done | Add claim-hygiene tests | CI blocks reintroduction of unsupported authority |
 
 Recommended descriptive bands:
 
@@ -221,11 +221,11 @@ Recommended descriptive bands:
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P0-010 | pending | Correct rate-limiter eviction | All buckets are pruned; empty buckets removed; bounded-memory test |
-| P0-011 | pending | Add configurable SSE client cap | Excess connections receive 503 without permanent thread allocation |
-| P0-012 | pending | Add SSE lifetime/idle policy | Dead/stuck clients are reclaimed and cleanup tested |
-| P0-013 | pending | Verify client IP behind Render/proxies | Deployment behavior documented and limiter uses trustworthy identity |
-| P0-014 | pending | Implement `HEAD` for root/health/static routes | Correct status/headers, empty body |
+| P0-010 | done | Correct rate-limiter eviction | All buckets are pruned; empty buckets removed; bounded-memory test |
+| P0-011 | done | Add configurable SSE client cap | Excess connections receive 503 without permanent thread allocation |
+| P0-012 | done | Add SSE lifetime/idle policy | Dead/stuck clients are reclaimed and cleanup tested |
+| P0-013 | done | Verify client IP behind Render/proxies | Deployment behavior documented and limiter uses trustworthy identity |
+| P0-014 | done | Implement `HEAD` for root/health/static routes | Correct status/headers, empty body |
 
 Do not hardcode an unexplained SSE cap. Configure it, test it, and observe metrics.
 
@@ -233,23 +233,23 @@ Do not hardcode an unexplained SSE cap. Configure it, test it, and observe metri
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P0-015 | pending | Add `.nvmrc` and `.node-version` for Node 20 | Version managers select supported Node |
-| P0-016 | pending | Add `package.json` `engines` | Unsupported versions warn clearly |
-| P0-017 | pending | Support Node 26 or explicitly reject it | Tests pass or support boundary is unambiguous |
-| P0-018 | pending | Sync README health/metrics examples | Keys exactly match responses |
-| P0-019 | pending | Correct refresh-cadence documentation | 60s cache TTL and 5m client polling distinguished |
-| P0-020 | pending | Correct v5/v6 drift | Server, banner, README, and page agree |
-| P0-021 | pending | Add a license | Root license exists and README identifies it |
+| P0-015 | done | Add `.nvmrc` and `.node-version` for Node 20 | Version managers select supported Node |
+| P0-016 | done | Add `package.json` `engines` | Unsupported versions warn clearly |
+| P0-017 | done | Support Node 26 or explicitly reject it | Tests pass or support boundary is unambiguous |
+| P0-018 | done | Sync README health/metrics examples | Keys exactly match responses |
+| P0-019 | done | Correct refresh-cadence documentation | 60s cache TTL and 5m client polling distinguished |
+| P0-020 | done | Correct v5/v6 drift | Server, banner, README, and page agree |
+| P0-021 | done | Add a license | Root license exists and README identifies it |
 
 ### P0-E — Provenance, watchlist quality, and privacy
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P0-022 | pending | Split live quote and historical sources | Yahoo live levels are not labeled CBOE/Treasury |
-| P0-023 | pending | Gate watchlist classification on minimum history | Insufficient history becomes `No Data`, never “below MA” |
-| P0-024 | pending | Remove filesystem paths from API | No local/Render absolute paths in public payloads |
-| P0-025 | pending | Replace personal watchlist with generic example | Personal file is not shipped or served |
-| P0-026 | pending | Git-ignore personal watchlists while retaining examples | Accidental commit prevented; example remains tracked |
+| P0-022 | done | Split live quote and historical sources | Yahoo live levels are not labeled CBOE/Treasury |
+| P0-023 | done | Gate watchlist classification on minimum history | Insufficient history becomes `No Data`, never “below MA” |
+| P0-024 | done | Remove filesystem paths from API | No local/Render absolute paths in public payloads |
+| P0-025 | done | Replace personal watchlist with generic example | Personal file is not shipped or served |
+| P0-026 | done | Git-ignore personal watchlists while retaining examples | Accidental commit prevented; example remains tracked |
 
 ### P0 validation gate
 
@@ -618,3 +618,4 @@ A task or phase is complete only when applicable conditions hold:
 | Date | Version | Change | Author/agent |
 |---|---|---|---|
 | 2026-07-11 | 1.0 | Consolidated repository audit and independent review convergence | Codex |
+| 2026-07-12 | 1.1 | P0 complete — PRs #50–#53, #55 merged; all P0-001..P0-026 done | Claude |

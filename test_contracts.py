@@ -268,6 +268,55 @@ class TestDashboardContracts(unittest.TestCase):
         """raw_total_score >= total_score (safety cap can only reduce)."""
         self.assertGreaterEqual(self.payload["raw_total_score"], self.payload["total_score"])
 
+    def test_as_of_distinguishes_calc_and_observation_time(self):
+        """P1-003/P1-005: computation time vs market-data time are separate."""
+        as_of = self.payload["as_of"]
+        for key in ("calculated_at", "market_data_as_of", "history_last_bar", "session"):
+            self.assertIn(key, as_of)
+        from datetime import datetime
+        datetime.fromisoformat(as_of["calculated_at"])   # raises if malformed
+        self.assertIn(as_of["session"],
+                      {"open", "closed", "premarket", "afterhours", "weekend"})
+
+    def test_reliability_shape_and_level(self):
+        rel = self.payload["reliability"]
+        self.assertIn(rel["level"], {"high", "medium", "low", "none"})
+        self.assertIsInstance(rel["coverage_pct"], float)
+        self.assertIsInstance(rel["critical_ok"], bool)
+        self.assertIsInstance(rel["boundary_distance"], int)
+        self.assertIsInstance(rel["pillar_spread"], int)
+
+
+class TestReliabilityIndependence(unittest.TestCase):
+    """D-004: reliability must reflect input trust, never score direction."""
+
+    _GOOD_DQ = {"valid": True, "coverage_pct": 100.0,
+                "critical_missing": [], "critical_history_missing": []}
+    _PILLARS = {k: {"score": 50} for k in ("volatility", "trend", "breadth",
+                                           "momentum", "macro")}
+
+    def test_low_score_with_clean_data_is_high_reliability(self):
+        rel = scoring.build_reliability(self._GOOD_DQ, self._PILLARS, 20)
+        self.assertEqual(rel["level"], "high")
+
+    def test_high_score_with_clean_data_is_high_reliability(self):
+        rel = scoring.build_reliability(self._GOOD_DQ, self._PILLARS, 95)
+        self.assertEqual(rel["level"], "high")
+
+    def test_high_score_with_poor_coverage_is_low(self):
+        dq = {**self._GOOD_DQ, "coverage_pct": 82.0}
+        rel = scoring.build_reliability(dq, self._PILLARS, 95)
+        self.assertEqual(rel["level"], "low")
+
+    def test_score_on_a_band_edge_is_not_high(self):
+        rel = scoring.build_reliability(self._GOOD_DQ, self._PILLARS, 55)
+        self.assertNotEqual(rel["level"], "high")
+
+    def test_invalid_data_is_none(self):
+        dq = {**self._GOOD_DQ, "valid": False}
+        rel = scoring.build_reliability(dq, self._PILLARS, 50)
+        self.assertEqual(rel["level"], "none")
+
 
 class TestLabelContracts(unittest.TestCase):
     """P0-002/P0-003/P0-004: producer-consumer label contracts.

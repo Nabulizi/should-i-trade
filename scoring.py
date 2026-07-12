@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor as _TPE
 from typing import Any
 
 from data import (
-    get_quote, get_history, get_ohlcv, history_source,
+    get_quote, get_history, get_ohlcv, history_source, et_now,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
     opex_proximity, seasonality, earnings_season, fetch_futures_tape,
@@ -209,6 +209,41 @@ def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[
         "sector_history_required": MIN_SECTOR_HISTORY_SYMBOLS,
         "sector_history_min_points": MIN_SECTOR_HISTORY_POINTS,
         "message": message,
+    }
+
+
+def build_reliability(data_quality: dict, pillars: dict, total: int) -> dict:
+    """Direction-independent reliability of the current reading (P1-002, D-004).
+
+    Level reflects input trust (coverage, critical inputs) plus band-label
+    stability (distance from the nearest band boundary). It is NEVER derived
+    from the score's direction — a score of 20 can be a high-reliability
+    risk-off reading. pillar_spread is reported for context only; it does not
+    move the level in v1 (open question Q-003).
+    """
+    coverage = data_quality["coverage_pct"]
+    critical_ok = (not data_quality["critical_missing"]
+                   and not data_quality["critical_history_missing"])
+    band_edges = [b["min"] for b in DECISION_BANDS if b["min"] > 0]
+    boundary_distance = min(abs(total - edge) for edge in band_edges)
+    scores = [p["score"] for p in pillars.values()]
+    pillar_spread = (max(scores) - min(scores)) if scores else 0
+
+    if not data_quality["valid"]:
+        level = "none"
+    elif coverage >= 95 and critical_ok and boundary_distance >= 3:
+        level = "high"
+    elif coverage < 90 or boundary_distance < 2:
+        level = "low"
+    else:
+        level = "medium"
+
+    return {
+        "level": level,
+        "coverage_pct": coverage,
+        "critical_ok": critical_ok,
+        "boundary_distance": boundary_distance,
+        "pillar_spread": pillar_spread,
     }
 
 
@@ -1663,6 +1698,17 @@ def compute_dashboard() -> DashboardResult:
         "spy_streak":        spy_streak,
         "vol_target":        vol_target_exposure(spy_closes_spliced),
         "timestamp":         mstate["et_time"],
+        # P1-003/P1-005: computation time and market-observation time are
+        # different facts — a Saturday-night calculation shows Friday's close.
+        "as_of": {
+            "calculated_at":      et_now().isoformat(timespec="seconds"),
+            "market_data_as_of":  (spy_q.get("trade_date").isoformat()
+                                   if spy_q and spy_q.get("trade_date") else None),
+            "history_last_bar":   (instruments["spy_last_bar_date"].isoformat()
+                                   if instruments.get("spy_last_bar_date") else None),
+            "session":            mstate["state"],
+        },
+        "reliability": build_reliability(data_quality, pillars, total),
         "data_sources": {
             "vix": {"quote": _src_label(quotes.get("^VIX")), "history": _hist_src_label("^VIX")},
             "tnx": {"quote": _src_label(quotes.get("^TNX")), "history": _hist_src_label("^TNX")},
