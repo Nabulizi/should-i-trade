@@ -335,10 +335,10 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P1-025 | pending | Remove FOMC point adjustment | Event remains visible context |
-| P1-026 | pending | Remove OpEx point adjustment | Event remains visible context |
-| P1-027 | pending | Remove seasonality point adjustment | Context-only or removed until validated |
-| P1-028 | pending | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
+| P1-025 | done | Remove FOMC point adjustment | Event remains visible context |
+| P1-026 | done | Remove OpEx point adjustment | Event remains visible context |
+| P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
+| P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
 
 The replay already neutralizes these overlays, but removing them live changes totals.
 Treat this as a small model-version change.
@@ -622,3 +622,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-07-12 | 1.2 | PR-5 merged (#56) — P1-001..P1-006 done; Q-001 resolved: keep calibrated 7.8% default, rounded presets in UI | Claude |
 | 2026-07-12 | 1.3 | PR-6 merged (#57) — P1-007..P1-011 done; conditions-band positions replace exposure directives | Claude |
 | 2026-07-12 | 1.4 | PR-7 merged (#58) — P1-019..P1-024 done. PR-8 introduces model v6.1: calendar overlays context-only, aligning live model with the replayed one | Claude |
+| 2026-07-12 | 1.5 | PR-8 merged (#59) — P1-025..P1-028 done. PR-9: band hysteresis (3 pts), SCORE_NOISE_DELTA_1D=14 derived from replay (median daily move), band-change-only push default | Claude |

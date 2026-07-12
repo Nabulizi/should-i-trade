@@ -15,7 +15,7 @@ from collections import deque
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-from scoring import compute_dashboard
+from scoring import compute_dashboard, DECISION_BANDS
 from analysis import roundtable
 from watchlist import compute_watchlist_health
 from data import et_now, market_state
@@ -179,7 +179,17 @@ def _do_recompute() -> dict:
     with _METRICS_LOCK:
         _METRICS["cache_misses"] += 1
 
-    data = compute_dashboard()
+    # Previous displayed band → band hysteresis (P1-030). Only a valid,
+    # known band is passed; restarts and degraded feeds start fresh.
+    with _DASHBOARD_LOCK:
+        _prev = _DASHBOARD_CACHE["data"]
+    prev_decision = None
+    if _prev and _prev.get("data_quality", {}).get("valid"):
+        cand = _prev.get("decision")
+        if cand in {b["decision"] for b in DECISION_BANDS}:
+            prev_decision = cand
+
+    data = compute_dashboard(prev_decision=prev_decision)
 
     # Score delta vs. last snapshot; suppressed for invalid feeds to avoid fake collapses.
     prev_total = None

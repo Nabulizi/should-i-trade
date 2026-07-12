@@ -326,9 +326,17 @@ python3 notify.py    # prints the report; sends it if a channel is configured
 ```
 
 Tuning in `config.py`: `PUSH_TIME_ET`, `EOD_SNAPSHOT_TIME_ET`,
-`PUSH_ONLY_ON_BAND_CHANGE` (low-noise mode: only push when the posture band
-changed), `DASHBOARD_URL` (footer link). The public Render demo never pushes —
+`PUSH_ONLY_ON_BAND_CHANGE` (**default on**: pushes only when the posture band
+changed vs the previous close — daily score wiggles below the historical
+median move of ±14 pts are noise; set `False` for a push every morning),
+`DASHBOARD_URL` (footer link). The public Render demo never pushes —
 it has no secrets.
+
+Displayed band labels use a small hysteresis (`BAND_HYSTERESIS_PTS`, default
+3): a band flip takes effect once the score clears the boundary by that many
+points, so a 54→55→54 wiggle doesn't churn DE-RISK↔SELECTIVE. The payload
+always carries the un-sticky `natural_decision` alongside, and safety caps
+bypass hysteresis.
 
 ---
 

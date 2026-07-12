@@ -121,9 +121,26 @@ EOD_SNAPSHOT_TIME_ET: str = "16:05"
 PUSH_TIME_ET: str = "09:00"
 """ET wall-clock time the morning push report is sent (trading days only)."""
 
-PUSH_ONLY_ON_BAND_CHANGE: bool = False
-"""When True, the morning push is sent only if the posture band changed
-   vs the previous close (low-noise mode)."""
+PUSH_ONLY_ON_BAND_CHANGE: bool = True
+"""When True (default since P1-029), the morning push is sent only if the
+   posture band changed vs the previous close. Integer score wiggles are
+   mostly noise (see SCORE_NOISE_DELTA_1D); a daily push on every wiggle
+   trains reaction to noise. Set False for a push every trading morning."""
+
+# ── Band Hysteresis & Noise Thresholds (P1-030/P1-031) ───────────────────────
+
+BAND_HYSTERESIS_PTS: int = 3
+"""A displayed band change only takes effect once the score clears the shared
+   band boundary by this many points — prevents 54↔55 label churn between
+   refreshes. Display-level stickiness only: the score itself is never
+   modified, the payload reports the natural band alongside, and safety caps
+   (VIX floors, SPY<200d) bypass hysteresis entirely."""
+
+SCORE_NOISE_DELTA_1D: int = 14
+"""Median absolute day-over-day change of the EOD composite in the 2005-2026
+   replay (backtest_results.csv, 5,374 diffs; mean 15.9, p75 24). Derived
+   2026-07-12. Day-over-day score deltas at or below this are typical noise;
+   the push report labels them as such instead of presenting them as signal."""
 
 DASHBOARD_URL: str = "http://localhost:8765"
 """Link shown in the push message footer."""

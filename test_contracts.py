@@ -291,6 +291,13 @@ class TestDashboardContracts(unittest.TestCase):
         """raw_total_score >= total_score (safety cap can only reduce)."""
         self.assertGreaterEqual(self.payload["raw_total_score"], self.payload["total_score"])
 
+    def test_hysteresis_fields_present_and_consistent(self):
+        """P1-030: payload reports the natural band and whether stickiness
+        was applied (fixture run passes no prev_decision -> natural)."""
+        self.assertIn(self.payload["natural_decision"],
+                      {b["decision"] for b in scoring.DECISION_BANDS} | {"DATA UNAVAILABLE"})
+        self.assertFalse(self.payload["hysteresis_applied"])
+
     def test_model_version_present(self):
         """P1-028 / D-006: numerical changes are versioned in the payload."""
         self.assertEqual(self.payload["model_version"], scoring.MODEL_VERSION)
@@ -313,6 +320,47 @@ class TestDashboardContracts(unittest.TestCase):
         self.assertIsInstance(rel["critical_ok"], bool)
         self.assertIsInstance(rel["boundary_distance"], int)
         self.assertIsInstance(rel["pillar_spread"], int)
+
+
+class TestBandHysteresis(unittest.TestCase):
+    """P1-030: sticky band labels near boundaries; safety paths bypass."""
+
+    def test_boundary_wiggle_does_not_churn(self):
+        # 54 -> 55 -> 54 with prev DE-RISK stays DE-RISK throughout
+        (dec, _, _), applied = scoring.decision_with_hysteresis(55, "DE-RISK")
+        self.assertEqual(dec, "DE-RISK")
+        self.assertTrue(applied)
+        (dec, _, _), applied = scoring.decision_with_hysteresis(54, "SELECTIVE")
+        self.assertEqual(dec, "SELECTIVE")
+        self.assertTrue(applied)
+
+    def test_clearing_the_boundary_flips(self):
+        (dec, _, _), applied = scoring.decision_with_hysteresis(58, "DE-RISK")
+        self.assertEqual(dec, "SELECTIVE")
+        self.assertFalse(applied)
+        (dec, _, _), applied = scoring.decision_with_hysteresis(52, "SELECTIVE")
+        self.assertEqual(dec, "DE-RISK")
+        self.assertFalse(applied)
+
+    def test_multi_band_jump_is_never_held(self):
+        (dec, _, _), applied = scoring.decision_with_hysteresis(80, "DE-RISK")
+        self.assertEqual(dec, "CONSTRUCTIVE")
+        self.assertFalse(applied)
+
+    def test_no_prev_or_unknown_prev_returns_natural(self):
+        (dec, _, _), applied = scoring.decision_with_hysteresis(55, None)
+        self.assertEqual((dec, applied), ("SELECTIVE", False))
+        (dec, _, _), applied = scoring.decision_with_hysteresis(55, "NO SUCH BAND")
+        self.assertEqual((dec, applied), ("SELECTIVE", False))
+
+    def test_same_band_is_a_no_op(self):
+        (dec, _, _), applied = scoring.decision_with_hysteresis(60, "SELECTIVE")
+        self.assertEqual((dec, applied), ("SELECTIVE", False))
+
+    def test_position_matches_held_band(self):
+        (dec, color, pos), _ = scoring.decision_with_hysteresis(55, "DE-RISK")
+        band = next(b for b in scoring.DECISION_BANDS if b["decision"] == dec)
+        self.assertEqual((color, pos), (band["color"], band["position"]))
 
 
 class TestReliabilityIndependence(unittest.TestCase):
