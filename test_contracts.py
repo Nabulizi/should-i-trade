@@ -254,5 +254,84 @@ class TestDashboardContracts(unittest.TestCase):
         self.assertGreaterEqual(self.payload["raw_total_score"], self.payload["total_score"])
 
 
+class TestLabelContracts(unittest.TestCase):
+    """P0-002/P0-003/P0-004: producer-consumer label contracts.
+
+    analysis.py and scoring.detect_conflicts() branch on string labels emitted
+    by score_volatility(). These tests fail when a compared label can no longer
+    be produced (the dead-SKEW-branch bug class) or a declared label becomes
+    unreachable.
+    """
+
+    @staticmethod
+    def _vol_details(vix: float, skew: float | None = None,
+                     vix9d: float | None = None) -> dict:
+        quotes = {"^VIX": _q(vix, 0.0)}
+        if skew is not None:
+            quotes["^SKEW"] = _q(skew, 0.0)
+        if vix9d is not None:
+            quotes["^VIX9D"] = _q(vix9d, 0.0)
+        return scoring.score_volatility(quotes, _closes(60, 15, 0.01))["details"]
+
+    def test_every_declared_skew_label_is_reachable(self):
+        emitted = {
+            self._vol_details(vix, skew=skew)["skew_label"]
+            for vix, skew in [
+                (15, 155),   # calm VIX + extreme SKEW  -> Cautious Optimism
+                (25, 155),   # high VIX + extreme SKEW  -> Compound Fear
+                (15, 145),   # calm VIX + elevated SKEW -> Cautious Bulls
+                (25, 145),   # high VIX + elevated SKEW -> Elevated Hedging
+                (15, 130),   # normal SKEW              -> Normal
+                (15, 115),   # low SKEW                 -> Complacent
+            ]
+        }
+        emitted.add(self._vol_details(15)["skew_label"])  # no SKEW quote -> N/A
+        self.assertEqual(emitted, set(scoring.SKEW_LABELS))
+
+    def test_every_declared_vix9d_label_is_reachable(self):
+        emitted = {
+            self._vol_details(20, vix9d=v9)["vix9d_label"]
+            for v9 in (23, 17, 19)   # ratio 1.15 / 0.85 / 0.95
+        }
+        emitted.add(self._vol_details(20)["vix9d_label"])  # no VIX9D quote -> N/A
+        self.assertEqual(emitted, set(scoring.VIX9D_LABELS))
+
+    def test_hedging_labels_are_a_subset_of_skew_labels(self):
+        self.assertTrue(set(scoring.SKEW_HEDGING_LABELS) <= set(scoring.SKEW_LABELS))
+
+    def test_compared_label_literals_are_producible(self):
+        """AST audit: any string literal compared against a skew/vix9d label
+        variable in analysis.py or scoring.py must be an emittable label."""
+        import ast
+
+        label_sets = {
+            "skew_label": set(scoring.SKEW_LABELS),
+            "skew_l": set(scoring.SKEW_LABELS),
+            "vix9d_label": set(scoring.VIX9D_LABELS),
+            "vix9d_l": set(scoring.VIX9D_LABELS),
+        }
+        here = os.path.dirname(os.path.abspath(__file__))
+        offenders = []
+        for fname in ("analysis.py", "scoring.py"):
+            with open(os.path.join(here, fname)) as f:
+                tree = ast.parse(f.read())
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Compare):
+                    continue
+                names = {n.id for n in ast.walk(node.left) if isinstance(n, ast.Name)}
+                watched = names & set(label_sets)
+                if not watched:
+                    continue
+                literals = {
+                    c.value for comp in node.comparators for c in ast.walk(comp)
+                    if isinstance(c, ast.Constant) and isinstance(c.value, str)
+                }
+                for var in watched:
+                    for lit in literals - label_sets[var]:
+                        offenders.append(f"{fname}:{node.lineno} compares {var} to {lit!r}")
+        self.assertEqual(offenders, [],
+                         "Labels compared but never emitted by scoring.py:\n" + "\n".join(offenders))
+
+
 if __name__ == "__main__":
     unittest.main()

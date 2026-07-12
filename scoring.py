@@ -119,6 +119,16 @@ SKEW_EXTREME    = 150   # SKEW above → extreme tail-risk hedging
 SKEW_ELEVATED   = 140   # SKEW above → elevated tail-risk hedging
 SKEW_NORMAL     = 120   # SKEW above → normal; below → complacent
 
+# Canonical labels the SKEW / VIX9D blocks in score_volatility can emit.
+# analysis.py and detect_conflicts() branch on these strings — change them
+# only together with the emitting code below and the producer-consumer
+# contract tests in test_contracts.py.
+SKEW_LABELS = ("N/A", "Cautious Optimism", "Compound Fear", "Cautious Bulls",
+               "Elevated Hedging", "Normal", "Complacent")
+# Elevated tail-risk hedging while VIX is also elevated (the bearish SKEW states).
+SKEW_HEDGING_LABELS = ("Compound Fear", "Elevated Hedging")
+VIX9D_LABELS = ("N/A", "Fear Spike", "Calm", "Neutral")
+
 # Trend pillar
 RSI_SEVERELY_OVERBOUGHT = 75
 RSI_OVERBOUGHT          = 70
@@ -1289,7 +1299,7 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
             "severity": "warning"})
 
     # Elevated tail-risk hedging + bullish MACD
-    if skew_l in ("Elevated", "Extreme Tail Risk") and macd_l.startswith("Bullish"):
+    if skew_l in SKEW_HEDGING_LABELS and macd_l.startswith("Bullish"):
         conflicts.append({"title": "Elevated SKEW + Bullish Trend MACD",
             "detail": "Institutions buying OTM puts while SPY's price MACD reads bullish — they may be hedging existing longs, not predicting a top, but the insurance cost is high.",
             "severity": "info"})
