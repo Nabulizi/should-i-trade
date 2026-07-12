@@ -191,13 +191,15 @@ function renderHero(d) {
 
   // ── Decision context: regime, posture, confidence ──────
   const regime  = d.pillars?.trend?.details?.regime || null;
+  // Fallback copy mirrors scoring.py DECISION_BANDS (D-001: descriptive
+  // conditions language only — no trade instructions).
   const posture = d.action_hint
                 || (invalidData ? 'Exposure off — live market data is unavailable'
-                : s >= 85 ? 'Full exposure — calm, trending tape, press the bid on A/B setups'
-                : s >= 70 ? 'Standard exposure — constructive tape, run your normal game'
-                : s >= 55 ? 'Moderate exposure — mixed tape, engage selectively, A+ setups, tight stops'
-                : s >= 40 ? 'Reduced exposure — choppy tape, very selective or sit out'
-                :           'Defensive — stressed tape, protect capital, no new longs');
+                : s >= 85 ? 'Calm, broad, established uptrend conditions'
+                : s >= 70 ? 'Positive trend with generally supportive participation'
+                : s >= 55 ? 'Mixed conditions — internal signals disagree'
+                : s >= 40 ? 'Weak, choppy conditions with elevated adverse-move risk'
+                :           'Stressed or structurally weak conditions — descriptive only, not a timing signal');
   const confLevel = invalidData ? 0 : s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
   const confColor = invalidData ? 'var(--red)' : s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
   const confSegs  = [1,2,3,4,5].map(i =>
