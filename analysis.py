@@ -16,6 +16,8 @@ Call `roundtable(dashboard)` to get the full ordered list.
 from __future__ import annotations
 import time
 
+from scoring import SKEW_HEDGING_LABELS
+
 # ── Optional AI roundtable (all 5 personas via Gemini) ────────────────────────
 try:
     from ai_synthesis import ai_roundtable as _ai_roundtable
@@ -275,7 +277,7 @@ def persona_risk(d: dict) -> dict:
 
     # VIX9D + SKEW as a group — short-term vs. tail risk profile
     if vix9d_ratio is not None and skew_value is not None:
-        if vix9d_label == "Fear Spike" and skew_label in ("Elevated", "Extreme Tail Risk"):
+        if vix9d_label == "Fear Spike" and skew_label in SKEW_HEDGING_LABELS:
             points.append({"icon": "🔴", "text": (
                 f"VIX9D/VIX {vix9d_ratio:.2f}x ({vix9d_label}) + SKEW {skew_value:.0f} ({skew_label}) — "
                 "near-term fear AND tail hedging both elevated simultaneously. "
@@ -284,13 +286,13 @@ def persona_risk(d: dict) -> dict:
         elif vix9d_label == "Fear Spike":
             points.append({"icon": "⚠️", "text": (
                 f"VIX9D/VIX {vix9d_ratio:.2f}x — near-term fear elevated above baseline. "
-                "SKEW is calm ({skew_label}), so tail risk isn't the worry — it's the next few sessions. "
+                f"SKEW is not flashing ({skew_label}), so tail risk isn't the worry — it's the next few sessions. "
                 "Reduce intraweek exposure."
             )})
-        elif skew_label in ("Elevated", "Extreme Tail Risk"):
+        elif skew_label in SKEW_HEDGING_LABELS:
             points.append({"icon": "⚠️", "text": (
-                f"SKEW {skew_value:.0f} ({skew_label}) while near-term vol is calm (VIX9D {vix9d_label}) — "
-                "smart money is quietly hedging tail risk while the tape looks fine. "
+                f"SKEW {skew_value:.0f} ({skew_label}) without a near-term fear spike (VIX9D {vix9d_label}) — "
+                "tail-risk hedging is elevated while short-dated vol stays quiet. "
                 "Carry protection or reduce gross exposure."
             )})
         elif vix9d_label == "Calm" and skew_label == "Complacent":
@@ -343,7 +345,7 @@ def persona_risk(d: dict) -> dict:
     # Closing verdict
     if vix and vix < 15 and flow_score >= 75:
         verdict = "Complacency risk is my concern. Hedge cheap — it won't stay cheap."
-    elif vix9d_label == "Fear Spike" and skew_label in ("Elevated", "Extreme Tail Risk"):
+    elif vix9d_label == "Fear Spike" and skew_label in SKEW_HEDGING_LABELS:
         verdict = "Dual vol warning active. Half size max until either VIX9D or SKEW normalises."
     elif vix and vix >= 25:
         verdict = "Volatility is in charge. Small size, tight stops, or nothing."

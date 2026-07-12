@@ -337,10 +337,34 @@ class TestPersonaRisk(unittest.TestCase):
         self.assertIn("85", texts)
 
     def test_vix9d_fear_spike_dual_vol_in_points(self):
-        d = _make_dashboard(vix9d_label="Fear Spike", skew_label="Elevated")
+        # "Compound Fear" is an emittable SKEW label (the old fixture used
+        # "Elevated", which scoring.py never produces — P0-003).
+        d = _make_dashboard(vix9d_label="Fear Spike", skew_label="Compound Fear")
         r = persona_risk(d)
         texts = " ".join(pt["text"].lower() for pt in r["points"])
         self.assertIn("dual", texts)
+
+    def test_fear_spike_with_calm_skew_renders_label_value(self):
+        """P0-001 regression: the literal '{skew_label}' placeholder must not
+        appear — the actual label value must be interpolated."""
+        d = _make_dashboard(vix9d_label="Fear Spike", skew_label="Normal")
+        r = persona_risk(d)
+        texts = " ".join(pt["text"] for pt in r["points"])
+        self.assertNotIn("{skew_label}", texts)
+        self.assertIn("(Normal)", texts)
+
+    def test_skew_hedging_without_fear_spike_in_points(self):
+        """P0-003 regression: 'Elevated Hedging' (an emittable label) reaches
+        the tail-hedging branch that was previously dead."""
+        d = _make_dashboard(vix9d_label="Neutral", skew_label="Elevated Hedging")
+        r = persona_risk(d)
+        texts = " ".join(pt["text"].lower() for pt in r["points"])
+        self.assertIn("tail-risk hedging", texts)
+
+    def test_dual_vol_warning_verdict(self):
+        d = _make_dashboard(vix9d_label="Fear Spike", skew_label="Elevated Hedging")
+        r = persona_risk(d)
+        self.assertIn("dual vol warning", r["verdict"].lower())
 
     def test_breadth_divergence_in_points(self):
         d = _make_dashboard(rsp_vs_spy=-0.6)
