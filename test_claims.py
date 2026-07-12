@@ -37,6 +37,12 @@ PROHIBITED = [
     r"press size",
     r"green light",
     r"full size",
+    # P1-021: manufactured authority in AI prompts or product copy
+    r"prop trading firm",
+    r"zero hedging",
+    r"best analysts",
+    r"years running trading desks",
+    r"\d+ years reading charts",
 ]
 
 

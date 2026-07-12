@@ -939,7 +939,7 @@ async function runRoundtable(auto=false, useAi=false) {
     if (data.error) throw new Error(data.error);
     if (useAi && data.ai_used === false) _showToast('AI quota exhausted — showing rule-based analysis. Resets at midnight.', 'warn');
     else if (useAi && data.ai_used)      _showToast('AI analysis complete', 'ok');
-    renderRoundtable(data.personas || []);
+    renderRoundtable(data.personas || [], data);
   } catch(e) {
     $('roundtable-grid').innerHTML = `<div style="grid-column:1/-1;color:var(--red);padding:14px;">Desk unavailable: ${esc(e.message)}</div>`;
   } finally {
@@ -948,7 +948,7 @@ async function runRoundtable(auto=false, useAi=false) {
   }
 }
 
-function renderRoundtable(personas) {
+function renderRoundtable(personas, meta = {}) {
   const AVATAR_SVG = {
     '📊': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="3" x2="8" y2="7"/><rect x="5" y="7" width="6" height="7"/><line x1="8" y1="14" x2="8" y2="19"/><line x1="16" y1="2" x2="16" y2="8"/><rect x="13" y="8" width="6" height="6"/><line x1="16" y1="14" x2="16" y2="21"/></svg>',
     '🌐': '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
@@ -988,7 +988,7 @@ function renderRoundtable(personas) {
         <div class="persona-points">${pts}</div>
         <div class="persona-verdict">${esc(p.verdict)}</div>
       </div>`;
-  }).join('');
+  }).join('') + roundtableProvenance(meta);
 
   // Stagger fade-in
   const cards = document.querySelectorAll('.persona-card');
@@ -1278,3 +1278,15 @@ export {
   isDefaultWeights,
   volTargetLine,
 };
+
+// P1-024: provenance is part of the display — engine, generation time, and
+// the shared-input limitation, whether the read is rule-based or AI.
+function roundtableProvenance(meta) {
+  if (!meta || (!meta.engine && !meta.note)) return '';
+  const engine = meta.engine === 'gemini'
+    ? `AI · ${meta.model || 'Gemini'}` : 'Rule-based (deterministic)';
+  const when = meta.generated_at || meta.timestamp || '';
+  const note = meta.note || 'Lenses share one data snapshot — not independent analysts.';
+  return `<div class="roundtable-provenance" style="grid-column:1/-1;color:var(--muted);font-size:10px;line-height:1.5;">` +
+    `${esc(engine)}${when ? ' · generated ' + esc(when) : ''} · ${esc(note)}</div>`;
+}

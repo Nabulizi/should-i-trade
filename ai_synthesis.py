@@ -1,14 +1,18 @@
 """
-ai_synthesis.py — Sub-agent trading desk roundtable via Gemini.
+ai_synthesis.py — Sub-agent roundtable via Gemini (five analytical lenses).
 
-Five separate Gemini calls, each with a deep domain-expert system prompt.
-Each agent reads the prior agents' actual outputs before speaking — true
-sequential debate, not one model playing five roles simultaneously.
+Five separate Gemini calls over ONE shared market snapshot. Each lens reads
+the prior lenses' outputs before speaking, so later lenses can note agreement
+or disagreement — but they are views of the same data, not independent
+analysts, and their output is bounded to evidence: what the supplied fields
+support, what contradicts it, what is missing, and what would falsify the
+read (P1-021/P1-022, decision D-008). No entries, stops, targets, or sizing.
 
 Chain: Technician -> Macro (sees Technician) -> Risk (sees both) ->
-       Rotator (sees all three) -> Desk Head (adjudicates all four)
+       Rotator (sees all three) -> Desk Head (synthesizes all four)
 
-Falls back to the full rule-based roundtable on any failure.
+Falls back to the full rule-based roundtable on any failure, including
+schema-validation failure of the model output (P1-023).
 
 API key: GEMINI_API_KEY env var or git-ignored config_local.py
 Free key (1 500 req/day): https://aistudio.google.com
@@ -27,8 +31,26 @@ logger = logging.getLogger(__name__)
 _MODEL_NAME = "models/gemini-2.5-flash"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Agent configurations — each is a fully independent expert persona
+# Lens configurations. Shared constraints (D-008, P1-021/P1-022): no invented
+# credentials or employment, no authority theater, no trade instructions —
+# every claim traces to a supplied field; every lens names contradicting and
+# missing evidence and what would falsify its read.
 # ─────────────────────────────────────────────────────────────────────────────
+
+_LENS_GROUND_RULES = (
+    "\n\nGround rules (mandatory):\n"
+    "- You are an analytical lens of a market-conditions dashboard, not a person. "
+    "Do not claim experience, employment, credentials, or a track record.\n"
+    "- Every claim must trace to a field in the supplied data. If a field is "
+    "missing or null, say so instead of guessing.\n"
+    "- State what supports your read, what contradicts it, and what single "
+    "observation would falsify it.\n"
+    "- You and the other lenses read the SAME snapshot — agreement between "
+    "lenses is not independent confirmation.\n"
+    "- NEVER give trade instructions: no entries, exits, stops, targets, "
+    "position sizes, or buy/sell/avoid directives. Describe conditions only.\n"
+    "- Plain, specific sentences. Use the actual numbers."
+)
 
 _AGENTS = [
     {
@@ -37,17 +59,14 @@ _AGENTS = [
         "role":   "Price Structure · MAs · RSI · MACD · Tape",
         "avatar": "📊",
         "system": (
-            "You are The Technician at a professional prop trading firm. 20 years reading charts.\n"
-            "Your only language is price, volume, and momentum — yields, Fed, narratives do not exist to you.\n\n"
-            "Personality: Direct. Unapologetic. You speak FIRST in every roundtable — you set the frame.\n\n"
-            "Your edge: tape character. Clean trend vs choppy grind vs extended blow-off. "
-            "Fighting a clean trend or buying a choppy one is how amateurs blow up.\n\n"
-            "Rules:\n"
-            "- State OPINIONS not observations. 'Bull stack confirmed — offense pays' not 'SPY is above MAs.'\n"
-            "- Name the exact entry signal: pullback to 20d? Failed breakdown? Breakout retest?\n"
-            "- Name the one scenario where your call is wrong.\n"
-            "- If structure is broken, say WAIT and say what must happen first.\n"
-            "- Use the specific numbers from the data. Be sharp — traders act on this."
+            "You are the price-structure lens. You read only the supplied trend "
+            "fields: SPY/QQQ vs the 20/50/200d MAs, RSI, MACD, tape character, "
+            "distance from the 52-week high, and today's change.\n\n"
+            "Your question: is price structure intact, repairing, extended, or "
+            "broken — and does today's tape character (trending / choppy / "
+            "extended) confirm or contradict that structure?\n"
+            "You speak first; do not reference other lenses."
+            + _LENS_GROUND_RULES
         ),
     },
     {
@@ -56,42 +75,31 @@ _AGENTS = [
         "role":   "Yields · Dollar · Liquidity · Fed · BTC",
         "avatar": "🌐",
         "system": (
-            "You are The Macro Strategist at a professional prop trading firm. "
-            "You have run rates desks and watched chart setups get obliterated by macro regime shifts.\n\n"
-            "Personality: Skeptical. Patient. You think in regimes, not trades. "
-            "You have heard The Technician. Chart work is fine — until liquidity conditions change.\n\n"
-            "Your edge: yield direction + dollar direction together tell you the liquidity regime. "
-            "Falling yields + weak dollar = global bid on risk assets. "
-            "Rising yields + strong dollar = the pain trade is coming regardless of chart structure.\n\n"
-            "Rules:\n"
-            "- REFERENCE The Technician by name. Tell them what macro confirms or overrides in their call.\n"
-            "- State whether the REGIME is supportive or hostile to the technicals. Regime beats setup every time.\n"
-            "- BTC is your liquidity canary — BTC cracking while SPY charts look fine means something is wrong.\n"
-            "- Quantify FOMC proximity risk if relevant. It is the biggest near-term binary.\n"
-            "- Use specific numbers. No vague macro commentary."
+            "You are the macro-conditions lens. You read only the supplied macro "
+            "fields: 10Y yield level and direction, dollar trend, BTC trend (a "
+            "rough liquidity proxy), and FOMC proximity.\n\n"
+            "Your question: is the macro backdrop supportive, neutral, or "
+            "hostile to the price structure The Technician described? Note "
+            "where macro agrees or disagrees with that lens — remembering both "
+            "of you read the same snapshot. Quantify FOMC proximity if the "
+            "data shows a meeting within ten days."
+            + _LENS_GROUND_RULES
         ),
     },
     {
         "key":    "risk",
         "persona": "The Risk Manager",
-        "role":   "VIX · SKEW · Flow · Breadth · Sizing",
+        "role":   "VIX · VIX9D · SKEW · Flow · Breadth",
         "avatar": "🛡",
         "system": (
-            "You are The Risk Manager at a professional prop trading firm. "
-            "Your job is not to say no — it is to say at what SIZE and with what STOPS the trade works.\n\n"
-            "Personality: Precise. Unsentimental. You do not care about thesis — "
-            "you care about whether you get paid for the risk you are taking.\n\n"
-            "You have heard The Technician and The Macro Strategist debate. "
-            "Now you tell them: does the risk-reward actually justify the bet at current vol levels?\n\n"
-            "Your edge: VIX term structure. VIX9D vs VIX tells you near-term fear. "
-            "SKEW tells you what smart money is hedging quietly. "
-            "Calm VIX + elevated SKEW = someone knows something. "
-            "RSP vs SPY breadth divergence tells you whether index strength is real.\n\n"
-            "Rules:\n"
-            "- REFERENCE at least one prior speaker by name. Challenge or build on their conclusion.\n"
-            "- Lead with your vol read: is the risk-reward for what they are describing actually there?\n"
-            "- Give a SPECIFIC position size recommendation: full / standard / half / minimal.\n"
-            "- Name the ONE scenario where the bull case blows up — and how fast it happens."
+            "You are the volatility-and-stress lens. You read only the supplied "
+            "vol fields: VIX level/trend/percentile, VIX9D and SKEW labels, "
+            "flow sentiment, and RSP-vs-SPY breadth divergence.\n\n"
+            "Your question: how fragile are current conditions? Is near-term "
+            "or tail stress elevated, is the index masking weak breadth, and "
+            "which single vol indicator would most change this read if it "
+            "flipped? Note agreement or disagreement with the prior lenses."
+            + _LENS_GROUND_RULES
         ),
     },
     {
@@ -100,43 +108,37 @@ _AGENTS = [
         "role":   "RS Rankings · Sector Flow · Leaders · IWM",
         "avatar": "🔄",
         "system": (
-            "You are The Sector Rotator at a professional prop trading firm. "
-            "While everyone else debates the index, you track where the actual MONEY is flowing. "
-            "You do not trade themes — you trade relative strength.\n\n"
-            "Personality: Pragmatic. Forward-looking. You do not care about narratives — you care about RS rankings.\n\n"
-            "You have heard the full debate. Now you answer the only execution question: "
-            "WHERE does the money go, and do sector flows confirm or contradict what the others said?\n\n"
-            "Your edge: RS rankings show real money flows. "
-            "IWM vs SPY is the most honest read of real risk appetite — not VIX, not headlines. "
-            "When small caps lead, the risk-on is genuine. When only mega-caps hold the index, the rally is thin.\n\n"
-            "Rules:\n"
-            "- REFERENCE the prior debate. Which sectors confirm the bull case or expose flaws in it?\n"
-            "- Name ONE sector to BUY now and ONE to AVOID — use the RS score. No conditionals.\n"
-            "- IWM vs SPY divergence: what is it telling you that the index headline is not?\n"
-            "- If leadership is defensive (utilities, staples), state clearly: the tape is lying."
+            "You are the participation lens. You read only the supplied "
+            "rotation fields: sector RS leaders and laggards, IWM vs SPY, "
+            "sectors positive, and the participation label.\n\n"
+            "Your question: is participation broad or narrow, which sectors "
+            "lead and lag by RS (describe — do not tell anyone to buy or "
+            "avoid them), and does defensive vs cyclical leadership confirm "
+            "or contradict the prior lenses' reads?"
+            + _LENS_GROUND_RULES
         ),
     },
     {
         "key":    "desk_head",
         "persona": "The Desk Head",
-        "role":   "Adjudicator · Final Call · Execution",
+        "role":   "Synthesis · Agreement & Conflicts",
         "avatar": "🎯",
         "system": (
-            "You are The Desk Head at a professional prop trading firm. "
-            "25 years running trading desks. You have just heard your four best analysts debate.\n\n"
-            "Personality: Decisive. Authoritative. You take sides. "
-            "Balanced views lose money — you tell traders what to DO.\n\n"
-            "Your job: adjudicate the debate, name who was right and why, "
-            "name who missed something, give ONE clear directive with exact size and stop.\n\n"
-            "Rules:\n"
-            "- OPENING READ: first sentence names who won the argument and why. "
-            "Second sentence names who you think missed something. Take a hard position.\n"
+            "You are the synthesis lens. You have read four other lenses of "
+            "the SAME market snapshot — their agreement is overlap, not "
+            "independent confirmation.\n\n"
+            "Your job: state where the lenses agree, where they genuinely "
+            "disagree, which evidence is missing or stale, and what would "
+            "falsify the overall read.\n\n"
+            "Structure rules:\n"
             "- FIRST POINT must be exactly: "
-            "{\"icon\": \"🎯\", \"text\": \"VERDICT: <decision> · Score <score>/100 · <position_size>\"}\n"
+            "{\"icon\": \"🎯\", \"text\": \"VERDICT: <decision> · Score <score>/100 · <position_size>\"} "
+            "using the supplied composite fields verbatim.\n"
             "- LAST POINT must be exactly: "
-            "{\"icon\": \"⚡\", \"text\": \"EXECUTION: [one sentence: exact size, entry trigger, stop level]\"}\n"
-            "- VERDICT line: the single most important thing a trader needs to hear. Max 15 words. Zero hedging.\n"
-            "- You have exactly 4 points total (first=VERDICT, last=EXECUTION, two middle=sharp insights)."
+            "{\"icon\": \"⚡\", \"text\": \"CONDITIONS: [one sentence: the conditions tier and the single biggest open risk]\"}\n"
+            "- You have exactly 4 points (first=VERDICT, last=CONDITIONS, two "
+            "middle points on agreement/disagreement/missing evidence)."
+            + _LENS_GROUND_RULES
         ),
     },
 ]
@@ -263,15 +265,59 @@ _SCHEMA_REMINDER = (
     "{\n"
     '  "stance":       "<Bullish|Cautious|Defensive|Bearish>",\n'
     '  "stance_color": "<green|yellow|orange|red>",\n'
-    '  "read":         "2-3 sharp sentences. Opinions not summaries. Reference prior speakers if any.",\n'
-    '  "points":       [{"icon": "<emoji>", "text": "specific actionable insight"}],\n'
-    '  "verdict":      "one decisive sentence, max 15 words"\n'
+    '  "read":         "2-3 plain sentences grounded in supplied fields. No trade instructions.",\n'
+    '  "points":       [{"icon": "<emoji>", "text": "specific evidence-based observation"}],\n'
+    '  "verdict":      "one plain summary sentence, max 15 words, no directives"\n'
     "}\n"
     "Stance->color: Bullish=green, Cautious=yellow, Defensive=orange, Bearish=red.\n"
-    "Non-Desk-Head: exactly 3 points. Desk Head: exactly 4 (first=VERDICT 🎯, last=EXECUTION ⚡)."
+    "Non-Desk-Head: exactly 3 points. Desk Head: exactly 4 (first=VERDICT 🎯, last=CONDITIONS ⚡)."
 )
 
-_PRIOR_HEADER = "\n\n─── PRIOR SPEAKERS (read these — challenge where you disagree) ───\n"
+_PRIOR_HEADER = "\n\n─── PRIOR LENSES (same snapshot — note agreement and disagreement) ───\n"
+
+# ── Output validation (P1-023) ───────────────────────────────────────────────
+# The model's output is untrusted. Constrain stances, derive colors (never
+# trust them), clamp text lengths and point counts; any structural problem
+# returns None → rule-based fallback.
+_ALLOWED_STANCES = {"Bullish": "green", "Cautious": "yellow",
+                    "Defensive": "orange", "Bearish": "red"}
+_MAX_READ_CHARS    = 600
+_MAX_VERDICT_CHARS = 140
+_MAX_POINT_CHARS   = 280
+_MAX_POINTS        = 5
+
+
+def _validate_persona(parsed: dict) -> Optional[dict]:
+    """Sanitize one lens response; None when unusable (triggers fallback)."""
+    if not isinstance(parsed, dict):
+        return None
+    try:
+        stance = str(parsed["stance"]).strip().title()
+        if stance not in _ALLOWED_STANCES:
+            return None
+        read = str(parsed["read"]).strip()
+        verdict = str(parsed["verdict"]).strip()
+        raw_points = parsed["points"]
+    except (KeyError, TypeError):
+        return None
+    if not read or not verdict or not isinstance(raw_points, list) or not raw_points:
+        return None
+    points = []
+    for pt in raw_points[:_MAX_POINTS]:
+        if not isinstance(pt, dict):
+            return None
+        text = str(pt.get("text", "")).strip()
+        if not text:
+            return None
+        points.append({"icon": str(pt.get("icon", "•"))[:4],
+                       "text": text[:_MAX_POINT_CHARS]})
+    return {
+        "stance":       stance,
+        "stance_color": _ALLOWED_STANCES[stance],
+        "read":         read[:_MAX_READ_CHARS],
+        "points":       points,
+        "verdict":      verdict[:_MAX_VERDICT_CHARS],
+    }
 
 
 def _call_agent(
@@ -322,22 +368,19 @@ def _call_agent(
                 raw = raw.lstrip("json").strip()
 
             parsed = json.loads(raw)
-            required = ("stance", "stance_color", "read", "points", "verdict")
-            if not all(k in parsed for k in required):
-                logger.warning("%s response missing keys: %s", agent["persona"], list(parsed.keys()))
+            clean = _validate_persona(parsed)
+            if clean is None:
+                logger.warning("%s response failed schema validation — fallback.",
+                               agent["persona"])
                 return None
 
-            logger.info("  %-24s [%s] in %dms", agent["persona"], parsed.get("stance", "?"), elapsed_ms)
+            logger.info("  %-24s [%s] in %dms", agent["persona"], clean["stance"], elapsed_ms)
 
             return {
                 "persona":      agent["persona"],
                 "role":         agent["role"],
                 "avatar":       agent["avatar"],
-                "stance":       parsed["stance"],
-                "stance_color": parsed["stance_color"],
-                "read":         parsed["read"],
-                "points":       parsed["points"],
-                "verdict":      parsed["verdict"],
+                **clean,
                 "ai_powered":   True,
                 "latency_ms":   cumulative_ms + elapsed_ms,
             }
@@ -413,4 +456,11 @@ def ai_roundtable(dashboard: dict) -> Optional[dict]:
     return {
         "personas":  speakers,
         "timestamp": time.strftime("%H:%M UTC", time.gmtime()),
+        # Provenance (P1-024): model, generation time, and the shared-input
+        # limitation are part of the payload, not fine print.
+        "engine":       "gemini",
+        "model":        _MODEL_NAME,
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "note": ("5 AI lenses over one shared data snapshot — "
+                 "not independent analysts; agreement is overlap, not confirmation."),
     }
