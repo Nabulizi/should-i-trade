@@ -154,7 +154,7 @@ def persona_macro(d: dict) -> dict:
         read = "Macro inputs offline — flying without instruments. Size down until yields print."
     elif yield_dir == "Falling" and dxy_label == "Weakening":
         read = (f"10Y falling ({tnx:.2f}%) + dollar weakening — the clearest liquidity tailwind this framework sees. "
-                "Growth names, small caps, and cyclicals get the bid. This is the environment to press size.")
+                "Growth names, small caps, and cyclicals have historically benefited most in this backdrop.")
     elif yield_dir == "Rising" and dxy_label == "Strengthening":
         read = (f"10Y rising ({tnx:.2f}%) + dollar strengthening simultaneously — textbook risk-off squeeze. "
                 "Growth and EM get repriced first; defensives and cash earn a real return. Reduce duration exposure.")
@@ -219,7 +219,7 @@ def persona_macro(d: dict) -> dict:
 
     # Closing verdict
     if score >= 70 and (fomc_days is None or fomc_days > 7):
-        verdict = "Macro tailwind + clean calendar. Press the bid."
+        verdict = "Macro tailwind + clean calendar — the strongest macro alignment this framework tracks."
     elif fomc_days is not None and fomc_days <= 3:
         verdict = "Event risk dominates. Trade small or sit out."
     elif score >= 55:
@@ -334,7 +334,7 @@ def persona_risk(d: dict) -> dict:
     elif vix_trend == "Calming" and vix and vix < 20:
         points.append({"icon": "✅", "text": "VIX calming from an already moderate level — improving conditions for swing setups."})
     elif vix_trend == "Falling" and vix and vix < 20:
-        points.append({"icon": "✅", "text": "VIX falling into a calm tape — green light for trend continuation."})
+        points.append({"icon": "✅", "text": "VIX falling into a calm tape — historically a supportive backdrop for trend continuation."})
 
     # Breadth divergence
     if rsp_vs_spy < -0.4:
@@ -350,7 +350,7 @@ def persona_risk(d: dict) -> dict:
     elif vix and vix >= 25:
         verdict = "Volatility is in charge. Small size, tight stops, or nothing."
     elif score >= 65:
-        verdict = "Green light. Standard risk budget applies."
+        verdict = "Vol backdrop supportive — no elevated-risk flags from this desk."
     else:
         verdict = "Amber light. Half-size everything until signals clear."
 
@@ -487,9 +487,10 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
 
     # Opening read — stance vote + conflict awareness
     if bulls >= 3 and bears == 0 and n_warn == 0:
-        read = f"Desk is aligned long. {bulls}/4 analysts bullish, zero bears. Conditions rarely get this clean — press size."
+        read = (f"Desk lenses aligned positive: {bulls}/4 read supportive, zero negative. "
+                "Conditions rarely read this clean — but the lenses share inputs, so treat this as one strong signal, not four.")
     elif bulls >= 3 and bears == 0 and n_warn > 0:
-        read = f"Desk is aligned long but {n_warn} active conflict{'s' if n_warn > 1 else ''}: {warn_names}. Don't press size blindly — the warning signs are real."
+        read = f"Desk is aligned long but {n_warn} active conflict{'s' if n_warn > 1 else ''}: {warn_names}. The warning signs are real — don't treat alignment as confirmation."
     elif bears >= 3:
         read = f"Desk is aligned defensive. {bears}/4 analysts negative. Capital preservation trumps opportunity cost here."
     elif bulls >= 2 and bears <= 1 and n_warn > 0:
@@ -521,40 +522,41 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
             action = action[:97] + "…"
         points.append({"icon": "⚠️", "text": f"{c['title']}: {action}"})
 
-    # Execution rule — base tier from score, automatically downgraded one
-    # step if any WARNING conflicts are active.
+    # Conditions tier — describes the band and any active conflicts. This is
+    # a conditions report, not an execution instruction (D-001): the replay
+    # showed no timing edge, so the desk must not issue sizing directives.
     if fomc_days is not None and fomc_days <= 3:
-        rule = "FLAT into FOMC. Any new positions must close before 2:00 ET on decision day."
+        rule = "FOMC within 3 sessions — binary event risk dominates every other signal on this board."
     elif not above_200:
-        rule = "STAND ASIDE. No new longs. Cash is a position — wait for conditions to clear."
+        rule = "SPY below its 200d MA — historically the highest-drawdown regime in this framework's replay."
     elif total >= 85 and vix < 20 and (fomc_days is None or fomc_days > 7):
-        rule = ("STANDARD SIZE (conflicts active — downgraded from FULL). A+ setups only, not A/B."
+        rule = ("Strongest band, but active conflicts show the signals disagree under the surface."
                 if warnings else
-                "FULL SIZE. Press the bid on A/B setups. Add on intraday pullbacks to 20d.")
+                "Strongest band: calm volatility with broad trend alignment across pillars.")
     elif total >= 70:
-        rule = ("HALF SIZE (conflicts active — downgraded from STANDARD). Tighter stops than normal."
+        rule = ("Constructive band with active conflicts — internal signals disagree."
                 if warnings else
-                "STANDARD SIZE. Run your normal game. A/B+ setups, stops below the entry base.")
+                "Constructive band: positive trend with generally supportive participation.")
     elif total >= 55:
-        rule = ("MINIMAL (conflicts active — downgraded from HALF). One position max, tightest stops."
+        rule = ("Mixed band with active conflicts — internal disagreement is elevated."
                 if warnings else
-                "HALF SIZE. A+ setups only. Clean pullback entries, stops at the breakout level.")
+                "Mixed band: signals only partially aligned.")
     elif total >= 40:
-        rule = ("STAND ASIDE — too many conflicts at this score level."
+        rule = ("Weak band with active conflicts on top — adverse-move risk elevated."
                 if warnings else
-                "MINIMAL. Quarter size max. Tightest stops, take profits at first resistance.")
+                "Weak band: choppy conditions with elevated adverse-move risk.")
     else:
-        rule = "STAND ASIDE. No new longs. Cash is a position — wait for conditions to clear."
+        rule = "Stressed band: structurally weak conditions. Descriptive only — the replay found no timing edge in either direction."
 
-    points.append({"icon": "⚡", "text": f"EXECUTION: {rule}"})
+    points.append({"icon": "⚡", "text": f"CONDITIONS: {rule}"})
 
     # Final verdict — conflict-aware
     if n_warn >= 2 and total >= 55:
-        verdict = f"{n_warn} active conflicts — size down one tier, trust A+ setups only."
+        verdict = f"{n_warn} active conflicts — the composite overstates how aligned conditions are."
     elif n_warn >= 1 and total >= 70:
-        verdict = "Good tape with active conflicts — run your process, respect the warnings."
+        verdict = "Good tape with active conflicts — respect the warnings."
     elif total >= 85:
-        verdict = "Strong tape. Don't overthink it — press size."
+        verdict = "Strong tape across every lens — conditions rarely read this clean."
     elif total >= 70:
         verdict = "Good tape. Run your process, don't force it."
     elif total >= 55:

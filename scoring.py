@@ -68,22 +68,26 @@ MIN_SECTOR_HISTORY_POINTS = 64
 # edge over same-exposure baselines. Labels describe conditions and a suggested
 # exposure posture; they are not validated trade signals. 55/70/85 are
 # descriptive bands, not proven thresholds.
+# D-001 (docs/project-improvement-plan.md): band actions DESCRIBE conditions.
+# They must not issue trade instructions — the replay showed no timing edge,
+# so directive sizing/entry copy would overstate the evidence. Guarded by
+# test_claims.py.
 DECISION_BANDS = [
     {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "FULL EXPOSURE",
-     "action": "Full exposure — calm, trending tape, press the bid on A/B setups"},
+     "action": "Calm, broad, established uptrend conditions"},
     {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "STANDARD EXPOSURE",
-     "action": "Standard exposure — constructive tape, run your normal game"},
+     "action": "Positive trend with generally supportive participation"},
     {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MODERATE EXPOSURE",
-     "action": "Moderate exposure — mixed tape, engage selectively, A+ setups, tight stops"},
+     "action": "Mixed conditions — internal signals disagree"},
     {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "REDUCED EXPOSURE",
-     "action": "Reduced exposure — choppy tape, very selective or sit out"},
+     "action": "Weak, choppy conditions with elevated adverse-move risk"},
     {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "DEFENSIVE / FLAT",
-     "action": "Defensive — stressed tape, protect capital, no new longs"},
+     "action": "Stressed or structurally weak conditions — descriptive only, not a timing signal"},
 ]
 
 
 def action_for_score(total: int) -> str:
-    """Plain-language 'what do I actually do' hint for a composite score."""
+    """Plain-language description of the conditions band for a composite score."""
     for band in DECISION_BANDS:
         if total >= band["min"]:
             return band["action"]
