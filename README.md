@@ -92,6 +92,7 @@ should-i-trade/
 ├── notify.py              # Morning push report (Telegram/Discord, stdlib only)
 ├── daily_history.py       # One close snapshot per trading day (feeds delta + push)
 ├── forecast_log.py        # Prospective forecast log + next-session grading (docs/prospective-log.md)
+├── eod_job.py             # Standalone EOD runner for launchd/cron (no server needed)
 ├── backtest.py            # Walk-forward replay: IC, decile, regime & strategy tests
 ├── backtest_report.py     # Offline Markdown report generator for backtest_results.csv
 ├── backtest_stats.py      # Pure offline stats: baselines, bootstrap CIs, costs

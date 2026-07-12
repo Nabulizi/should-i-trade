@@ -18,7 +18,7 @@ and update task status and changelog when work is merged.
 python3 server.py
 
 # Run all Python tests
-python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_contracts.py && python3 test_backtest_report.py && python3 test_backtest_stats.py && python3 test_analysis.py && python3 test_notify.py && python3 test_watchlist.py && python3 test_claims.py && python3 test_ai_synthesis.py && python3 test_forecast_log.py && python3 test_smoke.py
+python3 test_fixes.py && python3 test_scoring.py && python3 test_data.py && python3 test_contracts.py && python3 test_backtest_report.py && python3 test_backtest_stats.py && python3 test_analysis.py && python3 test_notify.py && python3 test_watchlist.py && python3 test_claims.py && python3 test_ai_synthesis.py && python3 test_forecast_log.py && python3 test_eod_job.py && python3 test_smoke.py
 
 # Run a single test file
 python3 test_scoring.py

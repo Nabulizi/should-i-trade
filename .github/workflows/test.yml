@@ -56,6 +56,7 @@ jobs:
           python test_claims.py
           python test_ai_synthesis.py
           python test_forecast_log.py
+          python test_eod_job.py
 
       - name: Type-check typed contracts and report tooling (mypy)
         run: |
