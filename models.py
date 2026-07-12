@@ -144,13 +144,22 @@ class SpyStreak(TypedDict):
     days: int
 
 
+class SourcePair(TypedDict):
+    """Separate provenance for a symbol's live quote and its daily history.
+    They can differ: e.g. the VIX quote comes from Yahoo while the VIX
+    history comes from CBOE's official CSV."""
+
+    quote: str
+    history: str
+
+
 class DataSources(TypedDict):
     """Provider labels for the headline data inputs."""
 
-    vix: str
-    tnx: str
-    spy: str
-    btc: str
+    vix: SourcePair
+    tnx: SourcePair
+    spy: SourcePair
+    btc: SourcePair
 
 
 class DataCoverage(TypedDict):

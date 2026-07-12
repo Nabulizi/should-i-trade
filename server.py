@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Should I Trade? — Market Quality Terminal v5
+Should I Trade? — Market Quality Terminal v6
 
 Run:  python3 server.py
 Open: http://localhost:8765

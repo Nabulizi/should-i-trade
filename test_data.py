@@ -267,6 +267,38 @@ class TestGetHistoryFallback(unittest.TestCase):
         mock_yf.assert_not_called()
         mock_stooq.assert_not_called()
 
+    # ── P0-022: history-source provenance registry ────────────────────────
+    @patch("data.yf_history", return_value=GOOD_HISTORY)
+    def test_history_source_records_yahoo(self, _yf):
+        import data as _d
+        _d._HISTORY_SOURCE.pop("SPY", None)
+        get_history("SPY")
+        self.assertEqual(_d.history_source("SPY"), "yahoo")
+
+    @patch("data.stooq_history", return_value=GOOD_HISTORY)
+    @patch("data.yf_history",    return_value=[])
+    def test_history_source_records_stooq_fallback(self, _yf, _stooq):
+        import data as _d
+        _d._HISTORY_SOURCE.pop("SPY", None)
+        get_history("SPY")
+        self.assertEqual(_d.history_source("SPY"), "stooq")
+
+    @patch("data.cboe_vix_history", return_value=GOOD_HISTORY)
+    def test_history_source_records_cboe(self, mock_cboe):
+        import data as _d
+        orig = _d._OFFICIAL_SOURCES.get("^VIX")
+        _d._OFFICIAL_SOURCES["^VIX"] = mock_cboe
+        _d._HISTORY_SOURCE.pop("^VIX", None)
+        try:
+            get_history("^VIX")
+            self.assertEqual(_d.history_source("^VIX"), "cboe")
+        finally:
+            _d._OFFICIAL_SOURCES["^VIX"] = orig
+
+    def test_history_source_unknown_symbol_is_none(self):
+        import data as _d
+        self.assertIsNone(_d.history_source("NEVER-FETCHED-XYZ"))
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. list_watchlist_files()
