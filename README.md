@@ -41,6 +41,7 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 | **Daily Push Report** | Optional morning conditions report to Telegram / Discord (09:00 ET, trading days) |
 | **Since-Yesterday Delta** | Day-over-day score, pillar, and posture-band changes vs previous close |
 | **Watchlist Health** | Scores your personal watchlist symbols (TradingView format supported) |
+| **Prospective Forecast Log** | Daily immutable EOD forecast records, graded next session against predeclared outcomes ([design](docs/prospective-log.md)) |
 | **Health & Metrics** | `/health` and `/metrics` endpoints for monitoring |
 | **Rate Limiting** | 30 req/min per IP — protects against runaway polling |
 | **Responsive UI** | Works on mobile (≥320px) — simplified layout at ≤480px |
@@ -90,6 +91,7 @@ should-i-trade/
 ├── watchlist.py           # TradingView watchlist import + symbol health scorer
 ├── notify.py              # Morning push report (Telegram/Discord, stdlib only)
 ├── daily_history.py       # One close snapshot per trading day (feeds delta + push)
+├── forecast_log.py        # Prospective forecast log + next-session grading (docs/prospective-log.md)
 ├── backtest.py            # Walk-forward replay: IC, decile, regime & strategy tests
 ├── backtest_report.py     # Offline Markdown report generator for backtest_results.csv
 ├── backtest_stats.py      # Pure offline stats: baselines, bootstrap CIs, costs

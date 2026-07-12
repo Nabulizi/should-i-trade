@@ -190,6 +190,31 @@ def yf_ohlcv(symbol: str, days: int = 220) -> dict:
         return empty
 
 
+def yf_ohlc_dated(symbol: str, days: int = 220) -> list[dict]:
+    """Daily OHLC bars with ISO dates (oldest-first). Used by the prospective
+    forecast log to grade next-session outcomes against predeclared formulas
+    (docs/prospective-log.md). Raw unadjusted O/H/L/C — matching how the
+    outcome definitions are declared. Returns [] on failure."""
+    period = "1y" if days <= 252 else "2y"
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{_yf_sym(symbol)}"
+           f"?interval=1d&range={period}&includePrePost=false")
+    try:
+        result = json.loads(fetch_url(url, cache_secs=300))["chart"]["result"][0]
+        ts = result.get("timestamp", [])
+        q = result["indicators"]["quote"][0]
+        bars = []
+        for t, o, h, l, c in zip(ts, q.get("open", []), q.get("high", []),
+                                 q.get("low", []), q.get("close", [])):
+            if all(x is not None for x in (t, o, h, l, c)):
+                bars.append({
+                    "date": datetime.fromtimestamp(t, tz=timezone.utc).date().isoformat(),
+                    "open": o, "high": h, "low": l, "close": c,
+                })
+        return bars
+    except Exception:
+        return []
+
+
 def get_ohlcv(symbol: str, days: int = 220) -> dict:
     """OHLCV with closes-only fallback if high/low/volume are unavailable."""
     d = yf_ohlcv(symbol, days)

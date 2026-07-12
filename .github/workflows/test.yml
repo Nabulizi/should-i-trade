@@ -49,6 +49,14 @@ jobs:
       - name: Run analysis / roundtable persona tests (test_analysis.py)
         run: python test_analysis.py
 
+      - name: Run remaining unit suites (notify, watchlist, claims, AI lens, forecast log)
+        run: |
+          python test_notify.py
+          python test_watchlist.py
+          python test_claims.py
+          python test_ai_synthesis.py
+          python test_forecast_log.py
+
       - name: Type-check typed contracts and report tooling (mypy)
         run: |
           pip install --quiet mypy

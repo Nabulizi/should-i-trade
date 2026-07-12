@@ -20,6 +20,7 @@ from analysis import roundtable
 from watchlist import compute_watchlist_health
 from data import et_now, market_state
 from daily_history import record_daily_snapshot, yesterday_snapshot
+import forecast_log
 import notify
 from config import (
     PORT as _CONFIG_PORT, DASHBOARD_TTL, WATCHLIST_TTL, HISTORY_MAXLEN,
@@ -597,6 +598,11 @@ class Handler(BaseHTTPRequestHandler):
                 "dashboard_cache_valid": cache_valid,
                 "dashboard_ttl_seconds": _DASHBOARD_TTL,
                 "history_snapshots": history_len,
+                # P3-013: missed observations visible. On Render the FS is
+                # ephemeral — records vanish on spin-down, so the public demo
+                # is explicitly not a persistent archive (P3-010).
+                "forecast_log": {**forecast_log.status(),
+                                 "persistent": not IS_PRODUCTION},
             })
             return
 
@@ -658,7 +664,12 @@ def _run_due_jobs(last_fired: dict) -> None:
 
     if _job_due(EOD_SNAPSHOT_TIME_ET, et, last_fired["eod"], tradable):
         last_fired["eod"] = today
-        record_daily_snapshot(_fresh_dashboard(), today)
+        eod_data = _fresh_dashboard()
+        record_daily_snapshot(eod_data, today)
+        # P3-001: one immutable forecast record per trading day, then grade
+        # any prior forecasts whose next session has since completed.
+        forecast_log.record_forecast(eod_data, today)
+        forecast_log.grade_pending()
         logger.info("EOD snapshot recorded for %s", today)
 
     if notify.channels_configured() and \

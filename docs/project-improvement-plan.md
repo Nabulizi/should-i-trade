@@ -347,10 +347,10 @@ Treat this as a small model-version change.
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P1-029 | pending | Make band-change-only push default | Small integer moves do not prompt action |
-| P1-030 | pending | Add configurable hysteresis/persistence | One-point boundary oscillation prevented and tested |
-| P1-031 | pending | Estimate meaningful change threshold | Derived from historical score variability |
-| P1-032 | pending | Separate informational alerts from action | Alerts state observation and uncertainty only |
+| P1-029 | done | Make band-change-only push default | Small integer moves do not prompt action |
+| P1-030 | done | Add configurable hysteresis/persistence | One-point boundary oscillation prevented and tested |
+| P1-031 | done | Estimate meaningful change threshold | Derived from historical score variability |
+| P1-032 | done | Separate informational alerts from action | Alerts state observation and uncertainty only |
 
 ### P1 acceptance scenario
 
@@ -478,7 +478,7 @@ Outcomes are appended or joined later without mutating the forecast.
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P3-001 | pending | Implement 16:05 EOD track | Durable record on trading days using tested concept |
+| P3-001 | done | Implement 16:05 EOD track | Durable record on trading days using tested concept |
 | P3-002 | pending | Add 09:25 premarket track | Evaluated separately with time-available inputs |
 | P3-003 | pending | Add 10:00 early-session track | Partial-day features/time-normalized volume versioned separately |
 | P3-004 | pending | Add 12:00 midday track | Not pooled with EOD without stratification |
@@ -487,20 +487,20 @@ Outcomes are appended or joined later without mutating the forecast.
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P3-005 | pending | Define next-session realized volatility | Formula, bars, missing rules, delay documented |
-| P3-006 | pending | Define range size and efficiency | Same report definitions or explicit version |
-| P3-007 | pending | Define favorable/adverse excursion | Reference price and horizon explicit |
-| P3-008 | pending | Define return and large-move events | Direction separate from conditions interpretation |
-| P3-009 | pending | Set display sample-size minimums | No premature rolling metrics |
+| P3-005 | done | Define next-session realized volatility | Formula, bars, missing rules, delay documented |
+| P3-006 | done | Define range size and efficiency | Same report definitions or explicit version |
+| P3-007 | done | Define favorable/adverse excursion | Reference price and horizon explicit |
+| P3-008 | done | Define return and large-move events | Direction separate from conditions interpretation |
+| P3-009 | done | Set display sample-size minimums | No premature rolling metrics |
 
 ### P3-C — Persistence and auditability
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P3-010 | pending | Select durable storage | Render ephemeral filesystem is not called persistence |
-| P3-011 | pending | Make writes idempotent/recoverable | One record per model/track/session; retry safe |
-| P3-012 | pending | Add export and audit tooling | Hashes, gaps, and mutation can be checked |
-| P3-013 | pending | Surface scheduler health | Missed observations and stale jobs visible |
+| P3-010 | done | Select durable storage | Render ephemeral filesystem is not called persistence |
+| P3-011 | done | Make writes idempotent/recoverable | One record per model/track/session; retry safe |
+| P3-012 | done | Add export and audit tooling | Hashes, gaps, and mutation can be checked |
+| P3-013 | done | Surface scheduler health | Missed observations and stale jobs visible |
 
 ### P3-D — Self-grading UI
 
@@ -608,7 +608,7 @@ A task or phase is complete only when applicable conditions hold:
 | Q-003 | Which reliability components belong in v1 and how are they combined? | P1-002 |
 | Q-004 | Keep five descriptive pillars or target three factors in v7? | P2-012 |
 | Q-005 | Which outcome is primary for each horizon? | P2-001 |
-| Q-006 | Where should public-demo forecast records persist? | P3-010 |
+| Q-006 | ~~Where should public-demo forecast records persist?~~ Resolved: local-first JSONL; the Render demo is explicitly non-persistent (`/health` flags it) | P3-010 |
 | Q-007 | Keep classic UI supported or archive it? | Major P1 UI work |
 
 ---
@@ -623,3 +623,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-07-12 | 1.3 | PR-6 merged (#57) — P1-007..P1-011 done; conditions-band positions replace exposure directives | Claude |
 | 2026-07-12 | 1.4 | PR-7 merged (#58) — P1-019..P1-024 done. PR-8 introduces model v6.1: calendar overlays context-only, aligning live model with the replayed one | Claude |
 | 2026-07-12 | 1.5 | PR-8 merged (#59) — P1-025..P1-028 done. PR-9: band hysteresis (3 pts), SCORE_NOISE_DELTA_1D=14 derived from replay (median daily move), band-change-only push default | Claude |
+| 2026-07-12 | 1.6 | PR-9 merged (#60) — P1-029..P1-032 done. PR-10: prospective forecast log MVP (P3-001, P3-005..P3-013) — EOD track, predeclared outcomes (docs/prospective-log.md), idempotent JSONL + hash audit, /health visibility; Q-006 resolved local-first. CI gap closed: notify/watchlist/claims/ai-lens suites now enumerated | Claude |
