@@ -22,7 +22,7 @@ No subscriptions, no API keys, no cloud dependencies — all data comes from fre
 
 > Live dashboard running at `http://localhost:8765` — or try the **[live demo](https://should-i-trade.onrender.com)**
 
-The dashboard shows a composite **Market Quality Score (0–100)**, five scoring pillars, a trading decision recommendation, and a multi-persona AI roundtable discussion — all updated automatically every 60 seconds.
+The dashboard shows a composite **Market Quality Score (0–100)**, five scoring pillars, a trading decision recommendation, and a multi-persona AI roundtable discussion. The server refreshes market data at most every 60 seconds (cache TTL); the page picks up changes via SSE push and re-polls every 5 minutes.
 
 ---
 
@@ -74,7 +74,7 @@ Then open **http://localhost:8765** in your browser. The first load takes ~7–8
 - Read the score as a conditions/exposure dial: **55/70/85** mark descriptive bands (selective / constructive / strongest), not validated signal thresholds.
 - If the data-quality banner appears, treat the decision as disabled or stale until live market inputs recover.
 - The first full refresh is slower than later refreshes because the 60-second cache is empty.
-- To use Watchlist Health, place a TradingView-format `.txt` export in `watchlists/` and refresh `/api/watchlist-health`.
+- To use Watchlist Health, place a TradingView-format `.txt` export in `watchlists/` and refresh `/api/watchlist-health`. Personal exports are git-ignored; a generic `Watchlist_Example.txt` ships as the fallback default.
 
 ---
 
@@ -202,21 +202,21 @@ The score is a conditions/exposure dial. The **engage line is 55** (the tested e
 {
   "status": "ok",
   "uptime_seconds": 3721,
-  "cache_age_seconds": 14,
-  "cache_fresh": true,
-  "history_count": 48
+  "dashboard_cache_age_seconds": 14.2,
+  "dashboard_cache_valid": true,
+  "dashboard_ttl_seconds": 60,
+  "history_snapshots": 48
 }
 ```
 
 ### `/metrics` example response
 ```json
 {
+  "uptime_seconds": 3721,
   "requests": 412,
   "cache_hits": 398,
   "cache_misses": 14,
-  "errors": 0,
-  "dashboard_ttl_seconds": 60,
-  "uptime_seconds": 3721
+  "errors": 0
 }
 ```
 
@@ -369,6 +369,8 @@ and generated report all tell the same story.
 
 ---
 
-## Author
+## Author & License
 
 Built by **Nueraili Abulizi** as a personal pre-session market quality tool.
+
+Released under the [MIT License](LICENSE).

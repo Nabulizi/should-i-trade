@@ -31,9 +31,13 @@ backtest_results.csv
 *.log
 nohup.out
 
-# Local TradingView exports
+# Local TradingView exports are personal trading context — never committed.
+# Only the generic example ships with the repo (and the public demo).
 watchlists/*.txt
-!watchlists/Watchlist_Nur.txt
+!watchlists/Watchlist_Example.txt
+
+# PIT experiment cache
+.pit_cache/
 
 # Virtual environments
 venv/

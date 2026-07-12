@@ -272,8 +272,17 @@ function tag(label, color) {
   if (!label) return '';
   return `<span class="tag ${tagColor(color)}">${esc(label)}</span>`;
 }
+function srcLabel(src) {
+  // data_sources entries are { quote, history } — quotes and histories can
+  // come from different publishers (VIX quote: Yahoo, VIX history: CBOE).
+  if (!src) return '';
+  if (typeof src === 'string') return src;
+  if (src.history && src.history !== src.quote) return `${src.quote} · hist ${src.history}`;
+  return src.quote || '';
+}
 function mrow(key, val, tagLabel, tagCol, src) {
-  const srcHtml = src ? ` <span class="src-badge">${esc(src)}</span>` : '';
+  const label = srcLabel(src);
+  const srcHtml = label ? ` <span class="src-badge">${esc(label)}</span>` : '';
   return `<div class="metric-row">
     <span class="metric-key">${esc(key)}</span>
     <span class="metric-val">${esc(val ?? '')} ${tag(tagLabel, tagCol)}${srcHtml}</span>

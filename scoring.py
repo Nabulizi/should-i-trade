@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor as _TPE
 from typing import Any
 
 from data import (
-    get_quote, get_history, get_ohlcv,
+    get_quote, get_history, get_ohlcv, history_source,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
     opex_proximity, seasonality, earnings_season, fetch_futures_tape,
@@ -270,12 +270,22 @@ def clamp(v, lo=0, hi=100):
 
 
 _SOURCE_NAMES = {"yahoo": "Yahoo", "stooq": "Stooq",
-                 "coingecko": "CoinGecko", "binance": "Binance"}
+                 "coingecko": "CoinGecko", "binance": "Binance",
+                 "cboe": "CBOE", "treasury": "US Treasury"}
 
 def _src_label(q: dict | None) -> str:
     if not q:
         return "Yahoo"
     return _SOURCE_NAMES.get((q.get("source") or "yahoo").lower(), "Yahoo")
+
+
+def _hist_src_label(symbol: str) -> str:
+    """Provenance label of the last successful history fetch for symbol.
+    Quotes and histories can come from different publishers (e.g. VIX quote
+    from Yahoo, VIX history from CBOE) — label them separately, never claim
+    the official publisher for a live level it did not supply."""
+    src = history_source(symbol)
+    return _SOURCE_NAMES.get(src, "Yahoo") if src else "Yahoo"
 
 
 def pct(q, key="changePct"):
@@ -1654,10 +1664,10 @@ def compute_dashboard() -> DashboardResult:
         "vol_target":        vol_target_exposure(spy_closes_spliced),
         "timestamp":         mstate["et_time"],
         "data_sources": {
-            "vix": "CBOE",
-            "tnx": "US Treasury",
-            "spy": _src_label(quotes.get("SPY")),
-            "btc": _src_label(instruments["btc_q"]),
+            "vix": {"quote": _src_label(quotes.get("^VIX")), "history": _hist_src_label("^VIX")},
+            "tnx": {"quote": _src_label(quotes.get("^TNX")), "history": _hist_src_label("^TNX")},
+            "spy": {"quote": _src_label(quotes.get("SPY")),  "history": _hist_src_label("SPY")},
+            "btc": {"quote": _src_label(instruments["btc_q"]), "history": _hist_src_label("BTC-USD")},
         },
         "data_coverage": {"requested": requested, "fetched": fetched, "failed": failed},
         "data_quality":  data_quality,

@@ -28,7 +28,7 @@ _PARALLEL_TIMEOUT = 30
 # ─── cache ────────────────────────────────────────────────────────────────
 _CACHE: dict[str, tuple[float, str]] = {}
 _CACHE_LOCK = threading.Lock()
-_UA = "Mozilla/5.0 (compatible; ShouldITrade/5.0)"
+_UA = "Mozilla/5.0 (compatible; ShouldITrade/6.0)"
 
 # ─── circuit breaker ──────────────────────────────────────────────────────
 # Per-symbol failure tracking. Opens after CB_FAILURE_THRESHOLD consecutive
@@ -304,6 +304,17 @@ _OFFICIAL_SOURCES: dict[str, callable] = {
     "^VIX": cboe_vix_history,
     "^TNX": treasury_10y_history,
 }
+_OFFICIAL_SOURCE_NAMES = {"^VIX": "cboe", "^TNX": "treasury"}
+
+# Last-used history source per symbol ("cboe", "treasury", "yahoo", "stooq",
+# "binance") so the dashboard can label quote and history provenance
+# separately. Single-key str assignments are atomic under the GIL; no lock.
+_HISTORY_SOURCE: dict[str, str] = {}
+
+
+def history_source(symbol: str) -> str | None:
+    """Source of the most recent successful history fetch for symbol."""
+    return _HISTORY_SOURCE.get(symbol)
 
 
 # ─── unified getters (with fallback + circuit breaker) ───────────────────
@@ -337,14 +348,18 @@ def get_history(symbol: str, days: int = 220) -> list[float]:
             h = _OFFICIAL_SOURCES[symbol](limit=max(days + 80, 300))
             if len(h) >= 20:
                 _cb_success(symbol)
+                _HISTORY_SOURCE[symbol] = _OFFICIAL_SOURCE_NAMES[symbol]
                 return h
         h = yf_history(symbol, days)
         if len(h) >= 20:
             _cb_success(symbol)
+            _HISTORY_SOURCE[symbol] = "yahoo"
             return h
-        h2 = stooq_history(symbol) or h
+        h_stooq = stooq_history(symbol)
+        h2 = h_stooq or h
         if h2:
             _cb_success(symbol)
+            _HISTORY_SOURCE[symbol] = "stooq" if h_stooq else "yahoo"
         else:
             _cb_failure(symbol)
         return h2
@@ -478,13 +493,17 @@ def btc_quote() -> dict | None:
 def btc_history() -> list[float]:
     h = yf_history("BTC-USD", 220)
     if len(h) >= 20:
+        _HISTORY_SOURCE["BTC-USD"] = "yahoo"
         return h
     # Binance klines fallback
     try:
         body = fetch_url(
             "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=220",
             cache_secs=600)
-        return [float(k[4]) for k in json.loads(body)]
+        closes = [float(k[4]) for k in json.loads(body)]
+        if closes:
+            _HISTORY_SOURCE["BTC-USD"] = "binance"
+        return closes
     except Exception:
         return []
 

@@ -94,6 +94,11 @@ WL_EXTENDED_RSI: float = 72
 WL_EXTENDED_DIST: float = 0.08
 """Price more than this fraction above the 20d MA marks a symbol as extended."""
 
+WL_MIN_HISTORY_BARS: int = 60
+"""Minimum daily bars required before a watchlist symbol is trend-classified.
+Below this it reads 'No Data' — with too few bars every MA is None, which
+would misclassify a healthy new listing as 'below 20/50/200d'."""
+
 # ── Vol-Target Exposure Dial ──────────────────────────────────────────────────
 # See docs/backtest-report.md, Strategy Comparison: the no-pillar baseline that
 # beat the Score>=55 rule on return, Sharpe, and max drawdown. VOL_TARGET_K was

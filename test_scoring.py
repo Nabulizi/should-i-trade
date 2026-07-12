@@ -16,7 +16,8 @@ import types as _stdlib_types
 # ── stub the data module so scoring.py imports cleanly without network calls ──
 _data_stub = _stdlib_types.ModuleType("data")
 for _fn in [
-    "get_quote", "get_history", "get_ohlcv", "btc_quote", "btc_history",
+    "get_quote", "get_history", "get_ohlcv", "history_source",
+    "btc_quote", "btc_history",
     "market_state", "fomc_proximity", "econ_proximity",
     "fetch_fear_greed_stock", "fetch_fear_greed_crypto",
     "opex_proximity", "seasonality", "earnings_season", "fetch_futures_tape",

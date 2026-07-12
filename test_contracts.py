@@ -217,6 +217,21 @@ class TestDashboardContracts(unittest.TestCase):
     def test_data_sources_is_dict(self):
         self.assertIsInstance(self.payload["data_sources"], dict)
 
+    def test_data_sources_split_quote_and_history(self):
+        """P0-022: quote and history provenance are labeled separately, and a
+        live level is never blanket-labeled with the official history
+        publisher (the old payload hardcoded vix='CBOE', tnx='US Treasury')."""
+        ds = self.payload["data_sources"]
+        for key in ("vix", "tnx", "spy", "btc"):
+            with self.subTest(source=key):
+                self.assertIsInstance(ds[key], dict)
+                self.assertIn("quote", ds[key])
+                self.assertIn("history", ds[key])
+        # Fixture quotes come from the generic fetcher — the quote label must
+        # not claim the official publishers.
+        self.assertNotIn(ds["vix"]["quote"], ("CBOE",))
+        self.assertNotIn(ds["tnx"]["quote"], ("US Treasury",))
+
     def test_market_state_shape(self):
         required = set(MarketState.__required_keys__)
         self.assertFalse(required - set(self.payload["market_state"]))

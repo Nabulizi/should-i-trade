@@ -14,6 +14,7 @@ from typing import Any
 from data import get_quote, get_history
 from config import (
     WL_MA20_NEAR_PCT, WL_MA50_NEAR_PCT, WL_EXTENDED_RSI, WL_EXTENDED_DIST,
+    WL_MIN_HISTORY_BARS,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,25 @@ _SYMBOL_RE = re.compile(r'^[A-Z0-9.\-\^=]{1,20}$')
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WATCHLIST_DIR = os.path.join(SCRIPT_DIR, "watchlists")
-DEFAULT_WATCHLIST = os.path.join(WATCHLIST_DIR, "Watchlist_Nur.txt")
+EXAMPLE_WATCHLIST_NAME = "Watchlist_Example.txt"
+
+
+def _default_watchlist() -> str:
+    """Prefer a personal (git-ignored) export when one exists; otherwise the
+    tracked example. The public demo ships only the example — personal
+    watchlists never leave the local machine."""
+    try:
+        personal = sorted(
+            f for f in os.listdir(WATCHLIST_DIR)
+            if f.lower().endswith(".txt") and f != EXAMPLE_WATCHLIST_NAME
+        )
+    except OSError:
+        personal = []
+    name = personal[0] if personal else EXAMPLE_WATCHLIST_NAME
+    return os.path.join(WATCHLIST_DIR, name)
+
+
+DEFAULT_WATCHLIST = _default_watchlist()
 
 UNSUPPORTED_PREFIXES = {"CRYPTOCAP"}
 TACTICAL_SYMBOLS = {"BITI", "METD", "TSLL", "TSLZ", "TQQQ", "SQQQ", "UVXY"}
@@ -246,7 +265,10 @@ def _classify(symbol: str, tv_symbol: str, asset_type: str,
     extended = bool((rsi and rsi >= WL_EXTENDED_RSI)
                     or (price and ma20 and price > ma20 * (1 + WL_EXTENDED_DIST)))
 
-    if not q or not clean_closes:
+    # P0-023: a symbol with too little history must read "No Data" — with a
+    # handful of bars every MA is None, which would otherwise classify a
+    # perfectly healthy stock as "below 20/50/200d" (Broken/Avoid).
+    if not q or len(clean_closes) < WL_MIN_HISTORY_BARS:
         bucket, label = "unavailable", "No Data"
     elif above20 and above50 and above200 and not extended and score >= 75:
         bucket, label = "a_plus", "Strong Trend"
@@ -260,6 +282,9 @@ def _classify(symbol: str, tv_symbol: str, asset_type: str,
         bucket, label = "neutral", "Neutral"
     entry_state, entry_color = _entry_state(bucket, ret_1m)
     why = _why_text(bucket, above20, above50, above200, rsi, ret_1m, dist_20, dist_50)
+    if bucket == "unavailable":
+        why = (f"insufficient history ({len(clean_closes)}/{WL_MIN_HISTORY_BARS} bars)"
+               if q else "quote unavailable")
 
     return {
         "tv_symbol": tv_symbol,
@@ -365,8 +390,9 @@ def compute_watchlist_health(path: str = DEFAULT_WATCHLIST,
         "unavailable": [r for r in rows if r["bucket"] == "unavailable"],
     }
     return {
+        # Basename only — absolute server paths must never appear in the
+        # public payload (P0-024).
         "name": os.path.basename(path),
-        "path": path,
         "total": len(tokens),
         "mapped": len(mapped),
         "scanned": len(rows),
