@@ -76,8 +76,7 @@
   .decision-context { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 0; border-top: none; color: var(--muted); }
   .dc-row { display: flex; align-items: center; gap: 8px; }
   .dc-label { letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 70px; }
-  .confidence-bar { display: flex; gap: 3px; }
-  .conf-seg { width: 14px; height: 4px; border-radius: 2px; }
+  .dc-asof { color: var(--muted); font-size: 11px; letter-spacing: 0.4px; }
   .streak-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .4px; }
   .streak-badge.streak-up { background: rgba(0,230,118,0.12); color: var(--green); }
   .streak-badge.streak-down { background: rgba(255,23,68,0.10); color: var(--red); }

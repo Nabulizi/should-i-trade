@@ -221,8 +221,7 @@
   .dc-row { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted2); }
   .dc-label { letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 62px; }
   .dc-posture { font-size: 10px; color: var(--text); font-weight: 600; line-height: 1.4; }
-  .confidence-bar { display: flex; gap: 3px; }
-  .conf-seg { width: 18px; height: 3px; border-radius: 1px; }
+  .dc-asof { color: var(--muted); font-size: 11px; letter-spacing: 0.4px; }
 
   /* ── ROUNDTABLE ── */
   .roundtable-section { display: flex; flex-direction: column; gap: 10px; }

@@ -207,21 +207,17 @@ function renderHero(d) {
                 : s >= 55 ? 'Mixed conditions — internal signals disagree'
                 : s >= 40 ? 'Weak, choppy conditions with elevated adverse-move risk'
                 :           'Stressed or structurally weak conditions — descriptive only, not a timing signal');
-  const confLevel = invalidData ? 0 : s >= 85 ? 5 : s >= 70 ? 4 : s >= 55 ? 3 : s >= 40 ? 2 : 1;
-  const confColor = invalidData ? 'var(--red)' : s >= 70 ? 'var(--green)' : s >= 55 ? 'var(--yellow)' : s >= 40 ? 'var(--orange)' : 'var(--red)';
-  const confSegs  = [1,2,3,4,5].map(i =>
-    `<div class="conf-seg" style="background:${i <= confLevel ? confColor : 'var(--border)'}"></div>`
-  ).join('');
   const regimeTag = regime
     ? `<span class="tag ${regime.toLowerCase().includes('up') ? 'green' : regime.toLowerCase().includes('down') ? 'red' : 'yellow'}">${esc(regime)}</span>`
     : '';
   const ctx = $('decision-context');
   ctx.style.display = 'flex';
   ctx.innerHTML = `
+    ${asOfLine(d.as_of)}
     ${regime ? `<div class="dc-row"><span class="dc-label">Regime</span>${regimeTag}</div>` : ''}
     <div class="dc-posture">${posture}</div>
     ${volTargetLine(d.vol_target)}
-    <div class="dc-row"><span class="dc-label">Confidence</span><div class="confidence-bar">${confSegs}</div></div>
+    ${reliabilityLine(d.reliability)}
   `;
 
   const circ = 289;
@@ -671,6 +667,34 @@ function volTargetLine(volTarget) {
   if (!volTarget || typeof volTarget.exposure_pct !== 'number') return '';
   return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol-target</span>` +
     `<span>~${Math.round(volTarget.exposure_pct)}% exposure — no-pillar baseline that beat the score in the 2005–2026 backtest</span></div>`;
+}
+
+// P1-001/D-004: the old "confidence" bar was the score re-banded — score
+// direction is not model confidence. Reliability comes from the backend and
+// reflects input trust only (coverage, critical inputs, band-edge distance).
+function reliabilityLine(rel) {
+  if (!rel || !rel.level) return '';
+  const names  = { high: 'High', medium: 'Medium', low: 'Low', none: 'Data unavailable' };
+  const colors = { high: 'green', medium: 'yellow', low: 'orange', none: 'red' };
+  const label = `${names[rel.level] || rel.level} · ${Math.round(rel.coverage_pct ?? 0)}% coverage`;
+  return `<div class="dc-row" id="reliability-line"><span class="dc-label">Reliability</span>${tag(label, colors[rel.level] || 'gray')}</div>`;
+}
+
+// P1-004/P1-005: computation time ≠ observation time. Outside regular hours,
+// say plainly which session's close the reading is based on.
+function asOfLine(asOf) {
+  if (!asOf || !asOf.session || asOf.session === 'open') return '';
+  const dataDate = asOf.market_data_as_of || asOf.history_last_bar;
+  if (!dataDate) return '';
+  const framing = {
+    weekend:    'Market closed (weekend)',
+    closed:     'Market closed',
+    afterhours: 'After hours',
+    premarket:  'Premarket',
+  }[asOf.session] || 'Market closed';
+  const note = (asOf.session === 'weekend' || asOf.session === 'closed')
+    ? ' · planning context only' : '';
+  return `<div class="dc-asof">${esc(framing)} — based on ${esc(dataDate)} regular-session close${note}</div>`;
 }
 
 function buildWeightScenario(data) {

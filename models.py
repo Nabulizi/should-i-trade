@@ -201,6 +201,29 @@ class VolTargetInfo(TypedDict):
     realized_vol_pct: float
 
 
+class AsOf(TypedDict):
+    """Computation time vs market-observation time (P1-003/P1-005).
+
+    A Saturday-night calculation shows Friday's close — these fields keep
+    that distinction explicit instead of one ambiguous timestamp.
+    """
+
+    calculated_at: str          # ISO-8601 ET, when this payload was computed
+    market_data_as_of: str | None   # date of the last SPY trade
+    history_last_bar: str | None    # date of the last daily history bar
+    session: str                # open | closed | premarket | afterhours | weekend
+
+
+class Reliability(TypedDict):
+    """Direction-independent reliability of the reading (P1-002, D-004)."""
+
+    level: str                  # high | medium | low | none
+    coverage_pct: float
+    critical_ok: bool
+    boundary_distance: int      # points to the nearest band edge
+    pillar_spread: int          # max - min pillar score (context only)
+
+
 class _DashboardResultRequired(TypedDict):
     """Required payload returned by ``compute_dashboard()`` in scoring.py."""
 
@@ -229,6 +252,8 @@ class _DashboardResultRequired(TypedDict):
     spy_streak: SpyStreak
     vol_target: VolTargetInfo | None
     timestamp: str
+    as_of: AsOf
+    reliability: Reliability
     data_sources: DataSources
     data_coverage: DataCoverage
     data_quality: DataQuality
