@@ -641,11 +641,11 @@ function saveWeightsLS(w) { localStorage.setItem('pillarWeights', JSON.stringify
 function isDefaultWeights(w) { return WEIGHT_KEYS.every(k => Number(w[k]) === DEFAULT_WEIGHTS[k]); }
 
 const FALLBACK_DECISION_BANDS = [
-  { min: 85, decision: 'RISK-ON', color: 'green', position: 'FULL EXPOSURE' },
-  { min: 70, decision: 'CONSTRUCTIVE', color: 'green', position: 'STANDARD EXPOSURE' },
-  { min: 55, decision: 'SELECTIVE', color: 'yellow', position: 'MODERATE EXPOSURE' },
-  { min: 40, decision: 'DE-RISK', color: 'orange', position: 'REDUCED EXPOSURE' },
-  { min: 0, decision: 'RISK-OFF', color: 'red', position: 'DEFENSIVE / FLAT' }
+  { min: 85, decision: 'RISK-ON', color: 'green', position: 'STRONGEST CONDITIONS' },
+  { min: 70, decision: 'CONSTRUCTIVE', color: 'green', position: 'CONSTRUCTIVE CONDITIONS' },
+  { min: 55, decision: 'SELECTIVE', color: 'yellow', position: 'MIXED CONDITIONS' },
+  { min: 40, decision: 'DE-RISK', color: 'orange', position: 'WEAK CONDITIONS' },
+  { min: 0, decision: 'RISK-OFF', color: 'red', position: 'STRESSED CONDITIONS' }
 ];
 
 function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
@@ -663,10 +663,21 @@ function decisionForScore(total, bands = FALLBACK_DECISION_BANDS) {
 // vol-target baseline that beat the score-timing rule. Pure HTML-string
 // renderer so it is unit-testable; returns '' to hide the line when the
 // payload field is null or malformed.
+// P1-007/P1-008 (D-003): illustrative SPY volatility budget — annualized
+// units, explicit target/realized/horizon, not personalized. The classic UI
+// renders the backend default target only (no selector).
 function volTargetLine(volTarget) {
   if (!volTarget || typeof volTarget.exposure_pct !== 'number') return '';
-  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol-target</span>` +
-    `<span>~${Math.round(volTarget.exposure_pct)}% exposure — no-pillar baseline that beat the score in the 2005–2026 backtest</span></div>`;
+  const realized = volTarget.realized_annual_vol_pct;
+  const target = volTarget.target_annual_vol_pct;
+  const windowDays = volTarget.window_days ?? 20;
+  const realizedTxt = typeof realized === 'number'
+    ? `${windowDays}d realized vol ${realized}% annualized`
+    : `daily vol ${volTarget.realized_vol_pct}%`;
+  const targetTxt = typeof target === 'number' ? `${target}% annual-vol target` : 'vol target';
+  return `<div class="dc-row" id="vol-target-line"><span class="dc-label">Vol budget</span>` +
+    `<span>~${Math.round(volTarget.exposure_pct)}% SPY-equivalent exposure for a ${targetTxt} · ${realizedTxt} · ` +
+    `illustrative and SPY-only, before costs — not personalized advice</span></div>`;
 }
 
 // P1-001/D-004: the old "confidence" bar was the score re-banded — score

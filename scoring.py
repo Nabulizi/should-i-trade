@@ -73,15 +73,15 @@ MIN_SECTOR_HISTORY_POINTS = 64
 # so directive sizing/entry copy would overstate the evidence. Guarded by
 # test_claims.py.
 DECISION_BANDS = [
-    {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "FULL EXPOSURE",
+    {"min": 85, "decision": "RISK-ON",      "color": "green",  "position": "STRONGEST CONDITIONS",
      "action": "Calm, broad, established uptrend conditions"},
-    {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "STANDARD EXPOSURE",
+    {"min": 70, "decision": "CONSTRUCTIVE", "color": "green",  "position": "CONSTRUCTIVE CONDITIONS",
      "action": "Positive trend with generally supportive participation"},
-    {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MODERATE EXPOSURE",
+    {"min": 55, "decision": "SELECTIVE",    "color": "yellow", "position": "MIXED CONDITIONS",
      "action": "Mixed conditions — internal signals disagree"},
-    {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "REDUCED EXPOSURE",
+    {"min": 40, "decision": "DE-RISK",      "color": "orange", "position": "WEAK CONDITIONS",
      "action": "Weak, choppy conditions with elevated adverse-move risk"},
-    {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "DEFENSIVE / FLAT",
+    {"min": 0,  "decision": "RISK-OFF",     "color": "red",    "position": "STRESSED CONDITIONS",
      "action": "Stressed or structurally weak conditions — descriptive only, not a timing signal"},
 ]
 
@@ -159,7 +159,7 @@ def decision_for_score(total: int) -> tuple[str, str, str]:
     for band in DECISION_BANDS:
         if total >= band["min"]:
             return band["decision"], band["color"], band["position"]
-    return "RISK-OFF", "red", "DEFENSIVE / FLAT"
+    return "RISK-OFF", "red", "STRESSED CONDITIONS"
 
 
 def build_data_quality(quotes: dict, requested: int, fetched: int, failed: list[str],
@@ -1429,12 +1429,21 @@ def _fetch_instruments() -> dict:
 
 
 def vol_target_exposure(closes: list[float]) -> VolTargetInfo | None:
-    """Evidence-backed exposure dial: clamp(VOL_TARGET_K / realized vol, 0..100%).
+    """Illustrative SPY volatility budget (P1-007/P1-008, decision D-003).
+
+    spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0..100%)
+    where realized_annual_vol = std(daily returns, VOL_TARGET_WINDOW) * sqrt(252).
+
+    The default target is the backtest calibration (VOL_TARGET_K percent daily
+    ~= 7.8% annualized — the no-pillar baseline in docs/backtest-report.md).
+    This is a comparative market-level calculation: SPY-only, trailing window,
+    before costs, no covariance with anything else the user holds. It is NOT
+    a personalized allocation. The ratio is unit-invariant, so annualizing
+    changes labels, not the exposure number.
 
     closes: chronological adjusted closes (most recent last); needs at least
     VOL_TARGET_WINDOW + 1 points. Returns None when history is insufficient,
-    contains non-positive prices, or volatility is zero. Vol units match the
-    backtest calibration: PERCENT daily returns (see config.VOL_TARGET_K).
+    contains non-positive prices, or volatility is zero.
     """
     if not closes or len(closes) < VOL_TARGET_WINDOW + 1:
         return None
@@ -1447,8 +1456,15 @@ def vol_target_exposure(closes: list[float]) -> VolTargetInfo | None:
     vol = var ** 0.5
     if vol <= 0:
         return None
+    annualize = 252 ** 0.5
     exposure = min(100.0, max(0.0, 100.0 * VOL_TARGET_K / vol))
-    return {"exposure_pct": round(exposure, 1), "realized_vol_pct": round(vol, 2)}
+    return {
+        "exposure_pct": round(exposure, 1),
+        "realized_vol_pct": round(vol, 2),                        # daily, legacy
+        "realized_annual_vol_pct": round(vol * annualize, 1),
+        "target_annual_vol_pct": round(VOL_TARGET_K * annualize, 1),
+        "window_days": VOL_TARGET_WINDOW,
+    }
 
 
 def _day_streak(closes: list[float]) -> dict:
@@ -1584,12 +1600,12 @@ def _apply_overrides(total: int, pillars: dict, data_quality: dict) -> tuple[int
             safety_max_score = 54 if safety_max_score is None else min(safety_max_score, 54)
             if total > 54:
                 total = 54
-            override_reasons.append("SPY below 200d MA - bear market regime, score capped at NO")
+            override_reasons.append("SPY below 200d MA — bear-market regime, score capped at 54")
 
     if not data_quality["valid"]:
         total = 0
         safety_max_score = 0
-        decision, dc, pos = "DATA UNAVAILABLE", "red", "NO TRADE"
+        decision, dc, pos = "DATA UNAVAILABLE", "red", "NO READING"
         override_reasons.insert(0, data_quality["message"])
     else:
         decision, dc, pos = decision_for_score(total)
