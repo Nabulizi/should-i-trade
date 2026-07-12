@@ -441,8 +441,28 @@ def test_macro() -> None:
                                   btc_q=None, btc_closes=[],
                                   fomc=fomc_near)
     ok("Bearish macro + FOMC tomorrow → score ≤ 55", r_bear["score"] <= 55)
-    ok("FOMC in 1d → '-15 FOMC' reason present",
-       any("FOMC" in reason for reason in r_bear["reasons"]))
+    ok("FOMC in 1d → context-only FOMC reason present",
+       any("FOMC" in reason and "context only" in reason for reason in r_bear["reasons"]))
+
+    # v6.1 (P1-025..027): calendar overlays are context-only — identical
+    # market inputs must score identically regardless of FOMC/OpEx/season.
+    r_far  = scoring.score_macro(quotes_bear, tnx_rising, dxy_rising,
+                                 btc_q=None, btc_closes=[], fomc=fomc_far)
+    ok("v6.1: FOMC proximity does not move the macro score",
+       r_bear["score"] == r_far["score"])
+    r_opex = scoring.score_macro(quotes_bear, tnx_rising, dxy_rising,
+                                 btc_q=None, btc_closes=[], fomc=fomc_far,
+                                 opex={"days_until": 0, "kind": "Monthly OpEx"})
+    ok("v6.1: OpEx day does not move the macro score",
+       r_opex["score"] == r_far["score"])
+    ok("v6.1: OpEx context reason present",
+       any("OpEx" in reason and "context only" in reason for reason in r_opex["reasons"]))
+    r_seas = scoring.score_macro(quotes_bear, tnx_rising, dxy_rising,
+                                 btc_q=None, btc_closes=[], fomc=fomc_far,
+                                 season={"score_adj": -5, "label": "September",
+                                         "bias": "Historically weak", "color": "red"})
+    ok("v6.1: seasonality does not move the macro score",
+       r_seas["score"] == r_far["score"])
 
     # Yield curve: inverted (^IRX > ^TNX)
     quotes_inv = dict(quotes_bull)

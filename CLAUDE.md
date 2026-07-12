@@ -81,7 +81,7 @@ watchlist.py  TradingView-format watchlist health scoring
 - **Breadth** (25%): Sector advance/decline, RSP vs SPY, % sectors above 200-day
 - **Momentum** (20%): RSP/SPY relative strength, IWM leadership, sector rotation
 - **Volatility** (15%): VIX level/trend/percentile, term structure (VIX9D/VIX3M), SKEW, option flow
-- **Macro** (10%): 10Y yield, DXY, yield curve, HYG credit, BTC, GLD, FOMC proximity
+- **Macro** (10%): 10Y yield, DXY, yield curve, HYG credit, BTC, GLD (FOMC/OpEx/seasonality context-only since model v6.1)
 
 Decision bands: ≥85 RISK-ON → 70 CONSTRUCTIVE → 55 SELECTIVE → 40 DE-RISK → <40 RISK-OFF (descriptive bands, not validated thresholds).
 

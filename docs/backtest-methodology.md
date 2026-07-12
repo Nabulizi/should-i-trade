@@ -82,6 +82,14 @@ Those overlays use current-date logic and hand-maintained future calendars, so
 they are intentionally excluded from the historical hypothesis test. The market
 data pillars and safety overrides remain active.
 
+**Model v6.1 (2026-07-12, P1-025..P1-028):** the live engine no longer scores
+these overlays either — they are context-only in the UI. This aligns the live
+composite exactly with the replayed one, so the published report validates the
+live model without a rerun. Before v6.1 the overlays could drag the macro
+pillar by up to −25 points (FOMC ≤1d −15, OpEx day −5, seasonal bias ±5),
+i.e. at most −2.5 composite points at the 10% macro weight; a typical
+FOMC-window day carried −0.3 to −0.8 composite points of drag.
+
 ## Metrics To Check
 
 When validating a change, inspect at least:
