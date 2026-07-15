@@ -25,6 +25,19 @@ The README summarizes the composite score conservatively:
   negative — calm, high-score tape was followed by slightly choppier
   sessions than stressed tape.
 - The current engagement threshold under test is 55, not 70.
+- The forward-VOLATILITY claim passed a preregistered test (QR-010 in the
+  quant-research repo, frozen spec, single run 2026-07-15): low scores
+  preceded elevated 21-day realized SPY volatility (block Spearman -0.44,
+  p < 1e-5; bottom score quintile 24.8% vs top 12.2% annualized forward
+  vol; negative in all four subperiods). Preregistered wording gate: the
+  result is consistent with known volatility persistence — same-day VIX
+  (rho 0.66) and trailing realized vol (0.56) each predicted forward vol
+  BETTER than the composite (0.44), so the score demonstrates no added
+  forecasting information beyond VIX. The score also separates only the
+  worst regime quintile from the rest (quintile means 24.8/16.9/12.2/12.1/
+  12.2): it is a "bad tape" detector, not a graded dial at the top.
+  Reproduce: `python3 backtest_vol.py`; record in
+  quant-research `results/QR-010-mqs-volatility/`.
 
 Keep this claim attached to the exact implementation in `backtest.py` and the
 current scoring engine. If scoring rules or thresholds change, rerun and update
