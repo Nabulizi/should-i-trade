@@ -898,6 +898,113 @@ def econ_proximity() -> list[dict]:
     return sorted(upcoming, key=lambda x: x["days_until"])[:3]
 
 
+# ─── Extended economic calendar (tier-2, rule-derived) ──────────────────────
+# _ECON_CALENDAR above is the tier-1 list: hand-maintained, deliberately short,
+# and the only thing econ_proximity() (and therefore the dashboard's "next 3
+# releases") reads.  Do NOT add tier-2 events to it — they would crowd CPI/NFP
+# out of the UI.
+#
+# The releases below land on fixed rules, so they are derived instead of typed
+# out: no annual maintenance and they can never go stale.  Releases whose date
+# is NOT rule-derivable (PCE, retail sales, and every foreign print) are
+# deliberately absent — a guessed date presented as ground truth is worse than
+# no date at all.  Consumers must source those elsewhere.
+_TIER2_RULES = {
+    "CLAIMS":     ("Jobless Claims",       "08:30"),
+    "ISM_MFG":    ("ISM Manufacturing",    "10:00"),
+    "ISM_SVC":    ("ISM Services",         "10:00"),
+    "CONF_BOARD": ("Consumer Confidence",  "10:00"),
+    "UMICH_P":    ("UMich Sentiment (P)",  "10:00"),
+    "UMICH_F":    ("UMich Sentiment (F)",  "10:00"),
+}
+
+
+def _nth_business_day(y: int, month: int, n: int) -> date:
+    """Return the nth business day (1-based) of the given month, skipping NYSE holidays."""
+    holidays = _nyse_holidays(y)
+    d, seen = date(y, month, 1), 0
+    while True:
+        if d.weekday() < 5 and d not in holidays:
+            seen += 1
+            if seen == n:
+                return d
+        d += timedelta(days=1)
+
+
+def _last_weekday_of_month(y: int, month: int, weekday: int) -> date:
+    """Return the last occurrence of weekday (0=Mon) in the given month/year."""
+    d = date(y + (month == 12), (month % 12) + 1, 1) - timedelta(days=1)
+    return d - timedelta(days=(d.weekday() - weekday) % 7)
+
+
+def econ_calendar_extended(start: date, end: date) -> list[tuple]:
+    """Rule-derived tier-2 US releases falling in [start, end], as (date, type, name, time_et).
+
+    Weekly jobless claims move to Wednesday when Thursday is a market holiday;
+    that is the only holiday shift applied.
+    """
+    out: list[tuple] = []
+
+    # Weekly: jobless claims every Thursday (Wednesday on holiday weeks).
+    d = start + timedelta(days=(3 - start.weekday()) % 7)   # first Thursday >= start
+    while d <= end:
+        released = d - timedelta(days=1) if d in _nyse_holidays(d.year) else d
+        if start <= released <= end:
+            name, t = _TIER2_RULES["CLAIMS"]
+            out.append((released.isoformat(), "CLAIMS", name, t))
+        d += timedelta(days=7)
+
+    # Monthly: walk each month touched by the window.
+    y, m = start.year, start.month
+    while date(y, m, 1) <= end:
+        for etype, when in (
+            ("ISM_MFG",    _nth_business_day(y, m, 1)),
+            ("ISM_SVC",    _nth_business_day(y, m, 3)),
+            ("CONF_BOARD", _last_weekday_of_month(y, m, 1)),   # last Tuesday
+            ("UMICH_P",    _nth_weekday(y, m, 4, 2)),          # 2nd Friday
+            ("UMICH_F",    _last_weekday_of_month(y, m, 4)),   # last Friday
+        ):
+            if start <= when <= end:
+                name, t = _TIER2_RULES[etype]
+                out.append((when.isoformat(), etype, name, t))
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+
+    return sorted(out)
+
+
+def econ_calendar_window(days_ahead: int = 7) -> list[dict]:
+    """Merged tier-1 + tier-2 + FOMC calendar for the next `days_ahead` days.
+
+    Entries carry `tier`: 1 = hand-verified date, 2 = derived from a fixed rule
+    (right in the overwhelming majority of months, but confirm before relying on
+    an exact date).  Built for the briefing routines, which need the full picture;
+    the dashboard keeps using econ_proximity() and sees tier-1 only.
+    """
+    today = datetime.now(timezone.utc).date()
+    end = today + timedelta(days=days_ahead)
+    events: list[dict] = []
+
+    for date_str, etype, name in _ECON_CALENDAR:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if today <= d <= end:
+            events.append({"date": date_str, "type": etype, "name": name,
+                           "time_et": "08:30", "tier": 1})
+
+    for date_str, etype, name, t in econ_calendar_extended(today, end):
+        events.append({"date": date_str, "type": etype, "name": name,
+                       "time_et": t, "tier": 2})
+
+    for date_str in _FOMC_2026_2027:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if today <= d <= end:
+            events.append({"date": date_str, "type": "FOMC", "name": "FOMC Decision",
+                           "time_et": "14:00", "tier": 1})
+
+    return sorted(events, key=lambda e: (e["date"], e["time_et"]))
+
+
 # ─── Options Expiration calendar ──────────────────────────────────────────────
 # Standard monthly OpEx = 3rd Friday of each month.
 # Quarterly (Mar/Jun/Sep/Dec) = "Triple Witching" — stock futures + index options

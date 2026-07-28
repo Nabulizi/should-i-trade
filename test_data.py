@@ -13,7 +13,7 @@ via unittest.mock so no network calls are made.
 """
 from __future__ import annotations
 import sys, time, unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import patch, MagicMock
 
 # ── isolate config imports so tests work regardless of CWD ────────────────
@@ -378,6 +378,42 @@ class TestCalendarFreshness(unittest.TestCase):
             self.MIN_FUTURE_DAYS,
             f"_FOMC_2026_2027 expires in {days} days; extend data.py before it goes stale.",
         )
+
+
+class TestExtendedEconCalendar(unittest.TestCase):
+    """Tier-2 releases are derived from fixed rules, so pin the rules."""
+
+    def test_claims_are_thursdays_shifting_off_holidays(self):
+        # Thanksgiving 2026 falls Thu Nov 26 -> claims move to Wed Nov 25.
+        events = data.econ_calendar_extended(date(2026, 11, 20), date(2026, 11, 30))
+        claims = [e[0] for e in events if e[1] == "CLAIMS"]
+        self.assertEqual(claims, ["2026-11-25"])
+
+        # A normal week keeps Thursday.
+        events = data.econ_calendar_extended(date(2026, 8, 3), date(2026, 8, 9))
+        claims = [e[0] for e in events if e[1] == "CLAIMS"]
+        self.assertEqual(claims, ["2026-08-06"])
+
+    def test_ism_uses_business_days_not_calendar_days(self):
+        # Jan 1 2027 is a holiday and Jan 2-3 a weekend, so the 1st business
+        # day is Mon Jan 4 and the 3rd is Wed Jan 6.
+        events = data.econ_calendar_extended(date(2027, 1, 1), date(2027, 1, 10))
+        by_type = {e[1]: e[0] for e in events}
+        self.assertEqual(by_type["ISM_MFG"], "2027-01-04")
+        self.assertEqual(by_type["ISM_SVC"], "2027-01-06")
+
+    def test_window_merges_tiers_and_stays_sorted(self):
+        events = data.econ_calendar_window(30)
+        self.assertTrue(events, "expected at least one event in a 30-day window")
+        self.assertEqual([e["date"] for e in events],
+                         sorted(e["date"] for e in events))
+        self.assertTrue({e["tier"] for e in events} <= {1, 2})
+
+    def test_dashboard_calendar_is_unpolluted_by_tier2(self):
+        # econ_proximity() drives the UI's "next 3 releases" and must keep
+        # showing only the hand-verified tier-1 list.
+        names = {e["name"] for e in data.econ_proximity()}
+        self.assertFalse(names & {n for n, _ in data._TIER2_RULES.values()})
 
 
 class TestEtNow(unittest.TestCase):
