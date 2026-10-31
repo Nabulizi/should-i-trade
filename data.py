@@ -420,7 +420,8 @@ _FRED_UA = "Python-urllib/3"    # FRED hangs on Mozilla-style agents (_UA) until
 # Real and 2Y yields agreed in 70 of 72 replayed weeks, so they share one vote.
 _SHARED_VOTE_KEYS = {"real_yield", "two_year"}
 _LIQUIDITY_HEADLINE_VOTES = 2
-_LIQUIDITY_READ_NOTE = ("USD is the Fed's broad index, not DXY; HY spread is a prior close, not live HYG. "
+_LIQUIDITY_READ_NOTE = ("USD is the Fed's broad index, not DXY. HY spread measures credit risk; "
+                        "HYG's label is its price vs its 50-day average. "
                         "Inputs act with long lags. Direction context, not an entry or timing signal.")
 _FRED_RETRY_SECS = 900
 _FRED_LAST_GOOD: dict[str, list] = {}
