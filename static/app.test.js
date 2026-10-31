@@ -17,6 +17,8 @@ import {
   asOfLine,
   buildLiquidityChips,
   liquidityVotesLine,
+  liquidityLongerLine,
+  liquidityNoteHtml,
 } from './app.js';
 
 beforeEach(() => {
@@ -57,6 +59,21 @@ describe('buildLiquidityChips', () => {
   it('counts votes so a Neutral headline does not sit beside a lopsided count', () => {
     expect(liquidityVotesLine({ valid: true, loosening_votes: 1, tightening_votes: 0 })).toBe('Votes: 1 looser · 0 tighter');
     expect(liquidityVotesLine({ valid: false })).toBe('No read');
+  });
+
+  it('does not paint a loosening series as a positive signal', () => {
+    expect(buildLiquidityChips([item])).not.toContain('future-chg up');
+  });
+
+  it('shows the longer reading beside the 4-week one', () => {
+    expect(liquidityLongerLine({ longer: { lookback_weeks: 13, tone: 'Tightening' } })).toBe('13 weeks: Tightening');
+    expect(liquidityLongerLine({ longer: { lookback_weeks: 13, tone: 'Unavailable' } })).toBe('13 weeks: no read');
+    expect(liquidityLongerLine({})).toBe('');
+  });
+
+  it('shows the Tightening plus high volatility flag only when it applies', () => {
+    expect(liquidityNoteHtml({ high_vol_tightening: true, high_vol_note: '<b>39%</b>' })).toContain('&lt;b&gt;39%');
+    expect(liquidityNoteHtml({ high_vol_tightening: false, high_vol_note: 'x' })).toBe('');
   });
 
   it('reports when there are no items at all', () => {

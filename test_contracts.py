@@ -136,13 +136,24 @@ class TestDashboardContracts(unittest.TestCase):
     def setUpClass(cls):
         cls.payload = _run_with_fixtures()
 
+    def test_high_vol_flag_needs_tightening_and_volatility_together(self):
+        flag = scoring.liquidity_with_vol_flag
+        tight, neutral = {"tone": "Tightening"}, {"tone": "Neutral"}
+        for liq, vol, want in ((tight, {"realized_annual_vol_pct": 13.2}, True),
+                               (tight, {"realized_annual_vol_pct": 13.1}, False),
+                               (neutral, {"realized_annual_vol_pct": 30.0}, False),
+                               (tight, None, False)):
+            self.assertEqual(flag(liq, vol)["high_vol_tightening"], want, (liq, vol))
+        self.assertIn("39%", flag(tight, {"realized_annual_vol_pct": 20.0})["high_vol_note"])
+        self.assertNotIn("high_vol_tightening", tight)   # input left untouched
+
     def test_liquidity_is_context_and_cannot_move_the_score(self):
         """Tightening liquidity is passed through without touching the score (D-006)."""
         tight = {"valid": True, "tone": "Tightening", "items": [], "context_only": True}
         fixtures = _fixture_instruments()
         fixtures["liquidity"] = tight
         payload = _run_with_fixtures(fixtures)
-        self.assertEqual(payload["liquidity"], tight)
+        self.assertEqual(payload["liquidity"]["tone"], "Tightening")
         self.assertEqual(payload["raw_total_score"], self.payload["raw_total_score"])
 
     def test_keys_match_dashboard_result_typeddict(self):

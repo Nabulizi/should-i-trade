@@ -39,6 +39,12 @@ The README summarizes the composite score conservatively:
   Reproduce: `python3 backtest_vol.py`; record in
   quant-research `results/QR-010-mqs-volatility/`.
 
+- The liquidity card's historical figures come from `backtest_liquidity.py`, a
+  single exploratory pass that was not preregistered: Tightening weeks preceded
+  10%+ SPY drops within 3 months more often than all weeks. It uses today's
+  revised FRED data with BAA10Y standing in for the HY spread, and it does not
+  validate the panel as a signal. The panel never feeds the score.
+
 Keep this claim attached to the exact implementation in `backtest.py` and the
 current scoring engine. If scoring rules or thresholds change, rerun and update
 this document before strengthening any public claim.

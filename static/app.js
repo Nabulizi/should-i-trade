@@ -69,7 +69,7 @@ function renderFuturesTape(tape) {
 
 /* ── LIQUIDITY CONTEXT ────────────────────────────────── */
 const LIQUIDITY_DIRECTIONS = {
-  loosening:  { text: 'Loosening',  cls: 'up' },
+  loosening:  { text: 'Loosening',  cls: 'flat' },
   tightening: { text: 'Tightening', cls: 'dn' },
   flat:       { text: 'Flat',       cls: 'flat' },
 };
@@ -108,6 +108,17 @@ function liquidityVotesLine(liq) {
   return liq?.valid ? `Votes: ${liq.loosening_votes} looser · ${liq.tightening_votes} tighter` : 'No read';
 }
 
+function liquidityLongerLine(liq) {
+  const longer = liq?.longer;
+  if (!longer) return '';
+  const tone = longer.tone === 'Unavailable' ? 'no read' : longer.tone;
+  return `${longer.lookback_weeks} weeks: ${tone}`;
+}
+
+function liquidityNoteHtml(liq) {
+  return liq?.high_vol_tightening ? `<span class="liquidity-flag">${esc(liq.high_vol_note)}</span>` : '';
+}
+
 function renderLiquidity(liq) {
   const toneEl = $('liquidity-tone');
   const countEl = $('liquidity-count');
@@ -118,8 +129,10 @@ function renderLiquidity(liq) {
   toneEl.className = `futures-tone ${tagColor(liq?.tone_color || 'gray')}`;
   toneEl.innerHTML = `<span class="futures-dot"></span><span>${esc(liq?.tone || 'Unavailable')}</span>`;
   countEl.textContent = liquidityVotesLine(liq);
+  const longerEl = $('liquidity-longer');
+  if (longerEl) longerEl.textContent = liquidityLongerLine(liq);
   itemsEl.innerHTML = buildLiquidityChips(liq?.items);
-  readEl.innerHTML = `${esc(liq?.read || 'Liquidity data unavailable.')}
+  readEl.innerHTML = `${liquidityNoteHtml(liq)}${esc(liq?.read || 'Liquidity data unavailable.')}
     <span class="futures-meta"><span>${esc(liq?.source || 'FRED')}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
@@ -1460,4 +1473,6 @@ export {
   renderYesterdayStrip,
   buildLiquidityChips,
   liquidityVotesLine,
+  liquidityLongerLine,
+  liquidityNoteHtml,
 };

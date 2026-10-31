@@ -452,14 +452,14 @@ def _fred_csv(series_id: str, rows: list[tuple[int, str]]) -> str:
 def _flat_fred() -> dict:
     """Every series unchanged over the 4-week lookback (7 vs 35 days ago)."""
     return {
-        "WALCL": [(35, "6800000"), (7, "6800000")],      # $ millions
-        "WTREGEN": [(35, "800000"), (7, "800000")],      # $ millions
-        "RRPONTSYD": [(35, "100"), (7, "100")],          # $ billions
-        "DFII10": [(35, "2.00"), (7, "2.00")],
-        "DGS2": [(35, "4.00"), (7, "4.00")],
-        "DTWEXBGS": [(35, "120.00"), (7, "120.00")],
-        "BAMLH0A0HYM2": [(35, "3.00"), (7, "3.00")],
-        "NFCI": [(35, "-0.50"), (7, "-0.50")],
+        "WALCL": [(98, "6800000"), (35, "6800000"), (7, "6800000")],  # $ millions
+        "WTREGEN": [(98, "800000"), (35, "800000"), (7, "800000")],   # $ millions
+        "RRPONTSYD": [(98, "100"), (35, "100"), (7, "100")],          # $ billions
+        "DFII10": [(98, "2.00"), (35, "2.00"), (7, "2.00")],
+        "DGS2": [(98, "4.00"), (35, "4.00"), (7, "4.00")],
+        "DTWEXBGS": [(98, "120.00"), (35, "120.00"), (7, "120.00")],
+        "BAMLH0A0HYM2": [(98, "3.00"), (35, "3.00"), (7, "3.00")],
+        "NFCI": [(98, "-0.50"), (35, "-0.50"), (7, "-0.50")],
     }
 
 
@@ -553,6 +553,67 @@ class TestLiquidity(unittest.TestCase):
     def test_hy_spread_without_data_has_no_level_tag(self):
         item = self._item(self._run(BAMLH0A0HYM2=None), "hy_spread")
         self.assertIsNone(item["level"])
+
+    def test_longer_reading_catches_a_trend_the_4_week_window_misses(self):
+        # The jump happened 5+ weeks ago: flat over 4 weeks, tightening over 13.
+        result = self._run(
+            DFII10=[(98, "2.00"), (35, "2.40"), (7, "2.40")],
+            DGS2=[(98, "4.00"), (35, "4.40"), (7, "4.40")],
+            DTWEXBGS=[(98, "118.00"), (35, "122.00"), (7, "122.00")],
+            BAMLH0A0HYM2=[(98, "2.60"), (35, "3.20"), (7, "3.20")],
+        )
+        self.assertEqual(result["tone"], "Neutral")
+        self.assertEqual(result["longer"]["tone"], "Tightening")
+        self.assertEqual(result["longer"]["tightening_votes"], 3)   # 0.5 + 0.5 + 1 + 1
+        self.assertEqual(result["longer"]["lookback_weeks"], 13)
+
+    def test_longer_reading_needs_enough_history(self):
+        result = self._run(
+            DFII10=[(35, "2.00"), (7, "2.00")], DGS2=[(35, "4.00"), (7, "4.00")],
+            DTWEXBGS=[(35, "120.00"), (7, "120.00")],
+        )
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["longer"]["tone"], "Unavailable")
+
+    def test_request_window_covers_the_longer_lookback(self):
+        # 91-day lookback from a print up to 21 days old needs 112+ days.
+        urls = []
+
+        def fake(url, **kw):
+            urls.append(url)
+            return _fred_csv("DGS2", [(7, "4.00")])
+
+        with patch("data.fetch_url", side_effect=fake):
+            data.fred_series("DGS2")
+        start = date.fromisoformat(urls[0].split("cosd=")[1])
+        self.assertGreaterEqual((date.today() - start).days, 112)
+
+    def test_loosening_is_not_shown_as_a_positive_signal(self):
+        # The evidence is on the risk side: no green "go" for the headline.
+        result = self._run(
+            DGS2=[(98, "4.30"), (35, "4.30"), (7, "4.00")],
+            DFII10=[(98, "2.30"), (35, "2.30"), (7, "2.00")],
+            BAMLH0A0HYM2=[(98, "3.50"), (35, "3.50"), (7, "3.00")],
+        )
+        self.assertEqual(result["tone"], "Loosening")
+        self.assertNotEqual(result["tone_color"], "green")
+
+    def test_read_line_gives_the_history_for_the_current_reading(self):
+        tight = self._run(
+            DFII10=[(35, "2.00"), (7, "2.30")], DGS2=[(35, "4.00"), (7, "4.30")],
+            DTWEXBGS=[(35, "120.00"), (7, "123.00")], NFCI=[(35, "-0.50"), (7, "-0.30")],
+        )
+        self.assertEqual(tight["tone"], "Tightening")
+        self.assertIn("32%", tight["read"])
+        self.assertIn("19%", tight["read"])
+        loose = self._run(
+            DFII10=[(35, "2.30"), (7, "2.00")], DGS2=[(35, "4.30"), (7, "4.00")],
+            BAMLH0A0HYM2=[(35, "3.50"), (7, "3.00")],
+        )
+        self.assertIn("14%", loose["read"])
+        neutral = self._run()
+        self.assertEqual(neutral["tone"], "Neutral")
+        self.assertNotIn("%", neutral["read"].split("share one vote.")[1].split("USD")[0])
 
     def test_small_move_is_flat_not_a_signal(self):
         result = self._run(DGS2=[(35, "4.00"), (7, "4.05")])

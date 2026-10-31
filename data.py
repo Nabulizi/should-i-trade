@@ -414,12 +414,21 @@ _LIQUIDITY_SERIES = [
 _NET_LIQUIDITY_IDS = ("WALCL", "WTREGEN", "RRPONTSYD")
 _NET_LIQUIDITY_DEADBAND = 0.05  # $50B
 _LIQUIDITY_LOOKBACK_DAYS = 28
+_LIQUIDITY_LONGER_DAYS = 91
 _LIQUIDITY_STALE_DAYS = 21      # weekly series can lag ~2 weeks; longer is a halted feed
 _LIQUIDITY_MIN_VALID = 4
 _FRED_UA = "Python-urllib/3"    # FRED hangs on Mozilla-style agents (_UA) until timeout
 # Real and 2Y yields agreed in 70 of 72 replayed weeks, so they share one vote.
 _SHARED_VOTE_KEYS = {"real_yield", "two_year"}
 _LIQUIDITY_HEADLINE_VOTES = 2
+# Figures from backtest_liquidity.py (exploratory replay, docs/backtest-methodology.md).
+_LIQUIDITY_CONTEXT = {
+    "Tightening": ("Past Tightening weeks saw 10%+ SPY drops within 3 months more often: "
+                   "32% vs 19% for all weeks. Exploratory replay, not a forecast."),
+    "Loosening": ("Past Loosening weeks still saw 10%+ SPY drops within 3 months 14% of the time. "
+                  "Exploratory replay, not a forecast."),
+    "Neutral": "Most weeks read Neutral. This says little either way.",
+}
 _LIQUIDITY_READ_NOTE = ("USD is the Fed's broad index, not DXY. HY spread measures credit risk; "
                         "HYG's label is its price vs its 50-day average. "
                         "Inputs act with long lags. Direction context, not an entry or timing signal.")
@@ -436,7 +445,7 @@ def fred_series(series_id: str) -> list[tuple[date, float]]:
     if time.time() < _FRED_RETRY_AT.get(series_id, 0):
         return _FRED_LAST_GOOD.get(series_id, [])
     # Month-aligned start so the cache key (the URL) only changes monthly.
-    start = (date.today() - timedelta(days=90)).replace(day=1)
+    start = (date.today() - timedelta(days=120)).replace(day=1)
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={start}"
     try:
         rows = list(csv.reader(io.StringIO(fetch_url(
@@ -471,6 +480,24 @@ def _net_liquidity(walcl: list, tga: list, rrp: list) -> list[tuple[date, float]
     return out
 
 
+def _liquidity_change(series: list, lookback_days: int) -> float | None:
+    """Change over lookback_days, or None when missing or stale. Rounded so float
+    noise can't flip a move that sits on the deadband."""
+    if not series:
+        return None
+    last_day, last = series[-1]
+    prior = _as_of(series, last_day - timedelta(days=lookback_days))
+    if prior is None or (date.today() - last_day).days > _LIQUIDITY_STALE_DAYS:
+        return None
+    return round(last - prior, 4)
+
+
+def _liquidity_direction(change: float, deadband: float, higher_loosens: bool) -> str:
+    if abs(change) < deadband:
+        return "flat"
+    return "loosening" if (change > 0) == higher_loosens else "tightening"
+
+
 def _liquidity_item(key: str, label: str, source: str, deadband: float,
                     higher_loosens: bool, hint: str, series: list) -> dict:
     item = {"key": key, "label": label, "source": f"FRED {source}", "hint": hint,
@@ -480,17 +507,12 @@ def _liquidity_item(key: str, label: str, source: str, deadband: float,
         return item
     last_day, last = series[-1]
     item["as_of"] = last_day.isoformat()
-    prior = _as_of(series, last_day - timedelta(days=_LIQUIDITY_LOOKBACK_DAYS))
-    if prior is None or (date.today() - last_day).days > _LIQUIDITY_STALE_DAYS:
+    change = _liquidity_change(series, _LIQUIDITY_LOOKBACK_DAYS)
+    if change is None:
         return item
-    # Round before comparing so float noise can't flip a move that sits on the deadband.
-    change = round(last - prior, 4)
-    if abs(change) < deadband:
-        direction = "flat"
-    else:
-        direction = "loosening" if (change > 0) == higher_loosens else "tightening"
     item.update(value=round(last, 2), change=round(change, 2),
-                direction=direction, available=True)
+                direction=_liquidity_direction(change, deadband, higher_loosens),
+                available=True)
     return item
 
 
@@ -505,28 +527,52 @@ def _liquidity_votes(items: list[dict], direction: str) -> float:
                for i in items if i["direction"] == direction)
 
 
+def _liquidity_tone(items: list[dict]) -> tuple[str, str, float, float]:
+    """(tone, color, loosening votes, tightening votes). Only Tightening gets a
+    color: the replay's evidence is about risk, so Loosening is not a green light."""
+    loosening = _liquidity_votes(items, "loosening")
+    tightening = _liquidity_votes(items, "tightening")
+    if loosening - tightening >= _LIQUIDITY_HEADLINE_VOTES:
+        return "Loosening", "gray", loosening, tightening
+    if tightening - loosening >= _LIQUIDITY_HEADLINE_VOTES:
+        return "Tightening", "orange", loosening, tightening
+    return "Neutral", "gray", loosening, tightening
+
+
 def fetch_liquidity() -> dict:
-    """Which way is liquidity moving vs 4 weeks ago? Informational only; not scored."""
+    """Which way is liquidity moving vs 4 and 13 weeks ago? Informational only; not scored."""
     ids = list(_NET_LIQUIDITY_IDS) + [r[2] for r in _LIQUIDITY_SERIES]
     with ThreadPoolExecutor(max_workers=len(ids)) as ex:
         series = dict(zip(ids, ex.map(fred_series, ids)))
 
-    items = [_liquidity_item(
-        "net_liquidity", "Net liq $T", "WALCL - WTREGEN - RRPONTSYD",
-        _NET_LIQUIDITY_DEADBAND, True,
-        "Fed balance sheet minus Treasury cash and reverse repo. A popular proxy; its fit to stocks has broken down before.",
-        _net_liquidity(*(series[i] for i in _NET_LIQUIDITY_IDS)),
-    )]
-    for key, label, sid, deadband, higher_loosens, hint in _LIQUIDITY_SERIES:
-        items.append(_liquidity_item(key, label, sid, deadband, higher_loosens, hint, series[sid]))
-
+    specs = [("net_liquidity", "Net liq $T", "WALCL - WTREGEN - RRPONTSYD",
+              _NET_LIQUIDITY_DEADBAND, True,
+              "Fed balance sheet minus Treasury cash and reverse repo. A popular proxy; its fit to stocks has broken down before.",
+              _net_liquidity(*(series[i] for i in _NET_LIQUIDITY_IDS)))]
+    specs += [(key, label, sid, deadband, higher_loosens, hint, series[sid])
+              for key, label, sid, deadband, higher_loosens, hint in _LIQUIDITY_SERIES]
+    items = [_liquidity_item(*spec) for spec in specs]
     for item in items:
         if item["key"] == "hy_spread" and item["available"]:
             item["level"] = _hy_level(item["value"])
 
+    # Same rule and deadbands over a longer window: shows a trend the 4-week change has passed.
+    longer_items = []
+    for key, _, _, deadband, higher_loosens, _, obs in specs:
+        change = _liquidity_change(obs, _LIQUIDITY_LONGER_DAYS)
+        if change is not None:
+            longer_items.append({"key": key, "direction":
+                                 _liquidity_direction(change, deadband, higher_loosens)})
+    longer = {"lookback_weeks": _LIQUIDITY_LONGER_DAYS // 7, "tone": "Unavailable",
+              "loosening_votes": 0, "tightening_votes": 0}
+    if len(longer_items) >= _LIQUIDITY_MIN_VALID:
+        tone, _, loosening_votes, tightening_votes = _liquidity_tone(longer_items)
+        longer.update(tone=tone, loosening_votes=loosening_votes,
+                      tightening_votes=tightening_votes)
+
     valid = [i for i in items if i["available"]]
     base = {"items": items, "source": "FRED", "lookback_days": _LIQUIDITY_LOOKBACK_DAYS,
-            "context_only": True}
+            "longer": longer, "context_only": True}
     if len(valid) < _LIQUIDITY_MIN_VALID:
         return {**base, "valid": False, "tone": "Unavailable", "tone_color": "gray",
                 "loosening": 0, "tightening": 0, "flat": 0,
@@ -536,19 +582,12 @@ def fetch_liquidity() -> dict:
     loosening = sum(i["direction"] == "loosening" for i in valid)
     tightening = sum(i["direction"] == "tightening" for i in valid)
     flat = len(valid) - loosening - tightening
-    loosening_votes = _liquidity_votes(valid, "loosening")
-    tightening_votes = _liquidity_votes(valid, "tightening")
-    if loosening_votes - tightening_votes >= _LIQUIDITY_HEADLINE_VOTES:
-        tone, color = "Loosening", "green"
-    elif tightening_votes - loosening_votes >= _LIQUIDITY_HEADLINE_VOTES:
-        tone, color = "Tightening", "orange"
-    else:
-        tone, color = "Neutral", "yellow"
+    tone, color, loosening_votes, tightening_votes = _liquidity_tone(valid)
     return {**base, "valid": True, "tone": tone, "tone_color": color,
             "loosening": loosening, "tightening": tightening, "flat": flat,
             "loosening_votes": loosening_votes, "tightening_votes": tightening_votes,
             "read": (f"{loosening} loosening, {tightening} tightening, {flat} flat vs 4 weeks ago; "
-                     f"real and 2Y yields share one vote. {_LIQUIDITY_READ_NOTE}")}
+                     f"real and 2Y yields share one vote. {_LIQUIDITY_CONTEXT[tone]} {_LIQUIDITY_READ_NOTE}")}
 
 
 # ─── equity index futures tape ─────────────────────────────────────────────
