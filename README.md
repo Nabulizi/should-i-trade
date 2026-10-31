@@ -45,7 +45,8 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 | **Health & Metrics** | `/health` and `/metrics` endpoints for monitoring |
 | **Rate Limiting** | 30 req/min per IP — protects against runaway polling |
 | **Responsive UI** | Works on mobile (≥320px) — simplified layout at ≤480px |
-| **Zero API keys** | Yahoo Finance → Stooq → CoinGecko → Binance (all free) |
+| **Liquidity context** | Six FRED series, each read as loosening/tightening vs 4 weeks ago. Context only, never scored |
+| **Zero API keys** | Yahoo Finance → Stooq → CoinGecko → Binance, plus FRED (all free) |
 
 ---
 
@@ -350,6 +351,7 @@ All sources are free and require no authentication:
 - **Yahoo Finance v8 API** — primary source for all equity/ETF quotes and history
 - **Stooq CSV** — fallback for equity data if Yahoo returns empty
 - **CoinGecko API** — BTC price fallback
+- **FRED CSV** — liquidity context (net liquidity, real and 2Y yields, broad dollar, HY spread, NFCI); not scored
 - **Binance public API** — BTC price secondary fallback
 
 ### Economic Calendar

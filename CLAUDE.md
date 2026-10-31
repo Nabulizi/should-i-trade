@@ -55,7 +55,7 @@ server.py (ThreadingHTTPServer, port 8765)
      09:00 ET push report (notify.py) — trading days only, silent no-op
      when no Telegram/Discord channel is configured
        ↕
-data.py   Yahoo Finance v8 (primary) → Stooq CSV → CoinGecko/Binance (BTC fallback)
+data.py   Yahoo Finance v8 (primary) → Stooq CSV → CoinGecko/Binance (BTC fallback); FRED CSV (liquidity context, not scored)
 scoring.py  5-pillar engine: trend(30%) breadth(25%) momentum(20%) volatility(15%) macro(10%)
 analysis.py  5 rule-based personas + Desk Head synthesis
 ai_synthesis.py  optional Gemini 2.5 Flash version of each persona

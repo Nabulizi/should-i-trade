@@ -91,6 +91,7 @@ def _fixture_instruments() -> dict:
         "fng_stock": {"available": False},
         "fng_crypto": {"available": False},
         "futures_tape": {"valid": False},
+        "liquidity": {"valid": False},
         "spy_last_bar_date": None,
     }
 
@@ -98,9 +99,9 @@ def _fixture_instruments() -> dict:
 KNOWN_PILLAR_NAMES = {"trend", "breadth", "momentum", "volatility", "macro"}
 
 
-def _run_with_fixtures() -> dict:
+def _run_with_fixtures(instruments: dict | None = None) -> dict:
     """Run compute_dashboard() with deterministic fixture data."""
-    with patch("scoring._fetch_instruments", return_value=_fixture_instruments()), \
+    with patch("scoring._fetch_instruments", return_value=instruments or _fixture_instruments()), \
          patch("scoring.market_state", return_value={
              "state": "open", "label": "Market Open", "color": "green",
              "et_time": "10:30 ET", "et_date": "Wed Jun 10",
@@ -134,6 +135,15 @@ class TestDashboardContracts(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.payload = _run_with_fixtures()
+
+    def test_liquidity_is_context_and_cannot_move_the_score(self):
+        """Tightening liquidity is passed through without touching the score (D-006)."""
+        tight = {"valid": True, "tone": "Tightening", "items": [], "context_only": True}
+        fixtures = _fixture_instruments()
+        fixtures["liquidity"] = tight
+        payload = _run_with_fixtures(fixtures)
+        self.assertEqual(payload["liquidity"], tight)
+        self.assertEqual(payload["raw_total_score"], self.payload["raw_total_score"])
 
     def test_keys_match_dashboard_result_typeddict(self):
         """Every returned key is modelled; every required key is present."""

@@ -25,7 +25,7 @@ from data import (
     get_quote, get_history, get_ohlcv, history_source, et_now,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
-    opex_proximity, seasonality, earnings_season, fetch_futures_tape,
+    opex_proximity, seasonality, earnings_season, fetch_futures_tape, fetch_liquidity,
     yf_last_bar_date,
 )
 from config import PILLAR_WEIGHTS, VOL_TARGET_K, VOL_TARGET_WINDOW, BAND_HYSTERESIS_PTS
@@ -1434,6 +1434,7 @@ def _fetch_instruments() -> dict:
         fng_s_f          = ex.submit(fetch_fear_greed_stock)
         fng_c_f          = ex.submit(fetch_fear_greed_crypto)
         fut_tape_f       = ex.submit(fetch_futures_tape)
+        liquidity_f      = ex.submit(fetch_liquidity)
         spy_last_bar_f   = ex.submit(yf_last_bar_date, "SPY", 220)
 
     def _safe_result(fut, default):
@@ -1453,6 +1454,7 @@ def _fetch_instruments() -> dict:
         "fng_stock":     _safe_result(fng_s_f, {"available": False}),
         "fng_crypto":    _safe_result(fng_c_f, {"available": False}),
         "futures_tape":      _safe_result(fut_tape_f, {"valid": False}),
+        "liquidity":         _safe_result(liquidity_f, {"valid": False}),
         "spy_last_bar_date": _safe_result(spy_last_bar_f, None),
     }
 
@@ -1749,6 +1751,7 @@ def compute_dashboard(prev_decision: str | None = None) -> DashboardResult:
         },
         "ticker":            _build_ticker(quotes, instruments["btc_q"]),
         "futures_tape":      instruments["futures_tape"],
+        "liquidity":         instruments["liquidity"],
         "fear_greed_stock":  instruments["fng_stock"],
         "fear_greed_crypto": instruments["fng_crypto"],
         "spy_streak":        spy_streak,

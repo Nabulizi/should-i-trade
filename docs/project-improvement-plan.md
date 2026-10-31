@@ -352,6 +352,12 @@ Treat this as a small model-version change.
 | P1-031 | done | Estimate meaningful change threshold | Derived from historical score variability |
 | P1-032 | done | Separate informational alerts from action | Alerts state observation and uncertainty only |
 
+### P1-G — Liquidity context
+
+| ID | Status | Task | Acceptance criteria |
+|---|---|---|---|
+| P1-033 | in_progress | Add FRED liquidity context panel | Direction vs 4 weeks shown with as-of dates; failed/stale series visible as no data; no score input (D-006); no sizing or entry language (D-001) |
+
 ### P1 acceptance scenario
 
 On a Saturday, the first viewport should read approximately:

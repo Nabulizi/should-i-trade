@@ -127,6 +127,22 @@ class FuturesTape(TypedDict, total=False):
     reason: str
 
 
+class Liquidity(TypedDict, total=False):
+    """FRED liquidity direction vs 4 weeks ago. Context only, never scored."""
+
+    valid: bool
+    tone: str
+    tone_color: str
+    loosening: int
+    tightening: int
+    flat: int
+    read: str
+    items: list[dict[str, Any]]
+    source: str
+    lookback_days: int
+    context_only: bool
+
+
 class FearGreed(TypedDict, total=False):
     """Fear/greed source payload. Providers may omit unavailable fields."""
 
@@ -257,6 +273,7 @@ class _DashboardResultRequired(TypedDict):
     pillars: dict[str, DashboardPillarResult]
     ticker: list[TickerItem]
     futures_tape: FuturesTape
+    liquidity: Liquidity
     fear_greed_stock: FearGreed
     fear_greed_crypto: FearGreed
     spy_streak: SpyStreak

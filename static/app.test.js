@@ -15,10 +15,42 @@ import {
   roundtableProvenance,
   reliabilityLine,
   asOfLine,
+  buildLiquidityChips,
 } from './app.js';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+describe('buildLiquidityChips', () => {
+  const item = {
+    key: 'hy_spread', label: 'HY spread (%)', value: 3.26, change: -0.2,
+    direction: 'loosening', as_of: '2026-10-29', available: true,
+    hint: 'Below ~4 calm', source: 'FRED BAMLH0A0HYM2',
+  };
+
+  it('states the direction in words with the level and signed change', () => {
+    const html = buildLiquidityChips([item]);
+    expect(html).toContain('Loosening');
+    expect(html).toContain('3.26');
+    expect(html).toContain('-0.20');
+    expect(html).toContain('Oct 29');
+  });
+
+  it('shows a failed series as no data, never as a direction', () => {
+    const html = buildLiquidityChips([{ ...item, available: false, value: null, change: null, direction: null, as_of: null }]);
+    expect(html).toContain('No data');
+    expect(html).not.toContain('Loosening');
+    expect(html).not.toContain('null');
+  });
+
+  it('escapes backend strings', () => {
+    expect(buildLiquidityChips([{ ...item, label: '<img>' }])).not.toContain('<img>');
+  });
+
+  it('reports when there are no items at all', () => {
+    expect(buildLiquidityChips([])).toContain('unavailable');
+  });
 });
 
 describe('buildPillarBars (P1-014/P1-015)', () => {

@@ -13,7 +13,7 @@ via unittest.mock so no network calls are made.
 """
 from __future__ import annotations
 import sys, time, unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 # ── isolate config imports so tests work regardless of CWD ────────────────
@@ -437,6 +437,178 @@ class TestEtNow(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════════
 # Runner
 # ═══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
+# Liquidity context (FRED) — fetch_url is the only thing faked; parsing is real
+# ═══════════════════════════════════════════════════════════════════════════
+FRED_IDS = ["WALCL", "WTREGEN", "RRPONTSYD", "DFII10", "DGS2",
+            "DTWEXBGS", "BAMLH0A0HYM2", "NFCI"]
+
+
+def _fred_csv(series_id: str, rows: list[tuple[int, str]]) -> str:
+    """CSV in FRED's real shape; rows are (days_ago, value)."""
+    today = date.today()
+    lines = [f"observation_date,{series_id}"]
+    lines += [f"{today - timedelta(days=ago)},{v}" for ago, v in rows]
+    return "\n".join(lines) + "\n"
+
+
+def _flat_fred() -> dict:
+    """Every series unchanged over the 4-week lookback (7 vs 35 days ago)."""
+    return {
+        "WALCL": [(35, "6800000"), (7, "6800000")],      # $ millions
+        "WTREGEN": [(35, "800000"), (7, "800000")],      # $ millions
+        "RRPONTSYD": [(35, "100"), (7, "100")],          # $ billions
+        "DFII10": [(35, "2.00"), (7, "2.00")],
+        "DGS2": [(35, "4.00"), (7, "4.00")],
+        "DTWEXBGS": [(35, "120.00"), (7, "120.00")],
+        "BAMLH0A0HYM2": [(35, "3.00"), (7, "3.00")],
+        "NFCI": [(35, "-0.50"), (7, "-0.50")],
+    }
+
+
+class TestLiquidity(unittest.TestCase):
+
+    def _run(self, **overrides):
+        """overrides: series_id=rows, or series_id=None for a failed fetch."""
+        fred = {**_flat_fred(), **overrides}
+
+        def fake_fetch(url, **kw):
+            sid = url.split("id=")[1].split("&")[0]
+            rows = fred[sid]
+            if rows is None:
+                raise OSError("FRED down")
+            return rows if isinstance(rows, str) else _fred_csv(sid, rows)
+
+        for sid in FRED_IDS:
+            _reset_cb(f"FRED:{sid}")
+        with patch("data.fetch_url", side_effect=fake_fetch):
+            return data.fetch_liquidity()
+
+    def _item(self, result, key):
+        return next(i for i in result["items"] if i["key"] == key)
+
+    def test_net_liquidity_converts_rrp_billions_to_trillions(self):
+        # 6.8T - 0.8T - 0.1T = 5.9T (RRP is published in billions, others millions)
+        item = self._item(self._run(), "net_liquidity")
+        self.assertEqual(item["value"], 5.9)
+        self.assertEqual(item["direction"], "flat")
+
+    def test_net_liquidity_rise_reads_as_loosening(self):
+        # now 5.9T vs 6.7 - 0.9 - 0.2 = 5.6T four weeks ago
+        item = self._item(self._run(
+            WALCL=[(35, "6700000"), (7, "6800000")],
+            WTREGEN=[(35, "900000"), (7, "800000")],
+            RRPONTSYD=[(35, "200"), (7, "100")],
+        ), "net_liquidity")
+        self.assertEqual(item["change"], 0.3)
+        self.assertEqual(item["direction"], "loosening")
+
+    def test_net_liquidity_uses_rrp_as_of_the_balance_sheet_date(self):
+        # A 500B RRP print newer than the last WALCL must not be subtracted.
+        item = self._item(self._run(
+            RRPONTSYD=[(35, "100"), (7, "100"), (2, "500")],
+        ), "net_liquidity")
+        self.assertEqual(item["value"], 5.9)
+
+    def test_rising_rates_dollar_and_spreads_read_as_tightening(self):
+        result = self._run(
+            DFII10=[(35, "2.00"), (7, "2.30")],
+            DGS2=[(35, "4.00"), (7, "4.30")],
+            DTWEXBGS=[(35, "120.00"), (7, "123.00")],
+            BAMLH0A0HYM2=[(35, "3.00"), (7, "3.50")],
+            NFCI=[(35, "-0.50"), (7, "-0.30")],
+        )
+        for key in ("real_yield", "two_year", "dollar", "hy_spread", "nfci"):
+            self.assertEqual(self._item(result, key)["direction"], "tightening", key)
+        self.assertEqual(result["tone"], "Tightening")
+        self.assertEqual(result["tightening"], 5)
+
+    def test_falling_rates_and_spreads_read_as_loosening(self):
+        result = self._run(
+            DGS2=[(35, "4.30"), (7, "4.00")],
+            BAMLH0A0HYM2=[(35, "3.50"), (7, "3.00")],
+        )
+        self.assertEqual(self._item(result, "two_year")["direction"], "loosening")
+        self.assertEqual(result["tone"], "Loosening")
+        self.assertEqual(result["flat"], 4)
+
+    def test_small_move_is_flat_not_a_signal(self):
+        result = self._run(DGS2=[(35, "4.00"), (7, "4.05")])
+        self.assertEqual(self._item(result, "two_year")["direction"], "flat")
+
+    def test_disagreement_is_neutral(self):
+        result = self._run(
+            DGS2=[(35, "4.30"), (7, "4.00")],           # loosening
+            DTWEXBGS=[(35, "120.00"), (7, "123.00")],   # tightening
+        )
+        self.assertEqual(result["tone"], "Neutral")
+
+    def test_one_failed_series_leaves_the_rest(self):
+        result = self._run(NFCI=None)
+        nfci = self._item(result, "nfci")
+        self.assertFalse(nfci["available"])
+        self.assertIsNone(nfci["direction"])
+        self.assertTrue(result["valid"])
+        self.assertTrue(self._item(result, "two_year")["available"])
+
+    def test_any_net_liquidity_leg_missing_disables_that_item(self):
+        result = self._run(RRPONTSYD=None)
+        self.assertFalse(self._item(result, "net_liquidity")["available"])
+
+    def test_too_few_series_gives_no_regime(self):
+        result = self._run(DFII10=None, DGS2=None, DTWEXBGS=None)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["tone"], "Unavailable")
+        self.assertEqual(result["tone_color"], "gray")
+
+    def test_stale_series_is_not_read_as_current(self):
+        # 40 days without a print (e.g. a release halted): show nothing as a signal.
+        item = self._item(self._run(DGS2=[(70, "4.60"), (40, "4.00")]), "two_year")
+        self.assertFalse(item["available"])
+        self.assertIsNone(item["direction"])
+
+    def test_missing_value_rows_are_skipped(self):
+        # FRED leaves market holidays blank; the latest real print still counts.
+        item = self._item(self._run(DGS2=[(35, "4.00"), (7, "4.30"), (6, ""), (5, ".")]),
+                          "two_year")
+        self.assertEqual(item["value"], 4.3)
+        self.assertEqual(item["as_of"], (date.today() - timedelta(days=7)).isoformat())
+
+    def test_html_error_page_counts_as_a_failed_fetch(self):
+        result = self._run(DGS2="<html><body>Blocked</body></html>")
+        self.assertFalse(self._item(result, "two_year")["available"])
+
+    def test_request_avoids_the_browser_style_user_agent_fred_hangs_on(self):
+        # Observed live: FRED hangs on Mozilla-style agents, accepts Python's default.
+        sent = []
+
+        def fake_urlopen(req, timeout=None):
+            sent.append(req)
+            resp = MagicMock()
+            resp.__enter__.return_value.read.return_value = (
+                _fred_csv("DGS2", [(35, "4.00"), (7, "4.30")]).encode())
+            return resp
+
+        _reset_cb("FRED:DGS2")
+        data._CACHE.clear()
+        with patch("data.urlopen", side_effect=fake_urlopen):
+            self.assertEqual(data.fred_series("DGS2")[-1][1], 4.3)
+        self.assertNotIn("Mozilla", sent[0].get_header("User-agent"))
+
+    def test_repeated_failures_stop_hitting_fred(self):
+        calls = []
+
+        def down(url, **kw):
+            calls.append(url)
+            raise OSError("FRED down")
+
+        _reset_cb("FRED:DGS2")
+        with patch("data.fetch_url", side_effect=down):
+            for _ in range(CB_FAILURE_THRESHOLD + 2):
+                self.assertEqual(data.fred_series("DGS2"), [])
+        self.assertEqual(len(calls), CB_FAILURE_THRESHOLD)
+
+
 if __name__ == "__main__":
     loader  = unittest.TestLoader()
     suite   = loader.loadTestsFromModule(sys.modules[__name__])

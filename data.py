@@ -6,6 +6,7 @@ Sources (in order of preference per symbol):
   ^TNX:              US Treasury official CSV      →  Yahoo  →  Stooq
   Equity/ETF/Index:  Yahoo Finance v8              →  Stooq CSV
   Bitcoin:           Yahoo Finance  →  CoinGecko   →  Binance public
+  Liquidity context: FRED public CSV (St. Louis Fed)
 
 ^VIX and ^TNX history comes from their canonical publishers (CBOE and
 US Treasury). Quotes remain Yahoo → Stooq for intraday freshness.
@@ -76,7 +77,8 @@ def fetch_url(url: str, timeout: int = 15, cache_secs: int = 30,
             return hit[1]
 
     req = Request(url, headers=headers or {})
-    req.add_header("User-Agent", _UA)
+    if not req.has_header("User-agent"):
+        req.add_header("User-Agent", _UA)
     req.add_header("Accept", "application/json, text/csv, */*")
     with urlopen(req, timeout=timeout) as r:
         body = r.read().decode("utf-8", errors="replace")
@@ -391,6 +393,134 @@ def get_history(symbol: str, days: int = 220) -> list[float]:
     except Exception:
         _cb_failure(symbol)
         return []
+
+
+# ─── liquidity context (FRED) ──────────────────────────────────────────────
+# (key, label, FRED id, deadband, higher reads as loosening, level hint).
+# ponytail: deadbands are judgment calls, not validated thresholds; revisit if
+# this panel ever feeds a model (D-006).
+_LIQUIDITY_RATES = [
+    ("real_yield", "Real 10Y %", "DFII10", 0.10, False,
+     "Rising real yields tighten conditions, especially for long-duration assets."),
+    ("two_year", "2Y yield %", "DGS2", 0.10, False,
+     "Tracks expected Fed policy. Falling means easier money is being priced."),
+    ("dollar", "USD broad", "DTWEXBGS", 1.0, False,
+     "A rising dollar tightens money worldwide."),
+    ("hy_spread", "HY spread %", "BAMLH0A0HYM2", 0.25, False,
+     "Below about 4 is calm. A fast rise toward 5-6 or more signals stress."),
+    ("nfci", "NFCI", "NFCI", 0.05, False,
+     "Chicago Fed index. Below 0 means conditions are looser than average; above 0, tighter."),
+]
+_NET_LIQUIDITY_IDS = ("WALCL", "WTREGEN", "RRPONTSYD")
+_NET_LIQUIDITY_DEADBAND = 0.05  # $50B
+_LIQUIDITY_LOOKBACK_DAYS = 28
+_LIQUIDITY_STALE_DAYS = 21      # weekly series can lag ~2 weeks; longer is a halted feed
+_LIQUIDITY_MIN_VALID = 4
+_FRED_UA = "Python-urllib/3"    # FRED hangs on Mozilla-style agents (_UA) until timeout
+_LIQUIDITY_READ_CAVEAT = ("These inputs overlap and act with long lags. "
+                          "Regime context, not an entry or timing signal.")
+
+
+def fred_series(series_id: str) -> list[tuple[date, float]]:
+    """Recent FRED observations (oldest-first, no API key). Returns [] on failure."""
+    key = f"FRED:{series_id}"
+    if not _cb_allow(key):
+        return []
+    # Month-aligned start so the cache key (the URL) only changes monthly.
+    start = (date.today() - timedelta(days=90)).replace(day=1)
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={start}"
+    try:
+        rows = list(csv.reader(io.StringIO(fetch_url(
+            url, timeout=10, cache_secs=3600, headers={"User-Agent": _FRED_UA}))))[1:]
+        # FRED leaves holidays blank; anything else malformed fails the fetch.
+        obs = [(date.fromisoformat(day), float(value))
+               for day, value in rows if value not in ("", ".")]
+        if not obs:
+            raise ValueError(f"no observations for {series_id}")
+    except Exception as e:
+        logger.debug("FRED fetch failed for %s: %s", series_id, e)
+        _cb_failure(key)
+        return []
+    _cb_success(key)
+    return obs
+
+
+def _as_of(series: list[tuple[date, float]], day: date) -> float | None:
+    """Latest observation on or before day."""
+    values = [v for d, v in series if d <= day]
+    return values[-1] if values else None
+
+
+def _net_liquidity(walcl: list, tga: list, rrp: list) -> list[tuple[date, float]]:
+    """WALCL - WTREGEN - RRP in $ trillions, on balance-sheet dates. RRP is
+    published in billions; the other two in millions."""
+    out = []
+    for day, assets in walcl:
+        cash, repo = _as_of(tga, day), _as_of(rrp, day)
+        if cash is not None and repo is not None:
+            out.append((day, (assets - cash - repo * 1000) / 1_000_000))
+    return out
+
+
+def _liquidity_item(key: str, label: str, source: str, deadband: float,
+                    higher_loosens: bool, hint: str, series: list) -> dict:
+    item = {"key": key, "label": label, "source": f"FRED {source}", "hint": hint,
+            "value": None, "change": None, "direction": None, "as_of": None,
+            "available": False}
+    if not series:
+        return item
+    last_day, last = series[-1]
+    item["as_of"] = last_day.isoformat()
+    prior = _as_of(series, last_day - timedelta(days=_LIQUIDITY_LOOKBACK_DAYS))
+    if prior is None or (date.today() - last_day).days > _LIQUIDITY_STALE_DAYS:
+        return item
+    # Round before comparing so float noise can't flip a move that sits on the deadband.
+    change = round(last - prior, 4)
+    if abs(change) < deadband:
+        direction = "flat"
+    else:
+        direction = "loosening" if (change > 0) == higher_loosens else "tightening"
+    item.update(value=round(last, 2), change=round(change, 2),
+                direction=direction, available=True)
+    return item
+
+
+def fetch_liquidity() -> dict:
+    """Which way is liquidity moving vs 4 weeks ago? Informational only; not scored."""
+    ids = list(_NET_LIQUIDITY_IDS) + [r[2] for r in _LIQUIDITY_RATES]
+    with ThreadPoolExecutor(max_workers=len(ids)) as ex:
+        series = dict(zip(ids, ex.map(fred_series, ids)))
+
+    items = [_liquidity_item(
+        "net_liquidity", "Net liq $T", "WALCL - WTREGEN - RRPONTSYD",
+        _NET_LIQUIDITY_DEADBAND, True,
+        "Fed balance sheet minus Treasury cash and reverse repo. A popular proxy; its fit to stocks has broken down before.",
+        _net_liquidity(*(series[i] for i in _NET_LIQUIDITY_IDS)),
+    )]
+    for key, label, sid, deadband, higher_loosens, hint in _LIQUIDITY_RATES:
+        items.append(_liquidity_item(key, label, sid, deadband, higher_loosens, hint, series[sid]))
+
+    valid = [i for i in items if i["available"]]
+    base = {"items": items, "source": "FRED", "lookback_days": _LIQUIDITY_LOOKBACK_DAYS,
+            "context_only": True}
+    if len(valid) < _LIQUIDITY_MIN_VALID:
+        return {**base, "valid": False, "tone": "Unavailable", "tone_color": "gray",
+                "loosening": 0, "tightening": 0, "flat": 0,
+                "read": f"Only {len(valid)} of {len(items)} liquidity series are current, so no regime is shown."}
+
+    loosening = sum(i["direction"] == "loosening" for i in valid)
+    tightening = sum(i["direction"] == "tightening" for i in valid)
+    flat = len(valid) - loosening - tightening
+    if loosening - tightening >= 2:
+        tone, color = "Loosening", "green"
+    elif tightening - loosening >= 2:
+        tone, color = "Tightening", "orange"
+    else:
+        tone, color = "Neutral", "yellow"
+    return {**base, "valid": True, "tone": tone, "tone_color": color,
+            "loosening": loosening, "tightening": tightening, "flat": flat,
+            "read": (f"{loosening} loosening, {tightening} tightening, {flat} flat vs 4 weeks ago. "
+                     f"{_LIQUIDITY_READ_CAVEAT}")}
 
 
 # ─── equity index futures tape ─────────────────────────────────────────────
