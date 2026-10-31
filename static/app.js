@@ -98,9 +98,14 @@ function buildLiquidityChips(items) {
       <div class="future-top">
         <span class="future-name">${esc(asOf)}</span>
         <span class="future-chg ${dir.cls}">${dir.text}</span>
-      </div>
+      </div>${item.level ? `
+      <div class="future-top"><span class="future-name">${esc(item.level)}</span></div>` : ''}
     </div>`;
   }).join('');
+}
+
+function liquidityVotesLine(liq) {
+  return liq?.valid ? `Votes: ${liq.loosening_votes} looser · ${liq.tightening_votes} tighter` : 'No read';
 }
 
 function renderLiquidity(liq) {
@@ -112,7 +117,7 @@ function renderLiquidity(liq) {
 
   toneEl.className = `futures-tone ${tagColor(liq?.tone_color || 'gray')}`;
   toneEl.innerHTML = `<span class="futures-dot"></span><span>${esc(liq?.tone || 'Unavailable')}</span>`;
-  countEl.textContent = liq?.valid ? `${liq.loosening} looser · ${liq.tightening} tighter` : 'No read';
+  countEl.textContent = liquidityVotesLine(liq);
   itemsEl.innerHTML = buildLiquidityChips(liq?.items);
   readEl.innerHTML = `${esc(liq?.read || 'Liquidity data unavailable.')}
     <span class="futures-meta"><span>${esc(liq?.source || 'FRED')}</span><span>Context only</span><span>Not scored</span></span>`;
@@ -1454,4 +1459,5 @@ export {
   asOfLine,
   renderYesterdayStrip,
   buildLiquidityChips,
+  liquidityVotesLine,
 };

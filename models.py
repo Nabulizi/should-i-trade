@@ -136,6 +136,8 @@ class Liquidity(TypedDict, total=False):
     loosening: int
     tightening: int
     flat: int
+    loosening_votes: float
+    tightening_votes: float
     read: str
     items: list[dict[str, Any]]
     source: str

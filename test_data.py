@@ -435,9 +435,6 @@ class TestEtNow(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Runner
-# ═══════════════════════════════════════════════════════════════════════════
-# ═══════════════════════════════════════════════════════════════════════════
 # Liquidity context (FRED) — fetch_url is the only thing faked; parsing is real
 # ═══════════════════════════════════════════════════════════════════════════
 FRED_IDS = ["WALCL", "WTREGEN", "RRPONTSYD", "DFII10", "DGS2",
@@ -468,6 +465,11 @@ def _flat_fred() -> dict:
 
 class TestLiquidity(unittest.TestCase):
 
+    def setUp(self):
+        data._FRED_LAST_GOOD.clear()
+        data._FRED_RETRY_AT.clear()
+        data._CACHE.clear()
+
     def _run(self, **overrides):
         """overrides: series_id=rows, or series_id=None for a failed fetch."""
         fred = {**_flat_fred(), **overrides}
@@ -479,8 +481,6 @@ class TestLiquidity(unittest.TestCase):
                 raise OSError("FRED down")
             return rows if isinstance(rows, str) else _fred_csv(sid, rows)
 
-        for sid in FRED_IDS:
-            _reset_cb(f"FRED:{sid}")
         with patch("data.fetch_url", side_effect=fake_fetch):
             return data.fetch_liquidity()
 
@@ -523,14 +523,36 @@ class TestLiquidity(unittest.TestCase):
         self.assertEqual(result["tone"], "Tightening")
         self.assertEqual(result["tightening"], 5)
 
-    def test_falling_rates_and_spreads_read_as_loosening(self):
+    def test_yields_falling_together_are_not_enough_for_a_headline(self):
+        # Real and 2Y move together, so a bond rally alone is 1 vote, not 2.
         result = self._run(
+            DFII10=[(35, "2.30"), (7, "2.00")],
+            DGS2=[(35, "4.30"), (7, "4.00")],
+        )
+        self.assertEqual(self._item(result, "two_year")["direction"], "loosening")
+        self.assertEqual(result["loosening"], 2)
+        self.assertEqual(result["loosening_votes"], 1)
+        self.assertEqual(result["tone"], "Neutral")
+
+    def test_yields_plus_one_other_series_make_a_headline(self):
+        # 0.5 + 0.5 + 1 = 2 votes
+        result = self._run(
+            DFII10=[(35, "2.30"), (7, "2.00")],
             DGS2=[(35, "4.30"), (7, "4.00")],
             BAMLH0A0HYM2=[(35, "3.50"), (7, "3.00")],
         )
-        self.assertEqual(self._item(result, "two_year")["direction"], "loosening")
+        self.assertEqual(result["loosening_votes"], 2)
         self.assertEqual(result["tone"], "Loosening")
-        self.assertEqual(result["flat"], 4)
+
+    def test_hy_spread_level_tag_boundaries(self):
+        for level, want in (("3.99", "Calm"), ("4.00", "Elevated"),
+                            ("5.99", "Elevated"), ("6.00", "Stress")):
+            item = self._item(self._run(BAMLH0A0HYM2=[(35, level), (7, level)]), "hy_spread")
+            self.assertEqual(item["level"], want, level)
+
+    def test_hy_spread_without_data_has_no_level_tag(self):
+        item = self._item(self._run(BAMLH0A0HYM2=None), "hy_spread")
+        self.assertIsNone(item["level"])
 
     def test_small_move_is_flat_not_a_signal(self):
         result = self._run(DGS2=[(35, "4.00"), (7, "4.05")])
@@ -589,26 +611,82 @@ class TestLiquidity(unittest.TestCase):
                 _fred_csv("DGS2", [(35, "4.00"), (7, "4.30")]).encode())
             return resp
 
-        _reset_cb("FRED:DGS2")
-        data._CACHE.clear()
         with patch("data.urlopen", side_effect=fake_urlopen):
             self.assertEqual(data.fred_series("DGS2")[-1][1], 4.3)
         self.assertNotIn("Mozilla", sent[0].get_header("User-agent"))
 
-    def test_repeated_failures_stop_hitting_fred(self):
+    def test_failure_serves_last_good_and_pauses_retries(self):
+        calls = []
+        good = _fred_csv("DGS2", [(35, "4.00"), (7, "4.30")])
+
+        def up(url, **kw):
+            return good
+
+        def down(url, **kw):
+            calls.append(url)
+            raise OSError("FRED down")
+
+        with patch("data.fetch_url", side_effect=up):
+            fresh = data.fred_series("DGS2")
+        with patch("data.fetch_url", side_effect=down):
+            for _ in range(5):
+                self.assertEqual(data.fred_series("DGS2"), fresh)
+        self.assertEqual(len(calls), 1)   # the outage costs one attempt, not five
+
+    def test_retry_resumes_after_the_pause(self):
         calls = []
 
         def down(url, **kw):
             calls.append(url)
             raise OSError("FRED down")
 
-        _reset_cb("FRED:DGS2")
+        now = time.time()
         with patch("data.fetch_url", side_effect=down):
-            for _ in range(CB_FAILURE_THRESHOLD + 2):
-                self.assertEqual(data.fred_series("DGS2"), [])
-        self.assertEqual(len(calls), CB_FAILURE_THRESHOLD)
+            with patch("time.time", return_value=now):
+                data.fred_series("DGS2")
+            with patch("time.time", return_value=now + 14 * 60):
+                data.fred_series("DGS2")
+            self.assertEqual(len(calls), 1)
+            with patch("time.time", return_value=now + 16 * 60):
+                data.fred_series("DGS2")
+        self.assertEqual(len(calls), 2)
+
+    def test_long_outage_stops_showing_the_old_direction(self):
+        # The failure this panel must not have: last good data outliving the 21-day limit.
+        rising = self._run(DGS2=[(35, "4.00"), (7, "4.30")])
+        self.assertEqual(self._item(rising, "two_year")["direction"], "tightening")
+
+        class Later(date):
+            @classmethod
+            def today(cls):
+                return date.today() + timedelta(days=30)
+
+        def down(url, **kw):
+            raise OSError("FRED down")
+
+        with patch("data.fetch_url", side_effect=down), patch("data.date", Later):
+            result = data.fetch_liquidity()
+        item = self._item(result, "two_year")
+        self.assertFalse(item["available"])
+        self.assertIsNone(item["direction"])
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["tone"], "Unavailable")
+
+    def test_short_outage_keeps_the_last_good_reading(self):
+        self._run(DGS2=[(35, "4.00"), (7, "4.30")])
+
+        def down(url, **kw):
+            raise OSError("FRED down")
+
+        with patch("data.fetch_url", side_effect=down):
+            item = self._item(data.fetch_liquidity(), "two_year")
+        self.assertTrue(item["available"])
+        self.assertEqual(item["direction"], "tightening")
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Runner
+# ═══════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     loader  = unittest.TestLoader()
     suite   = loader.loadTestsFromModule(sys.modules[__name__])

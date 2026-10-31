@@ -16,6 +16,7 @@ import {
   reliabilityLine,
   asOfLine,
   buildLiquidityChips,
+  liquidityVotesLine,
 } from './app.js';
 
 beforeEach(() => {
@@ -46,6 +47,16 @@ describe('buildLiquidityChips', () => {
 
   it('escapes backend strings', () => {
     expect(buildLiquidityChips([{ ...item, label: '<img>' }])).not.toContain('<img>');
+  });
+
+  it('puts the spread level tag on screen, not just in a tooltip', () => {
+    const html = buildLiquidityChips([{ ...item, level: 'Elevated', hint: '' }]);
+    expect(html).toContain('>Elevated<');
+  });
+
+  it('counts votes so a Neutral headline does not sit beside a lopsided count', () => {
+    expect(liquidityVotesLine({ valid: true, loosening_votes: 1, tightening_votes: 0 })).toBe('Votes: 1 looser · 0 tighter');
+    expect(liquidityVotesLine({ valid: false })).toBe('No read');
   });
 
   it('reports when there are no items at all', () => {
