@@ -330,6 +330,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-022 | done | Remove AI size/entry/stop directives | Output bounded to evidence, disagreement, missing data, falsification |
 | P1-023 | done | Validate AI values and lengths | Stances, point counts, text lengths, fields constrained |
 | P1-024 | done | Make AI provenance visible | Model, time, shared-input limitation, fallback explicit |
+| P1-034 | in_progress | Make HYG 50-day labels descriptive | Label and reason state price vs 50d without claiming credit stress; points unchanged |
 
 ### P1-E — Calendar overlays become context-only
 
@@ -419,6 +420,7 @@ prediction is optional and must be explicitly selected.
 | P2-010 | pending | Audit RSP/sector duplication | Shared exposure measured and reduced/disclosed |
 | P2-011 | pending | Audit volatility collinearity | VIX features tested jointly and individually |
 | P2-012 | pending | Compare five pillars with three factors | Trend, participation, stress/liquidity candidate evaluated |
+| P2-021 | pending | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed |
 
 ### P2-D — Normalize without hiding uncertainty
 

@@ -693,6 +693,27 @@ def test_run_pillars_splice_wiring() -> None:
        r_btc_crash["macro"]["score"] < r_btc_bull["macro"]["score"])
 
 
+def test_hyg_50d_wording() -> None:
+    """The label states the observation (price vs 50d); the points are unchanged."""
+    print("\n[HYG vs 50d — wording and points]")
+
+    def _macro(px):
+        return scoring.score_macro({"HYG": q(px, 0.0)}, [], [], None, [], {},
+                                   hyg_closes=flat_closes(60, 100.0))
+
+    above, near, below = _macro(101.0), _macro(100.0), _macro(99.0)
+    ok("Above 50d label", above["details"]["hyg_label"] == "Above 50d")
+    ok("Near 50d keeps its label", near["details"]["hyg_label"] == "Neutral")
+    ok("Below 50d label", below["details"]["hyg_label"] == "Below 50d")
+    ok("Above 50d still adds 8 points", above["score"] - near["score"] == 8)
+    ok("Below 50d still removes 10 points", below["score"] - near["score"] == -10)
+    ok("Below 50d reason does not claim credit stress",
+       not any("stress" in r.lower() or "risk-off" in r.lower() for r in below["reasons"]))
+    ok("Above 50d reason does not claim healthy credit",
+       not any("healthy" in r.lower() for r in above["reasons"]))
+    ok("Reason still names HYG vs 50d", any("HYG below 50d" in r for r in below["reasons"]))
+
+
 def test_hyg_lqd_spread() -> None:
     print("\n[HYG-LQD spread — score_macro]")
 
@@ -856,6 +877,7 @@ if __name__ == "__main__":
     test_vix_floor_graduated()
     test_splice_live()
     test_run_pillars_splice_wiring()
+    test_hyg_50d_wording()
     test_hyg_lqd_spread()
     test_day_streak()
     test_claim_hygiene()

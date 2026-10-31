@@ -1094,13 +1094,13 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
         hyg_ma50 = simple_ma(hyg_closes, 50)
         if hyg_px and hyg_ma50:
             if hyg_px > hyg_ma50 * 1.002:
-                hyg_label, hyg_color = "Healthy", "green"
+                hyg_label, hyg_color = "Above 50d", "green"
                 score += 8
-                reasons.append("+8 HYG above 50d — credit conditions healthy")
+                reasons.append("+8 HYG above 50d")
             elif hyg_px < hyg_ma50 * 0.998:
-                hyg_label, hyg_color = "Stressed", "red"
+                hyg_label, hyg_color = "Below 50d", "red"
                 score -= 10
-                reasons.append("-10 HYG below 50d — credit stress, risk-off signal")
+                reasons.append("-10 HYG below 50d")
             else:
                 hyg_label, hyg_color = "Neutral", "yellow"
 
