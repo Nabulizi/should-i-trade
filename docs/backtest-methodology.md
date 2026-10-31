@@ -45,6 +45,15 @@ The README summarizes the composite score conservatively:
   revised FRED data with BAA10Y standing in for the HY spread, and it does not
   validate the panel as a signal. The panel never feeds the score.
 
+- The HYG 50-day rule was audited in `backtest_hyg_audit.py` (P2-021, exploratory,
+  2007-2026, overlapping daily samples). 10%+ SPY drops within 3 months followed
+  38% of Below days, 13% of Above days and 21% of all days, in both 2007-2015 and
+  2016-2026. It adds to SPY's own trend: with SPY above its 50-day average, 36%
+  with HYG below vs 12% with HYG above. Wider bands did not clearly improve it, so
+  the rule stays unchanged. It is a risk flag, not a credit-stress measure (median
+  HY spread 3.19 on Below days vs 2.96 on Above days since Oct 2023) and not a
+  return signal (2016-2026 SPY averaged +4.8% over 3 months after Below days).
+
 Keep this claim attached to the exact implementation in `backtest.py` and the
 current scoring engine. If scoring rules or thresholds change, rerun and update
 this document before strengthening any public claim.
