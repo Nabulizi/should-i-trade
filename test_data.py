@@ -438,7 +438,7 @@ class TestEtNow(unittest.TestCase):
 # Liquidity context (FRED) — fetch_url is the only thing faked; parsing is real
 # ═══════════════════════════════════════════════════════════════════════════
 FRED_IDS = ["WALCL", "WTREGEN", "RRPONTSYD", "DFII10", "DGS2",
-            "DTWEXBGS", "BAMLH0A0HYM2", "NFCI"]
+            "DTWEXBGS", "BAMLH0A0HYM2", "NFCI", "DFF"]
 
 
 def _fred_csv(series_id: str, rows: list[tuple[int, str]]) -> str:
@@ -460,6 +460,7 @@ def _flat_fred() -> dict:
         "DTWEXBGS": [(98, "120.00"), (35, "120.00"), (7, "120.00")],
         "BAMLH0A0HYM2": [(98, "3.00"), (35, "3.00"), (7, "3.00")],
         "NFCI": [(98, "-0.50"), (35, "-0.50"), (7, "-0.50")],
+        "DFF": [(35, "4.00"), (7, "4.00")],
     }
 
 
@@ -614,6 +615,29 @@ class TestLiquidity(unittest.TestCase):
         neutral = self._run()
         self.assertEqual(neutral["tone"], "Neutral")
         self.assertNotIn("%", neutral["read"].split("share one vote.")[1].split("USD")[0])
+
+    def test_fed_path_compares_2y_with_fed_funds(self):
+        for two_year, want_spread, want_lean in (("4.60", 0.6, "leans hikes"),
+                                                 ("4.25", 0.25, "leans hikes"),
+                                                 ("4.20", 0.2, "about flat"),
+                                                 ("3.80", -0.2, "about flat"),
+                                                 ("3.75", -0.25, "leans cuts"),
+                                                 ("3.40", -0.6, "leans cuts")):
+            path = self._run(DGS2=[(35, two_year), (7, two_year)])["fed_path"]
+            self.assertEqual(path["spread"], want_spread, two_year)
+            self.assertEqual(path["lean"], want_lean, two_year)
+
+    def test_fed_path_does_not_vote(self):
+        # A 2Y far above funds is a level, not a change: the headline stays Neutral.
+        result = self._run(DGS2=[(98, "6.00"), (35, "6.00"), (7, "6.00")])
+        self.assertEqual(result["fed_path"]["lean"], "leans hikes")
+        self.assertEqual(result["tone"], "Neutral")
+        self.assertEqual(result["tightening_votes"], 0)
+
+    def test_fed_path_is_absent_when_either_rate_is_missing_or_stale(self):
+        self.assertIsNone(self._run(DFF=None)["fed_path"])
+        self.assertIsNone(self._run(DFF=[(60, "4.00"), (40, "4.00")])["fed_path"])
+        self.assertIsNone(self._run(DGS2=None)["fed_path"])
 
     def test_small_move_is_flat_not_a_signal(self):
         result = self._run(DGS2=[(35, "4.00"), (7, "4.05")])

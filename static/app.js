@@ -115,6 +115,13 @@ function liquidityLongerLine(liq) {
   return `${longer.lookback_weeks} weeks: ${tone}`;
 }
 
+function fedPathLine(liq) {
+  const path = liq?.fed_path;
+  if (!path) return '';
+  const spread = (path.spread >= 0 ? '+' : '') + Number(path.spread).toFixed(2);
+  return `2Y vs Fed funds: ${spread}, ${path.lean}`;
+}
+
 function liquidityNoteHtml(liq) {
   return liq?.high_vol_tightening ? `<span class="liquidity-flag">${esc(liq.high_vol_note)}</span>` : '';
 }
@@ -131,6 +138,12 @@ function renderLiquidity(liq) {
   countEl.textContent = liquidityVotesLine(liq);
   const longerEl = $('liquidity-longer');
   if (longerEl) longerEl.textContent = liquidityLongerLine(liq);
+  const fedEl = $('liquidity-fed');
+  if (fedEl) {
+    fedEl.textContent = fedPathLine(liq);
+    fedEl.style.display = liq?.fed_path ? '' : 'none';
+    fedEl.title = 'Above Fed funds suggests markets lean toward higher rates; below, toward cuts. The 2Y also carries term premium, so this is a lean, not an expected path.';
+  }
   itemsEl.innerHTML = buildLiquidityChips(liq?.items);
   readEl.innerHTML = `${liquidityNoteHtml(liq)}${esc(liq?.read || 'Liquidity data unavailable.')}
     <span class="futures-meta"><span>${esc(liq?.source || 'FRED')}</span><span>Context only</span><span>Not scored</span></span>`;
@@ -1475,4 +1488,5 @@ export {
   liquidityVotesLine,
   liquidityLongerLine,
   liquidityNoteHtml,
+  fedPathLine,
 };

@@ -96,6 +96,20 @@ def _append_jsonl(path: str, record: dict) -> None:
 
 # ─── forecast recording (P3-001, P3-011) ───────────────────────────────────
 
+def _liquidity_snapshot(dashboard: dict) -> dict:
+    """Liquidity readings for later grading (P3-018). Readings, not display copy."""
+    liq = dashboard.get("liquidity") or {}
+    return {
+        "tone":               liq.get("tone"),
+        "longer_tone":        (liq.get("longer") or {}).get("tone"),
+        "loosening_votes":    liq.get("loosening_votes"),
+        "tightening_votes":   liq.get("tightening_votes"),
+        "high_vol_tightening": liq.get("high_vol_tightening"),
+        "series":             {i["key"]: {k: i.get(k) for k in ("value", "change", "direction", "as_of")}
+                               for i in liq.get("items") or []},
+    }
+
+
 def build_forecast_record(dashboard: dict, date_str: str) -> dict:
     """One immutable snapshot of what the model said, before outcomes exist."""
     as_of = dashboard.get("as_of") or {}
@@ -116,6 +130,7 @@ def build_forecast_record(dashboard: dict, date_str: str) -> dict:
         "reliability":        dashboard.get("reliability"),
         "volatility_budget":  dashboard.get("vol_target"),
         "data_sources":       dashboard.get("data_sources"),
+        "liquidity":          _liquidity_snapshot(dashboard),
     }
     record["input_manifest_hash"] = _manifest_hash(record)
     return record

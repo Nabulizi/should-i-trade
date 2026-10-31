@@ -19,6 +19,7 @@ import {
   liquidityVotesLine,
   liquidityLongerLine,
   liquidityNoteHtml,
+  fedPathLine,
 } from './app.js';
 
 beforeEach(() => {
@@ -74,6 +75,12 @@ describe('buildLiquidityChips', () => {
   it('shows the Tightening plus high volatility flag only when it applies', () => {
     expect(liquidityNoteHtml({ high_vol_tightening: true, high_vol_note: '<b>39%</b>' })).toContain('&lt;b&gt;39%');
     expect(liquidityNoteHtml({ high_vol_tightening: false, high_vol_note: 'x' })).toBe('');
+  });
+
+  it('shows the 2Y vs Fed funds gap with a sign, or nothing without data', () => {
+    expect(fedPathLine({ fed_path: { spread: 0.98, lean: 'leans hikes' } })).toBe('2Y vs Fed funds: +0.98, leans hikes');
+    expect(fedPathLine({ fed_path: { spread: -0.3, lean: 'leans cuts' } })).toBe('2Y vs Fed funds: -0.30, leans cuts');
+    expect(fedPathLine({ fed_path: null })).toBe('');
   });
 
   it('reports when there are no items at all', () => {

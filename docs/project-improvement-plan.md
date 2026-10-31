@@ -358,6 +358,7 @@ Treat this as a small model-version change.
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
 | P1-033 | in_progress | Add FRED liquidity context panel | Direction vs 4 weeks shown with as-of dates; failed/stale series visible as no data; no score input (D-006); no sizing or entry language (D-001) |
+| P1-035 | in_progress | Add a simple forward-looking Fed read | 2Y vs Fed funds shown with term-premium caveat; never votes in the liquidity headline |
 
 ### P1 acceptance scenario
 
@@ -490,6 +491,7 @@ Outcomes are appended or joined later without mutating the forecast.
 | P3-002 | pending | Add 09:25 premarket track | Evaluated separately with time-available inputs |
 | P3-003 | pending | Add 10:00 early-session track | Partial-day features/time-normalized volume versioned separately |
 | P3-004 | pending | Add 12:00 midday track | Not pooled with EOD without stratification |
+| P3-018 | in_progress | Log liquidity readings with each forecast | 4-week and 13-week readings stored and hash-covered; evaluation declared before live data |
 
 ### P3-B — Predeclare outcomes
 

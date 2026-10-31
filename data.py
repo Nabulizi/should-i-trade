@@ -413,6 +413,7 @@ _LIQUIDITY_SERIES = [
 ]
 _NET_LIQUIDITY_IDS = ("WALCL", "WTREGEN", "RRPONTSYD")
 _NET_LIQUIDITY_DEADBAND = 0.05  # $50B
+_FED_PATH_BAND = 0.25           # one standard Fed move
 _LIQUIDITY_LOOKBACK_DAYS = 28
 _LIQUIDITY_LONGER_DAYS = 91
 _LIQUIDITY_STALE_DAYS = 21      # weekly series can lag ~2 weeks; longer is a halted feed
@@ -527,6 +528,19 @@ def _liquidity_votes(items: list[dict], direction: str) -> float:
                for i in items if i["direction"] == direction)
 
 
+def _fed_path(two_year: list, fed_funds: list) -> dict | None:
+    """2Y yield minus effective Fed funds: a rough read of where markets expect
+    policy to go. A level, so it stays out of the votes, which count changes.
+    The 2Y also carries term premium, so this is a lean, not an expected path."""
+    for series in (two_year, fed_funds):
+        if not series or (date.today() - series[-1][0]).days > _LIQUIDITY_STALE_DAYS:
+            return None
+    spread = round(two_year[-1][1] - fed_funds[-1][1], 2)
+    lean = "leans hikes" if spread >= _FED_PATH_BAND else "leans cuts" if spread <= -_FED_PATH_BAND else "about flat"
+    return {"spread": spread, "lean": lean, "as_of": min(two_year[-1][0], fed_funds[-1][0]).isoformat(),
+            "source": "FRED DGS2 - DFF"}
+
+
 def _liquidity_tone(items: list[dict]) -> tuple[str, str, float, float]:
     """(tone, color, loosening votes, tightening votes). Only Tightening gets a
     color: the replay's evidence is about risk, so Loosening is not a green light."""
@@ -541,7 +555,7 @@ def _liquidity_tone(items: list[dict]) -> tuple[str, str, float, float]:
 
 def fetch_liquidity() -> dict:
     """Which way is liquidity moving vs 4 and 13 weeks ago? Informational only; not scored."""
-    ids = list(_NET_LIQUIDITY_IDS) + [r[2] for r in _LIQUIDITY_SERIES]
+    ids = list(_NET_LIQUIDITY_IDS) + [r[2] for r in _LIQUIDITY_SERIES] + ["DFF"]
     with ThreadPoolExecutor(max_workers=len(ids)) as ex:
         series = dict(zip(ids, ex.map(fred_series, ids)))
 
@@ -572,7 +586,8 @@ def fetch_liquidity() -> dict:
 
     valid = [i for i in items if i["available"]]
     base = {"items": items, "source": "FRED", "lookback_days": _LIQUIDITY_LOOKBACK_DAYS,
-            "longer": longer, "context_only": True}
+            "longer": longer, "fed_path": _fed_path(series["DGS2"], series["DFF"]),
+            "context_only": True}
     if len(valid) < _LIQUIDITY_MIN_VALID:
         return {**base, "valid": False, "tone": "Unavailable", "tone_color": "gray",
                 "loosening": 0, "tightening": 0, "flat": 0,
