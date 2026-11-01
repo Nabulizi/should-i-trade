@@ -1466,7 +1466,17 @@ def risk_level(realized_vol_pct: float | None, spy_below_50: bool | None,
     and pass criteria frozen before replay (backtest_risk_line.py). Display only;
     never an input to the score. Missing input means no level, not a guess."""
     if realized_vol_pct is None or spy_below_50 is None or hyg_below_50 is None:
-        return {"level": None, "color": "gray", "flags": []}
+        return {"level": None, "color": "gray", "flags": [], "checks": []}
+    high_vol = realized_vol_pct >= LIQUIDITY_HIGH_VOL_PCT
+    checks = [
+        {"label": "SPY volatility", "on": high_vol,
+         "detail": (f"{realized_vol_pct}%, {'at or above' if high_vol else 'below'} "
+                    f"the {LIQUIDITY_HIGH_VOL_PCT}% median")},
+        {"label": "SPY trend", "on": spy_below_50,
+         "detail": "Below its 50-day average" if spy_below_50 else "At or above its 50-day average"},
+        {"label": "Credit", "on": hyg_below_50,
+         "detail": "HYG below its 50-day average" if hyg_below_50 else "HYG at or above its 50-day average"},
+    ]
     flags = []
     if realized_vol_pct >= LIQUIDITY_HIGH_VOL_PCT:
         flags.append("SPY volatility is above its long-run median")
@@ -1476,7 +1486,7 @@ def risk_level(realized_vol_pct: float | None, spy_below_50: bool | None,
         flags.append("HYG is below its 50-day average")
     level, color = (("Normal", "gray") if not flags else
                     ("High", "red") if len(flags) == 3 else ("Elevated", "orange"))
-    return {"level": level, "color": color, "flags": flags}
+    return {"level": level, "color": color, "flags": flags, "checks": checks}
 
 
 def liquidity_with_vol_flag(liquidity: dict, vol_target: VolTargetInfo | None) -> dict:

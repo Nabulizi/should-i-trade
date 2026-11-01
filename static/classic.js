@@ -679,7 +679,7 @@ function volTargetLine(volTarget) {
   const spyPct = Math.round(volTarget.exposure_pct);
   const cashPct = 100 - spyPct;   // complement of the rounded SPY% — always sums to 100
   return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
-    `<span>Suggested: ${spyPct}% SPY / ${cashPct}% cash</span></div>`;
+    `<span>Illustrative: ${spyPct}% SPY / ${cashPct}% cash</span></div>`;
 }
 
 // P1-001/D-004: the old "confidence" bar was the score re-banded — score

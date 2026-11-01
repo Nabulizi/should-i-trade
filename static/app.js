@@ -69,33 +69,93 @@ function renderFuturesTape(tape) {
 
 /* ── RISK LINE AND THREE QUESTIONS ─────────────────────── */
 // Figures from backtest_risk_line.py (exploratory replay, docs/backtest-methodology.md).
-const RISK_HISTORY = 'In the 2007–2026 replay, 10%+ SPY drops within 3 months followed 10% of Normal, 22% of Elevated and 41% of High days. Exploratory, not a forecast.';
+const RISK_STEPS = [
+  { level: 'Normal', history: '10%', ordinal: 'first' },
+  { level: 'Elevated', history: '22%', ordinal: 'second' },
+  { level: 'High', history: '41%', ordinal: 'third' },
+];
 
-function riskLineHtml(d) {
-  const read = d?.risk_read;
-  const level = d?.data_quality?.valid === false ? 'Data unavailable' : read?.level || 'Not enough data';
-  const known = d?.data_quality?.valid !== false && read?.level;
-  const flags = read?.flags || [];
-  const reason = !known ? 'Some inputs are missing, so no risk level is shown.'
-    : flags.length ? `${flags.map(esc).join('. ')}.`
-    : 'None of the three risk flags is on: SPY volatility, SPY vs its 50-day average, HYG vs its 50-day average.';
-  return `<div class="risk-kicker">Risk today</div>
-    <div class="risk-level ${known ? tagColor(read.color) : 'gray'}">${esc(level)}</div>
-    <div class="risk-reason">${reason}</div>
-    ${known ? `<div class="risk-history">${RISK_HISTORY}</div>` : ''}`;
+function riskStat(label, value, note) {
+  return `<div class="risk-stat">
+    <div class="risk-stat-label">${label}</div>
+    <div class="risk-stat-value">${value}</div>
+    <div class="risk-stat-note">${note}</div>
+  </div>`;
 }
 
-function questionCard(title, lines) {
-  const rows = lines.filter(Boolean);
+function riskStatsHtml(d) {
+  const stats = [];
+  if (d.total_score != null) stats.push(riskStat('Score', esc(d.total_score), `${esc(d.decision)} band`));
+  const budget = volBudget(d.vol_target, loadVolTarget());
+  if (budget) stats.push(riskStat('SPY volatility budget', `${budget.spyPct}%`, `Illustrative, at a ${esc(budget.target)}% annual-vol target`));
+  const coverage = d.reliability?.coverage_pct;
+  if (coverage != null) stats.push(riskStat('Data coverage', `${Math.round(coverage)}%`, d.timestamp ? `As of ${esc(d.timestamp)}` : 'Latest refresh'));
+  return stats.length ? `<div class="risk-stats">${stats.join('')}</div>` : '';
+}
+
+function riskLineHtml(d) {
+  const invalid = d?.data_quality?.valid === false;
+  const read = d?.risk_read;
+  const known = !invalid && read?.level;
+  if (!known) {
+    return `<div class="risk-kicker">Risk today</div>
+      <div class="risk-level">${invalid ? 'Data unavailable' : 'Not enough data'}</div>
+      <p class="risk-note">Some inputs are missing, so no risk level is shown.</p>`;
+  }
+  const checks = read.checks || [];
+  const current = RISK_STEPS.find(step => step.level === read.level);
+  const steps = RISK_STEPS.map(step => `<div class="risk-step${step === current ? ` current ${tagColor(read.color)}` : ''}">
+      <span class="risk-step-bar"></span>
+      <span class="risk-step-name">${step.level}</span>
+      <span class="risk-step-history">${step.history}</span>
+    </div>`).join('');
+  const rows = checks.map(c => `<li class="risk-check${c.on ? ' on' : ''}">
+      <span class="risk-check-mark" aria-hidden="true"></span>
+      <span class="risk-check-text"><span class="risk-check-label">${esc(c.label)}</span><span class="risk-check-detail">${esc(c.detail)}</span></span>
+      <span class="risk-check-state">${c.on ? 'On' : 'Off'}</span>
+    </li>`).join('');
+  const noneOn = checks.length && !checks.some(c => c.on)
+    ? '<p class="risk-note">None of the three checks is on.</p>' : '';
+  return `<div class="risk-top">
+      <div class="risk-summary">
+        <div class="risk-kicker">Risk today</div>
+        <div class="risk-level">${esc(read.level)}</div>
+        <div class="risk-scale" role="img" aria-label="Risk level ${esc(read.level)}, ${current?.ordinal || 'unknown'} of three">${steps}</div>
+        <p class="risk-history">Share of past days followed by a 10%+ SPY drop within 3 months, 2007–2026 replay. Exploratory, not a forecast.</p>
+      </div>
+      <div class="risk-checks-wrap">
+        <div class="risk-checks-title">What sets the level</div>
+        <ul class="risk-checks">${rows}</ul>
+        ${noneOn}
+      </div>
+    </div>
+    ${riskStatsHtml(d)}
+    <div class="risk-foot">
+      ${asOfLine(d.as_of)}
+      <div>Conditions report. No demonstrated return-timing edge (<a href="https://github.com/Nabulizi/should-i-trade/blob/main/docs/backtest-report.md" target="_blank" rel="noopener">2005–2026 replay</a>).</div>
+    </div>`;
+}
+
+function questionRow(label, value) {
+  return `<div class="question-row"><dt>${label}</dt><dd>${value}</dd></div>`;
+}
+
+function questionCard(title, rows, note = '') {
+  const present = rows.filter(Boolean);
   return `<div class="question-card">
     <h2>${title}</h2>
-    ${rows.length ? rows.map(line => `<p>${line}</p>`).join('') : '<p class="question-empty">No data</p>'}
+    ${present.length ? `<dl>${present.join('')}</dl>` : '<p class="question-empty">No data</p>'}
+    ${note}
   </div>`;
 }
 
 function maSide(above, days) {
   if (above == null) return null;
-  return `${above ? 'above' : 'below'} its ${days}-day average`;
+  return `${above ? 'above' : 'below'} ${days}-day`;
+}
+
+function sentenceCase(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function threeQuestionsHtml(d) {
@@ -108,22 +168,23 @@ function threeQuestionsHtml(d) {
   const realized = d?.vol_target?.realized_annual_vol_pct;
   const hy = (liq.items || []).find(i => i.key === 'hy_spread');
   const sides = [maSide(trend.above_50, 50), maSide(trend.above_200, 200)].filter(Boolean);
+  const hyg = macro.hyg_label && macro.hyg_label !== 'N/A' ? macro.hyg_label : null;
   return [
     questionCard('How rough?', [
-      vol.vix_level != null && `VIX ${esc(vol.vix_level)}${vol.vix_trend ? `, ${esc(vol.vix_trend).toLowerCase()}` : ''}`,
-      realized != null && `SPY 20-day volatility ${esc(realized)}%, median 13.2%`,
+      vol.vix_level != null && questionRow('VIX', `${esc(vol.vix_level)}${vol.vix_label ? `, ${esc(vol.vix_label)}` : ''}`),
+      vol.vix_trend && questionRow('VIX trend', esc(vol.vix_trend)),
+      realized != null && questionRow('SPY 20-day volatility', `${esc(realized)}%`),
     ]),
     questionCard('How healthy?', [
-      sides.length && `SPY is ${sides.join(' and ')}`,
-      breadth.sectors_total && `${esc(breadth.sectors_positive)} of ${esc(breadth.sectors_total)} sectors up`,
-      momentum.rs_rotation_label && `Leadership: ${esc(momentum.rs_rotation_label)}`,
+      sides.length && questionRow('SPY', sentenceCase(sides.join(', '))),
+      breadth.sectors_total && questionRow('Sectors up', `${esc(breadth.sectors_positive)} of ${esc(breadth.sectors_total)}`),
+      momentum.rs_rotation_label && questionRow('Leadership', esc(momentum.rs_rotation_label)),
     ]),
     questionCard("What's the backdrop?", [
-      (hy?.value != null || macro.hyg_label) && `Credit: ${[hy?.value != null && `HY spread ${esc(hy.value)}${hy.level ? ` (${esc(hy.level)})` : ''}`, macro.hyg_label && macro.hyg_label !== 'N/A' && `HYG ${esc(macro.hyg_label)}`].filter(Boolean).join(', ')}`,
-      liq.summary && `Liquidity: ${esc(liq.summary)}`,
-      liq.fed_path && `2Y vs Fed funds: ${esc(liq.fed_path.lean)}`,
-      liq.high_vol_tightening && `<span class="liquidity-flag">${esc(liq.high_vol_note)}</span>`,
-    ]),
+      hy?.value != null && questionRow('HY spread', `${esc(hy.value)}${hy.level ? `, ${esc(hy.level)}` : ''}`),
+      hyg && questionRow('HYG', esc(hyg)),
+      liq.fed_path && questionRow('2Y vs Fed funds', sentenceCase(esc(liq.fed_path.lean))),
+    ], `${liq.summary ? `<p class="question-note">${esc(liq.summary)}</p>` : ''}${liquidityNoteHtml(liq)}`),
   ].join('');
 }
 
@@ -243,7 +304,7 @@ function renderHeader(d) {
   const visible = events.filter(e => e.days_until <= 14);
   const earn = d.earnings || {};
   const earnBadge = (earn.in_season || earn.days_until <= 14)
-    ? `<span class="econ-badge ${esc(earn.color)}">🏦 ${esc(earn.label)} <span class="econ-badge-sub">${esc(earn.detail || '')}</span></span>`
+    ? `<span class="econ-badge ${esc(earn.color)}">${esc(earn.label)} <span class="econ-badge-sub">${esc(earn.detail || '')}</span></span>`
     : '';
   const staleBadge = d.econ_calendar_stale
     ? `<span class="econ-badge orange">⚠ ECON CALENDAR outdated — update _ECON_CALENDAR in data.py</span>`
@@ -251,7 +312,7 @@ function renderHeader(d) {
   if (visible.length || earnBadge || staleBadge) {
     $('econ-row').style.display = 'flex';
     $('econ-badges').innerHTML = staleBadge + earnBadge + visible.map(e =>
-      `<span class="econ-badge ${esc(e.color)}">${esc(e.type)} · ${esc(e.name)} <span class="econ-badge-sub">${esc(e.urgency)}</span></span>`
+      `<span class="econ-badge ${esc(e.color)}">${esc(e.name)} <span class="econ-badge-sub">${esc(e.urgency)}</span></span>`
     ).join(' ');
   } else {
     $('econ-row').style.display = 'none';
@@ -383,10 +444,9 @@ function renderHero(d) {
   const streakContainer = document.querySelector('.streak-badge-wrap');
   if (streakContainer) {
     if (streak && streak.days >= 2) {
-      const emoji = streak.direction === 'up' ? '🟢' : '🔴';
       const label = streak.direction === 'up' ? 'win streak' : 'losing streak';
       streakContainer.innerHTML =
-        `<span class="streak-badge streak-${streak.direction}">${emoji} SPY ${streak.days}-day ${label}</span>`;
+        `<span class="streak-badge streak-${streak.direction}">SPY ${streak.days}-day ${label}</span>`;
       streakContainer.style.display = '';
     } else {
       streakContainer.style.display = 'none';
@@ -394,13 +454,6 @@ function renderHero(d) {
   }
 
   // Update header score badge
-  const headerScore = $('header-score');
-  if (headerScore) {
-    const invalidData = d.data_quality?.valid === false;
-    headerScore.textContent = invalidData ? '— · DATA UNAVAILABLE' : `${s} · ${d.decision}`;
-    headerScore.className = 'header-score loaded';
-    headerScore.style.color = invalidData ? 'var(--muted)' : scoreColor(s);
-  }
 }
 
 /* ── PILLARS ────────────────────────────────────────────── */
@@ -525,7 +578,7 @@ function renderPillars(d) {
         const v = p.details;
         const chips = (v.sector_rs && v.sector_rs.length)
           ? `<div class="rs-chips">${v.sector_rs.slice(0, 3).map(r => {
-              const bg = r.rs_score >= 0 ? 'rgba(0,230,118,0.15)' : 'rgba(255,23,68,0.15)';
+              const bg = r.rs_score >= 0 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)';
               const col = r.rs_score >= 0 ? 'var(--green)' : 'var(--red)';
               return `<span class="rs-chip" style="background:${bg};color:${col}">${esc(r.name)}</span>`;
             }).join('')}</div>` : '';
@@ -632,7 +685,7 @@ function renderBars(elId, data) {
   const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
   $(elId).innerHTML = entries.map(([, v]) => {
     const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
-    const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
+    const bg = v.change_pct >= 0 ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)';
     const c  = 'var(--text)';
     return `<div class="sector-row">
       <span class="sector-name">${esc(v.name)}</span>
@@ -809,8 +862,8 @@ function loadVolTarget() {
   return VOL_TARGET_PRESETS.includes(v) ? v : null;   // null → backend default
 }
 
-function volTargetLine(volTarget, userTarget = null) {
-  if (!volTarget || typeof volTarget.exposure_pct !== 'number') return '';
+function volBudget(volTarget, userTarget = null) {
+  if (!volTarget || typeof volTarget.exposure_pct !== 'number') return null;
   const realized = volTarget.realized_annual_vol_pct;
   let target = volTarget.target_annual_vol_pct;
   let exposure = volTarget.exposure_pct;
@@ -820,6 +873,13 @@ function volTargetLine(volTarget, userTarget = null) {
     exposure = Math.min(100, Math.max(0, (userTarget / realized) * 100));
     suffix = ' — your setting';
   }
+  return { target, exposure, suffix, realized, spyPct: Math.round(exposure) };
+}
+
+function volTargetLine(volTarget, userTarget = null) {
+  const budget = volBudget(volTarget, userTarget);
+  if (!budget) return '';
+  const { target, exposure, suffix, realized } = budget;
   const windowDays = volTarget.window_days ?? 20;
   // Short on screen as a plain SPY/cash split; the full method and
   // limitations live in the tooltip and README — a first-time user
@@ -831,7 +891,7 @@ function volTargetLine(volTarget, userTarget = null) {
   const spyPct = Math.round(exposure);
   const cashPct = 100 - spyPct;   // complement of the rounded SPY% — always sums to 100
   return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
-    `<span>Suggested split: ${spyPct}% SPY / ${cashPct}% cash (to hold steady risk)${suffix}</span></div>`;
+    `<span>Illustrative split: ${spyPct}% SPY / ${cashPct}% cash (to hold steady risk)${suffix}</span></div>`;
 }
 
 function onVolTargetChange() {
@@ -1044,7 +1104,7 @@ function renderWeights(d) {
 
 /* ── SCORE SPARKLINE ───────────────────────────────────── */
 const SPARK_LINES = { total: true, v: false, tr: false, br: false, mo: false, ma: false };
-const SPARK_COLORS = { total: '#e0e8f0', v: '#00b0ff', tr: '#00e676', br: '#ffd740', mo: '#ff9100', ma: '#7c4dff' };
+const SPARK_COLORS = { total: '#e0e8f0', v: '#60a5fa', tr: '#34d399', br: '#fbbf24', mo: '#fb923c', ma: '#7c4dff' };
 let _sparkHistory = [];
 
 function toggleSparkLine(key, el) {
@@ -1236,11 +1296,11 @@ function roundtableProvenance(meta) {
 
 /* ── FEAR & GREED (inline color helper, used in macro rows) ── */
 function fngColor(score) {
-  if (score <= 25) return '#ff1744';
-  if (score <= 45) return '#ff9100';
-  if (score <= 55) return '#ffd740';
+  if (score <= 25) return '#f87171';
+  if (score <= 45) return '#fb923c';
+  if (score <= 55) return '#fbbf24';
   if (score <= 75) return '#69f0ae';
-  return '#00e676';
+  return '#34d399';
 }
 
 
@@ -1261,12 +1321,10 @@ function renderConflicts(d) {
   const cr = $('conflicts-row');
   if (!conflicts.length) { cr.style.display = 'none'; return; }
   cr.style.display = 'flex';
-  const icons = { warning: '⚠️', caution: '🔶', info: 'ℹ️' };
   cr.innerHTML = `
-    <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">⚡ SIGNAL CONFLICTS</div>
+    <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Signal conflicts</div>
     ${conflicts.map(c => `
       <div class="conflict-card ${esc(c.severity)}">
-        <div class="conflict-icon">${icons[c.severity] || '⚠️'}</div>
         <div class="conflict-body">
           <div class="conflict-title">${esc(c.title)}</div>
           <div class="conflict-detail">${esc(c.detail)}</div>

@@ -153,6 +153,15 @@ class TestDashboardContracts(unittest.TestCase):
                           "HYG is below its 50-day average"])
         self.assertEqual(scoring.risk_level(12.0, False, False)["flags"], [])
 
+    def test_risk_level_reports_every_check_on_or_off(self):
+        checks = scoring.risk_level(11.6, True, False)["checks"]
+        self.assertEqual([(c["label"], c["on"]) for c in checks],
+                         [("SPY volatility", False), ("SPY trend", True), ("Credit", False)])
+        self.assertEqual(checks[0]["detail"], "11.6%, below the 13.2% median")
+        self.assertEqual(checks[1]["detail"], "Below its 50-day average")
+        self.assertEqual(checks[2]["detail"], "HYG at or above its 50-day average")
+        self.assertEqual(scoring.risk_level(None, True, False)["checks"], [])
+
     def test_risk_level_refuses_to_guess_without_all_inputs(self):
         for args in ((None, False, False), (12.0, None, False), (12.0, False, None)):
             self.assertIsNone(scoring.risk_level(*args)["level"], args)

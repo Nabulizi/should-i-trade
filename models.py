@@ -156,6 +156,7 @@ class RiskRead(TypedDict):
     level: str | None           # Normal | Elevated | High | None (missing input)
     color: str
     flags: list[str]
+    checks: list[dict[str, Any]]
 
 
 class FearGreed(TypedDict, total=False):

@@ -30,35 +30,65 @@ beforeEach(() => {
 });
 
 describe('riskLineHtml', () => {
-  const read = (level, flags = []) => ({ data_quality: { valid: true }, risk_read: { level, color: 'orange', flags } });
-
-  it('leads with the level and gives the reasons in words', () => {
-    const html = riskLineHtml(read('Elevated', ['SPY is below its 50-day average', 'HYG is below its 50-day average']));
-    expect(html).toContain('Elevated');
-    expect(html).toContain('SPY is below its 50-day average');
-    expect(html).toContain('HYG is below its 50-day average');
+  const checks = [
+    { label: 'SPY volatility', on: false, detail: '11.6%, below the 13.2% median' },
+    { label: 'SPY trend', on: true, detail: 'Below its 50-day average' },
+    { label: 'Credit', on: true, detail: 'HYG below its 50-day average' },
+  ];
+  const read = (level, list = checks, extra = {}) => ({
+    data_quality: { valid: true }, risk_read: { level, color: 'orange', flags: [], checks: list }, ...extra,
   });
 
-  it('says plainly when no flag is on', () => {
-    expect(riskLineHtml(read('Normal'))).toContain('None of the three risk flags is on');
+  it('leads with the level and shows every check, on or off, in words', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect(html).toContain('Elevated');
+    expect(html).toContain('Below its 50-day average');
+    expect(html).toContain('11.6%, below the 13.2% median');
+    expect((html.match(/risk-check-state">Off/g) || []).length).toBe(1);
+    expect((html.match(/risk-check-state">On/g) || []).length).toBe(2);
+  });
+
+  it('says plainly when no check is on', () => {
+    const off = checks.map(c => ({ ...c, on: false }));
+    expect(riskLineHtml(read('Normal', off))).toContain('None of the three checks is on');
+  });
+
+  it('marks the current step on the scale in a way a screen reader gets', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect(html).toContain('aria-label="Risk level Elevated, second of three"');
+    expect((html.match(/risk-step current/g) || []).length).toBe(1);
   });
 
   it('labels the history as exploratory, not a forecast', () => {
-    const html = riskLineHtml(read('High', ['x']));
-    expect(html).toContain('41%');
-    expect(html).toContain('not a forecast');
+    const html = riskLineHtml(read('High'));
+    for (const text of ['10%', '22%', '41%', 'not a forecast']) expect(html).toContain(text);
   });
 
-  it('never shows a level when data is invalid or missing', () => {
-    const invalid = riskLineHtml({ data_quality: { valid: false }, risk_read: { level: 'Normal', flags: [] } });
+  it('shows the score, illustrative budget, coverage and basis of the reading', () => {
+    const html = riskLineHtml(read('Elevated', checks, {
+      total_score: 32, decision: 'RISK-OFF', timestamp: '20:32 ET',
+      vol_target: { exposure_pct: 67, realized_annual_vol_pct: 11.6, target_annual_vol_pct: 7.8 },
+      reliability: { coverage_pct: 100 },
+      as_of: { session: 'weekend', market_data_as_of: '2026-10-30' },
+    }));
+    for (const text of ['32', 'RISK-OFF', '67%', 'Illustrative', '100%', '20:32 ET', '2026-10-30', 'return-timing edge']) {
+      expect(html).toContain(text);
+    }
+  });
+
+  it('never shows a level or score when data is invalid or missing', () => {
+    const invalid = riskLineHtml({ data_quality: { valid: false }, total_score: 32, risk_read: { level: 'Normal', checks } });
     expect(invalid).toContain('Data unavailable');
     expect(invalid).not.toContain('Normal');
-    expect(riskLineHtml({ data_quality: { valid: true }, risk_read: { level: null, flags: [] } })).toContain('Not enough data');
+    expect(invalid).not.toContain('>32<');
+    expect(riskLineHtml({ data_quality: { valid: true }, risk_read: { level: null, checks: [] } })).toContain('Not enough data');
     expect(riskLineHtml({ data_quality: { valid: true } })).toContain('Not enough data');
   });
 
   it('escapes backend strings', () => {
-    expect(riskLineHtml(read('Elevated', ['<img>']))).not.toContain('<img>');
+    const html = riskLineHtml(read('Elevated', [{ label: '<img>', on: true, detail: '<b>' }]));
+    expect(html).not.toContain('<img>');
+    expect(html).not.toContain('<b>');
   });
 });
 
@@ -109,9 +139,9 @@ describe('threeQuestionsHtml', () => {
 
   it('asks the three questions and answers from the payload', () => {
     const html = threeQuestionsHtml(dash);
-    for (const text of ['How rough?', 'How healthy?', "What's the backdrop?", '19.42', 'spiking', '11.6%',
-      'below its 50-day', 'above its 200-day', '6 of 11', 'Defensive Rotation', '3.26', 'Calm',
-      'Below 50d', 'Little net change', 'leans hikes']) {
+    for (const text of ['How rough?', 'How healthy?', "What's the backdrop?", '19.42', 'Spiking', '11.6%',
+      'Below 50-day', 'above 200-day', '6 of 11', 'Defensive Rotation', '3.26', 'Calm',
+      'Below 50d', 'Little net change', 'Leans hikes']) {
       expect(html).toContain(text);
     }
   });
@@ -125,8 +155,12 @@ describe('threeQuestionsHtml', () => {
 
   it('does not claim a trend side it does not know', () => {
     const html = threeQuestionsHtml({ pillars: { trend: { details: {} } } });
-    expect(html).not.toContain('below its 50-day');
-    expect(html).not.toContain('above its 50-day');
+    expect(html).not.toContain('50-day');
+  });
+
+  it('shows the Tightening with high volatility flag when it applies', () => {
+    const html = threeQuestionsHtml({ ...dash, liquidity: { ...dash.liquidity, high_vol_tightening: true, high_vol_note: 'Both are on' } });
+    expect(html).toContain('Both are on');
   });
 });
 
@@ -451,7 +485,7 @@ describe('volTargetLine (P1-007..009)', () => {
   it('shows a plain SPY/cash split on screen with the full method in the tooltip', () => {
     const html = volTargetLine(vt);
     // 72.4 rounds to 72% SPY, complement is 28% cash — always sums to 100.
-    expect(html).toContain('Suggested split: 72% SPY / 28% cash');
+    expect(html).toContain('Illustrative split: 72% SPY / 28% cash');
     expect(html).toContain('to hold steady risk');
     // Full disclosure (realized vol, horizon, not-personalized) lives in title=
     expect(html).toContain('10.8% annualized');
