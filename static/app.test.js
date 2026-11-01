@@ -20,10 +20,114 @@ import {
   liquidityLongerLine,
   liquidityNoteHtml,
   fedPathLine,
+  riskLineHtml,
+  threeQuestionsHtml,
+  todaysReadHtml,
 } from './app.js';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+describe('riskLineHtml', () => {
+  const read = (level, flags = []) => ({ data_quality: { valid: true }, risk_read: { level, color: 'orange', flags } });
+
+  it('leads with the level and gives the reasons in words', () => {
+    const html = riskLineHtml(read('Elevated', ['SPY is below its 50-day average', 'HYG is below its 50-day average']));
+    expect(html).toContain('Elevated');
+    expect(html).toContain('SPY is below its 50-day average');
+    expect(html).toContain('HYG is below its 50-day average');
+  });
+
+  it('says plainly when no flag is on', () => {
+    expect(riskLineHtml(read('Normal'))).toContain('None of the three risk flags is on');
+  });
+
+  it('labels the history as exploratory, not a forecast', () => {
+    const html = riskLineHtml(read('High', ['x']));
+    expect(html).toContain('41%');
+    expect(html).toContain('not a forecast');
+  });
+
+  it('never shows a level when data is invalid or missing', () => {
+    const invalid = riskLineHtml({ data_quality: { valid: false }, risk_read: { level: 'Normal', flags: [] } });
+    expect(invalid).toContain('Data unavailable');
+    expect(invalid).not.toContain('Normal');
+    expect(riskLineHtml({ data_quality: { valid: true }, risk_read: { level: null, flags: [] } })).toContain('Not enough data');
+    expect(riskLineHtml({ data_quality: { valid: true } })).toContain('Not enough data');
+  });
+
+  it('escapes backend strings', () => {
+    expect(riskLineHtml(read('Elevated', ['<img>']))).not.toContain('<img>');
+  });
+});
+
+describe('todaysReadHtml', () => {
+  const event = { name: 'Jobs Report', date_pretty: 'Nov 06', urgency: '6d' };
+
+  it('is never empty when there is no history and nothing disagrees', () => {
+    const html = todaysReadHtml({ conflicts: [], econ_events: [event] });
+    expect(html).toContain('No previous close saved yet');
+    expect(html).toContain('No signal conflicts flagged');
+    expect(html).toContain('Jobs Report');
+    expect(html).toContain('Nov 06');
+  });
+
+  it('leaves those lines out when the strip and conflict cards are showing them', () => {
+    const html = todaysReadHtml({
+      yesterday: { pillars: {} }, conflicts: [{ title: 'x' }], econ_events: [],
+    });
+    expect(html).not.toContain('No previous close');
+    expect(html).not.toContain('No signal conflicts');
+  });
+
+  it('says so when the calendar has nothing upcoming', () => {
+    expect(todaysReadHtml({ conflicts: [], econ_events: [] })).toContain('No release dates listed');
+  });
+
+  it('escapes backend strings', () => {
+    expect(todaysReadHtml({ conflicts: [], econ_events: [{ name: '<img>', date_pretty: 'x' }] })).not.toContain('<img>');
+  });
+});
+
+describe('threeQuestionsHtml', () => {
+  const dash = {
+    vol_target: { realized_annual_vol_pct: 11.6 },
+    pillars: {
+      volatility: { details: { vix_level: 19.42, vix_trend: 'Spiking' } },
+      trend: { details: { above_50: false, above_200: true } },
+      breadth: { details: { sectors_positive: 6, sectors_total: 11 } },
+      momentum: { details: { rs_rotation_label: 'Defensive Rotation' } },
+      macro: { details: { hyg_label: 'Below 50d' } },
+    },
+    liquidity: {
+      summary: 'Little net change over 4 weeks.',
+      items: [{ key: 'hy_spread', value: 3.26, level: 'Calm' }],
+      fed_path: { spread: 0.73, lean: 'leans hikes' },
+    },
+  };
+
+  it('asks the three questions and answers from the payload', () => {
+    const html = threeQuestionsHtml(dash);
+    for (const text of ['How rough?', 'How healthy?', "What's the backdrop?", '19.42', 'spiking', '11.6%',
+      'below its 50-day', 'above its 200-day', '6 of 11', 'Defensive Rotation', '3.26', 'Calm',
+      'Below 50d', 'Little net change', 'leans hikes']) {
+      expect(html).toContain(text);
+    }
+  });
+
+  it('shows no data rather than undefined when inputs are missing', () => {
+    const html = threeQuestionsHtml({ pillars: {} });
+    expect(html).not.toContain('undefined');
+    expect(html).not.toContain('NaN');
+    expect(html).toContain('No data');
+  });
+
+  it('does not claim a trend side it does not know', () => {
+    const html = threeQuestionsHtml({ pillars: { trend: { details: {} } } });
+    expect(html).not.toContain('below its 50-day');
+    expect(html).not.toContain('above its 50-day');
+  });
 });
 
 describe('buildLiquidityChips', () => {

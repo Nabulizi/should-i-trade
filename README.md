@@ -45,6 +45,7 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 | **Health & Metrics** | `/health` and `/metrics` endpoints for monitoring |
 | **Rate Limiting** | 30 req/min per IP — protects against runaway polling |
 | **Responsive UI** | Works on mobile (≥320px) — simplified layout at ≤480px |
+| **Risk today** | One plain level from three flags, with its replay history. Display only, never scored |
 | **Liquidity context** | Six FRED series, each read as loosening/tightening vs 4 weeks ago. Context only, never scored |
 | **Zero API keys** | Yahoo Finance → Stooq → CoinGecko → Binance, plus FRED (all free) |
 

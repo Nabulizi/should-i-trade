@@ -55,6 +55,17 @@ the next 63 trading days better than the base rate, and is 13 weeks better than
 overlap. No conclusion before **8 non-overlapping Tightening readings** on that
 lookback. Until then the 13-week reading stays secondary on the card.
 
+## Risk line (P1-037)
+
+Each record also stores the "Risk today" level and flags. Declared before any
+live data existed, using the replay's outcome:
+
+**Question:** do 10%+ SPY peak-to-trough drops within the next 63 trading days
+become more frequent from Normal to Elevated to High? **Sample:** one reading
+every 63 trading days, so outcomes don't overlap. No conclusion before **8
+non-overlapping High readings**. If live data doesn't show that order, the line
+stops leading the page.
+
 ## Sample-size minimum (P3-009)
 
 No rolling metric is displayed for a track with fewer than

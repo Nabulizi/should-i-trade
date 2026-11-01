@@ -58,6 +58,9 @@
   <main class="main" id="main-content" tabindex="-1">
     <h1 class="sr-only">Should I Trade? Market posture dashboard</h1>
 
+    <!-- RISK LINE: display only, never an input to the score -->
+    <div class="risk-line" id="risk-line" role="status" aria-live="polite"></div>
+
     <!-- SCORE STRIP -->
     <div class="score-strip">
       <div class="strip-circle">
@@ -80,14 +83,30 @@
         <div class="streak-badge-wrap" style="display:none"></div>
       </div>
       <div class="strip-right">
-        <div class="hero-radar" id="hero-radar"></div>
         <div class="strip-caveat">conditions report — no demonstrated return-timing edge (<a href="https://github.com/Nabulizi/should-i-trade/blob/main/docs/backtest-report.md" target="_blank" rel="noopener" style="color:inherit">2005–2026 replay</a>)</div>
       </div>
     </div>
+    <!-- THREE QUESTIONS -->
+    <div class="three-questions" id="three-questions"></div>
+
+    <!-- TODAY'S READ -->
+    <section class="section" aria-labelledby="read-heading">
+      <div class="section-heading"><h2 id="read-heading">Today's read</h2></div>
+      <div class="todays-read" id="todays-read"></div>
     <!-- SINCE-YESTERDAY DELTA STRIP -->
     <div class="yesterday-strip" id="yesterday-strip" role="note"
          aria-label="Change since previous close" style="display:none"></div>
-    <!-- 5 PILLAR CARDS -->
+    <!-- OVERRIDE BANNER + CONFLICTS -->
+    <div id="override-banner" class="override-banner" style="display:none"></div>
+    <div id="conflicts-row" class="conflicts-row" style="display:none"></div>
+
+    </section>
+
+    <!-- PILLARS AND DETAIL -->
+    <details class="workspace-disclosure">
+      <summary><span>Show pillars and detail</span><span class="summary-hint">Pillars, liquidity series, futures, desk read</span></summary>
+      <div class="detail-stack">
+        <div class="hero-radar" id="hero-radar"></div>
     <div class="futures-card" id="futures-card">
       <div>
         <div class="futures-kicker">Overnight / Futures</div>
@@ -113,10 +132,6 @@
       <div class="pillars-row" id="pillars-row"></div>
     </section>
 
-    <!-- OVERRIDE BANNER + CONFLICTS -->
-    <div id="override-banner" class="override-banner" style="display:none"></div>
-    <div id="conflicts-row" class="conflicts-row" style="display:none"></div>
-
     <!-- LIQUIDITY CONTEXT -->
     <div class="futures-card" id="liquidity-card">
       <div>
@@ -131,6 +146,25 @@
       <div class="futures-grid liquidity-grid" id="liquidity-items"></div>
       <div class="futures-read" id="liquidity-read">Liquidity context loading.</div>
     </div>
+
+    <!-- ROUNDTABLE -->
+    <div class="collapsible-section">
+      <button class="section-toggle" id="section-toggle-roundtable" onclick="toggleSection('roundtable')" aria-expanded="false" aria-controls="section-body-roundtable">
+        <span class="toggle-chevron" aria-hidden="true">▶</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Trading Desk Roundtable
+      </button>
+      <div id="section-body-roundtable" class="section-body">
+        <div class="roundtable-head">
+          <button class="btn" id="rt-btn" onclick="runRoundtable()" aria-label="Generate rule-based desk read"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>Rule-Based Read</button>
+          <button class="btn btn-ai" id="rt-ai-btn" onclick="runRoundtable(false, true)" aria-label="Run AI analysis — 5 specialist agents, approximately 10 seconds"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI Analysis</button>
+        </div>
+        <div id="roundtable-grid" class="roundtable-grid"></div>
+      </div>
+    </div>
+
+      </div>
+    </details>
 
     <!-- FEAR & GREED -->
 
@@ -191,22 +225,6 @@
     </div>
       </div>
     </details>
-
-    <!-- ROUNDTABLE -->
-    <div class="collapsible-section">
-      <button class="section-toggle" id="section-toggle-roundtable" onclick="toggleSection('roundtable')" aria-expanded="false" aria-controls="section-body-roundtable">
-        <span class="toggle-chevron" aria-hidden="true">▶</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Trading Desk Roundtable
-      </button>
-      <div id="section-body-roundtable" class="section-body">
-        <div class="roundtable-head">
-          <button class="btn" id="rt-btn" onclick="runRoundtable()" aria-label="Generate rule-based desk read"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="5 3 19 12 5 21 5 3"/></svg>Rule-Based Read</button>
-          <button class="btn btn-ai" id="rt-ai-btn" onclick="runRoundtable(false, true)" aria-label="Run AI analysis — 5 specialist agents, approximately 10 seconds"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>AI Analysis</button>
-        </div>
-        <div id="roundtable-grid" class="roundtable-grid"></div>
-      </div>
-    </div>
 
   </main>
 </div>

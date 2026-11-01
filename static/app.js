@@ -67,6 +67,76 @@ function renderFuturesTape(tape) {
     <span class="futures-meta"><span>${esc(source)}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
+/* ── RISK LINE AND THREE QUESTIONS ─────────────────────── */
+// Figures from backtest_risk_line.py (exploratory replay, docs/backtest-methodology.md).
+const RISK_HISTORY = 'In the 2007–2026 replay, 10%+ SPY drops within 3 months followed 10% of Normal, 22% of Elevated and 41% of High days. Exploratory, not a forecast.';
+
+function riskLineHtml(d) {
+  const read = d?.risk_read;
+  const level = d?.data_quality?.valid === false ? 'Data unavailable' : read?.level || 'Not enough data';
+  const known = d?.data_quality?.valid !== false && read?.level;
+  const flags = read?.flags || [];
+  const reason = !known ? 'Some inputs are missing, so no risk level is shown.'
+    : flags.length ? `${flags.map(esc).join('. ')}.`
+    : 'None of the three risk flags is on: SPY volatility, SPY vs its 50-day average, HYG vs its 50-day average.';
+  return `<div class="risk-kicker">Risk today</div>
+    <div class="risk-level ${known ? tagColor(read.color) : 'gray'}">${esc(level)}</div>
+    <div class="risk-reason">${reason}</div>
+    ${known ? `<div class="risk-history">${RISK_HISTORY}</div>` : ''}`;
+}
+
+function questionCard(title, lines) {
+  const rows = lines.filter(Boolean);
+  return `<div class="question-card">
+    <h2>${title}</h2>
+    ${rows.length ? rows.map(line => `<p>${line}</p>`).join('') : '<p class="question-empty">No data</p>'}
+  </div>`;
+}
+
+function maSide(above, days) {
+  if (above == null) return null;
+  return `${above ? 'above' : 'below'} its ${days}-day average`;
+}
+
+function threeQuestionsHtml(d) {
+  const vol = d?.pillars?.volatility?.details || {};
+  const trend = d?.pillars?.trend?.details || {};
+  const breadth = d?.pillars?.breadth?.details || {};
+  const momentum = d?.pillars?.momentum?.details || {};
+  const macro = d?.pillars?.macro?.details || {};
+  const liq = d?.liquidity || {};
+  const realized = d?.vol_target?.realized_annual_vol_pct;
+  const hy = (liq.items || []).find(i => i.key === 'hy_spread');
+  const sides = [maSide(trend.above_50, 50), maSide(trend.above_200, 200)].filter(Boolean);
+  return [
+    questionCard('How rough?', [
+      vol.vix_level != null && `VIX ${esc(vol.vix_level)}${vol.vix_trend ? `, ${esc(vol.vix_trend).toLowerCase()}` : ''}`,
+      realized != null && `SPY 20-day volatility ${esc(realized)}%, median 13.2%`,
+    ]),
+    questionCard('How healthy?', [
+      sides.length && `SPY is ${sides.join(' and ')}`,
+      breadth.sectors_total && `${esc(breadth.sectors_positive)} of ${esc(breadth.sectors_total)} sectors up`,
+      momentum.rs_rotation_label && `Leadership: ${esc(momentum.rs_rotation_label)}`,
+    ]),
+    questionCard("What's the backdrop?", [
+      (hy?.value != null || macro.hyg_label) && `Credit: ${[hy?.value != null && `HY spread ${esc(hy.value)}${hy.level ? ` (${esc(hy.level)})` : ''}`, macro.hyg_label && macro.hyg_label !== 'N/A' && `HYG ${esc(macro.hyg_label)}`].filter(Boolean).join(', ')}`,
+      liq.summary && `Liquidity: ${esc(liq.summary)}`,
+      liq.fed_path && `2Y vs Fed funds: ${esc(liq.fed_path.lean)}`,
+      liq.high_vol_tightening && `<span class="liquidity-flag">${esc(liq.high_vol_note)}</span>`,
+    ]),
+  ].join('');
+}
+
+function todaysReadHtml(d) {
+  const next = (d?.econ_events || [])[0];
+  const lines = [
+    !d?.yesterday && 'No previous close saved yet, so there is no day-over-day change to show.',
+    !(d?.conflicts || []).length && 'No signal conflicts flagged.',
+    next ? `Next release: ${esc(next.name)}, ${esc(next.date_pretty)}.` : 'No release dates listed.',
+  ];
+  return lines.filter(Boolean).map(line => `<p>${line}</p>`).join('');
+}
+
 /* ── LIQUIDITY CONTEXT ────────────────────────────────── */
 const LIQUIDITY_DIRECTIONS = {
   loosening:  { text: 'Loosening',  cls: 'flat' },
@@ -253,7 +323,7 @@ function renderHero(d) {
     $('pos-text').textContent = '—';
     $('pos-text').style.color = 'var(--muted)';
   } else {
-    $('decision-badge').textContent = d.decision;
+    $('decision-badge').textContent = `Score ${s} · ${d.decision}`;
     const badgeCls = col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : col === 'orange' ? 'c-orange' : 'c-red';
     $('decision-badge').className = 'decision-badge ' + badgeCls;
     $('pos-text').textContent = d.position_size;
@@ -1228,6 +1298,9 @@ async function load(isManual = false) {
     requestAnimationFrame(() => {
       renderHeader(raw);
       renderHero(raw);
+      $('risk-line').innerHTML = riskLineHtml(raw);
+      $('three-questions').innerHTML = threeQuestionsHtml(raw);
+      $('todays-read').innerHTML = todaysReadHtml(raw);
       const ystrip = $('yesterday-strip');
       if (ystrip) {
         const yhtml = renderYesterdayStrip(raw);
@@ -1489,4 +1562,7 @@ export {
   liquidityLongerLine,
   liquidityNoteHtml,
   fedPathLine,
+  riskLineHtml,
+  threeQuestionsHtml,
+  todaysReadHtml,
 };

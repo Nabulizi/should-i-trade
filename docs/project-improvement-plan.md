@@ -142,6 +142,14 @@ evidence and uncertainty; it may not invent credentials or authoritative sizing.
 After correctness and product-alignment work, the largest investment is a
 versioned prospective log graded against predeclared outcomes.
 
+### D-010 — The risk line leads the page and the score is secondary
+
+The score moves about 14 points on a typical day, which is about one band, and its
+raw bands changed about 165 times a year in the replay. The first viewport leads
+with `scoring.risk_level` instead. This updates P1-012 for the first viewport only.
+The score is unchanged and stays visible. If live evidence doesn't support the
+risk line, it stops leading (see `docs/prospective-log.md`).
+
 ---
 
 ## Scope and Non-Goals
@@ -340,6 +348,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-026 | done | Remove OpEx point adjustment | Event remains visible context |
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
+| P1-037 | in_progress | Lead with a risk line, three questions and one read | Rule and criteria frozen before replay; pillars, personas and series one click down; score calculation unchanged |
 | P1-036 | done | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |
 
 The replay already neutralizes these overlays, but removing them live changes totals.
