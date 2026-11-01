@@ -16,6 +16,17 @@ class TestEodJob(unittest.TestCase):
             self.assertEqual(eod_job.run(), 0)
             mock_dash.assert_not_called()
 
+    def test_late_wake_outside_after_hours_records_nothing(self):
+        # launchd fires a missed job on wake. A mid-session or next-morning run
+        # must not be logged as that day's end-of-day forecast.
+        for state in ("premarket", "open", "closed"):
+            with patch("data.market_state", return_value={"state": state}), \
+                 patch("scoring.compute_dashboard") as mock_dash, \
+                 patch("forecast_log.record_forecast") as mock_fc:
+                self.assertEqual(eod_job.run(), 0, state)
+                mock_dash.assert_not_called()
+                mock_fc.assert_not_called()
+
     def test_invalid_data_records_nothing_and_exits_1(self):
         with patch("data.market_state", return_value={"state": "afterhours"}), \
              patch("scoring.compute_dashboard",

@@ -492,6 +492,7 @@ Outcomes are appended or joined later without mutating the forecast.
 | P3-002 | pending | Add 09:25 premarket track | Evaluated separately with time-available inputs |
 | P3-003 | pending | Add 10:00 early-session track | Partial-day features/time-normalized volume versioned separately |
 | P3-004 | pending | Add 12:00 midday track | Not pooled with EOD without stratification |
+| P3-019 | in_progress | Schedule the EOD job on a local machine | Records only after the close on trading days; a late wake cannot log a mid-session reading |
 | P3-018 | done | Log liquidity readings with each forecast | 4-week and 13-week readings stored and hash-covered; evaluation declared before live data |
 
 ### P3-B — Predeclare outcomes
