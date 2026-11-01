@@ -136,6 +136,32 @@ class TestDashboardContracts(unittest.TestCase):
     def setUpClass(cls):
         cls.payload = _run_with_fixtures()
 
+    def test_risk_level_counts_flags(self):
+        level = scoring.risk_level
+        cases = ((12.0, False, False, "Normal", 0), (13.2, False, False, "Elevated", 1),
+                 (12.0, True, False, "Elevated", 1), (12.0, False, True, "Elevated", 1),
+                 (20.0, True, False, "Elevated", 2), (20.0, True, True, "High", 3))
+        for vol, spy_below, hyg_below, want, count in cases:
+            read = level(vol, spy_below, hyg_below)
+            self.assertEqual((read["level"], len(read["flags"])), (want, count),
+                             (vol, spy_below, hyg_below))
+
+    def test_risk_level_says_why_in_words(self):
+        self.assertEqual(scoring.risk_level(20.0, True, True)["flags"],
+                         ["SPY volatility is above its long-run median",
+                          "SPY is below its 50-day average",
+                          "HYG is below its 50-day average"])
+        self.assertEqual(scoring.risk_level(12.0, False, False)["flags"], [])
+
+    def test_risk_level_refuses_to_guess_without_all_inputs(self):
+        for args in ((None, False, False), (12.0, None, False), (12.0, False, None)):
+            self.assertIsNone(scoring.risk_level(*args)["level"], args)
+
+    def test_payload_carries_the_risk_read_without_moving_the_score(self):
+        read = self.payload["risk_read"]
+        self.assertIn(read["level"], ("Normal", "Elevated", "High", None))
+        self.assertIn("flags", read)
+
     def test_high_vol_flag_needs_tightening_and_volatility_together(self):
         flag = scoring.liquidity_with_vol_flag
         tight, neutral = {"tone": "Tightening"}, {"tone": "Neutral"}

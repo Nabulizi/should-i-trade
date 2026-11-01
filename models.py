@@ -149,6 +149,14 @@ class Liquidity(TypedDict, total=False):
     context_only: bool
 
 
+class RiskRead(TypedDict):
+    """Plain risk read from three flags (scoring.risk_level). Display only."""
+
+    level: str | None           # Normal | Elevated | High | None (missing input)
+    color: str
+    flags: list[str]
+
+
 class FearGreed(TypedDict, total=False):
     """Fear/greed source payload. Providers may omit unavailable fields."""
 
@@ -284,6 +292,7 @@ class _DashboardResultRequired(TypedDict):
     fear_greed_crypto: FearGreed
     spy_streak: SpyStreak
     vol_target: VolTargetInfo | None
+    risk_read: RiskRead
     timestamp: str
     as_of: AsOf
     reliability: Reliability

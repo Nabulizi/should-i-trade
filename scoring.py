@@ -1460,6 +1460,25 @@ def _fetch_instruments() -> dict:
     }
 
 
+def risk_level(realized_vol_pct: float | None, spy_below_50: bool | None,
+               hyg_below_50: bool | None) -> dict:
+    """Plain risk read counted from three inputs with evidence behind them. Rule
+    and pass criteria frozen before replay (backtest_risk_line.py). Display only;
+    never an input to the score. Missing input means no level, not a guess."""
+    if realized_vol_pct is None or spy_below_50 is None or hyg_below_50 is None:
+        return {"level": None, "color": "gray", "flags": []}
+    flags = []
+    if realized_vol_pct >= LIQUIDITY_HIGH_VOL_PCT:
+        flags.append("SPY volatility is above its long-run median")
+    if spy_below_50:
+        flags.append("SPY is below its 50-day average")
+    if hyg_below_50:
+        flags.append("HYG is below its 50-day average")
+    level, color = (("Normal", "gray") if not flags else
+                    ("High", "red") if len(flags) == 3 else ("Elevated", "orange"))
+    return {"level": level, "color": color, "flags": flags}
+
+
 def liquidity_with_vol_flag(liquidity: dict, vol_target: VolTargetInfo | None) -> dict:
     """Flag Tightening alongside above-median realized vol, the replay's riskiest
     state (backtest_liquidity.py). Display only; never an input to the score."""
@@ -1770,6 +1789,12 @@ def compute_dashboard(prev_decision: str | None = None) -> DashboardResult:
         "fear_greed_crypto": instruments["fng_crypto"],
         "spy_streak":        spy_streak,
         "vol_target":        vol_target,
+        "risk_read":         risk_level(
+            vol_target["realized_annual_vol_pct"] if vol_target else None,
+            None if pillars["trend"]["details"].get("above_50") is None
+            else not pillars["trend"]["details"]["above_50"],
+            {"Below 50d": True, "Near 50d": False, "Neutral": False, "Above 50d": False}.get(
+                pillars["macro"]["details"].get("hyg_label"))),
         "timestamp":         mstate["et_time"],
         # P1-003/P1-005: computation time and market-observation time are
         # different facts — a Saturday-night calculation shows Friday's close.
