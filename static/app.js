@@ -75,6 +75,37 @@ const RISK_STEPS = [
   { level: 'High', history: '41%', ordinal: 'third' },
 ];
 
+function hygHintHtml() {
+  return `<span class="hint"><button type="button" class="hint-btn" aria-label="What HYG means" aria-expanded="false">i</button><span class="hint-panel">
+    <strong>HYG is an ETF of US high-yield ("junk") bonds.</strong>
+    <span>Bond prices and yields move in opposite directions, so a rising HYG price means junk bond yields are falling.</span>
+    <span class="hint-rule">HYG price up ↑ = junk bond yields down ↓</span>
+    <span class="hint-rule">HYG price down ↓ = junk bond yields up ↑</span>
+    <span class="hint-note">HYG also moves with Treasury yields, so the HY spread is the cleaner read of credit stress.</span>
+  </span></span>`;
+}
+
+function setHintOpen(hint, open) {
+  hint.classList.toggle('open', open);
+  hint.querySelector('.hint-btn')?.setAttribute('aria-expanded', String(open));
+}
+
+function closeHints(except = null) {
+  document.querySelectorAll('.hint.open').forEach(hint => {
+    if (hint !== except) setHintOpen(hint, false);
+  });
+}
+
+function onHintClick(event) {
+  const hint = event.target.closest?.('.hint') || null;
+  closeHints(hint);
+  if (hint && event.target.closest('.hint-btn')) setHintOpen(hint, !hint.classList.contains('open'));
+}
+
+function onHintKey(event) {
+  if (event.key === 'Escape') closeHints();
+}
+
 function riskLineHtml(d) {
   const invalid = d?.data_quality?.valid === false;
   const read = d?.risk_read;
@@ -92,11 +123,10 @@ function riskLineHtml(d) {
     </div>`).join('');
   const rows = checks.map(c => `<li class="risk-check${c.on ? ' on' : ''}">
       <span class="risk-check-mark" aria-hidden="true"></span>
-      <span class="risk-check-text"><span class="risk-check-label">${esc(c.label)}</span> <span class="risk-check-detail">${esc(c.detail)}</span></span>
-      <span class="risk-check-state">${c.on ? 'On' : 'Off'}</span>
+      <span class="risk-check-text"><span class="risk-check-label">${esc(c.label)}</span>${c.label === 'Credit' ? hygHintHtml() : ''} <span class="risk-check-detail">${esc(c.detail)}</span></span>
+      <span class="risk-check-state">${c.on ? 'Warning' : 'OK'}</span>
     </li>`).join('');
-  const noneOn = checks.length && !checks.some(c => c.on)
-    ? '<p class="risk-note">None of the three checks is on.</p>' : '';
+  const warnings = checks.filter(c => c.on).length;
   const score = d.total_score != null ? `<div class="risk-zone risk-score">
       <div class="risk-kicker">Score</div>
       <div class="risk-score-line"><span class="risk-score-value">${esc(d.total_score)}</span><span class="risk-score-band">${esc(d.decision)} band</span></div>
@@ -111,9 +141,9 @@ function riskLineHtml(d) {
         <p class="risk-history">% of past days followed by a 10%+ SPY drop within 3 months, 2007–2026 replay. Exploratory, not a forecast.</p>
       </div>
       <div class="risk-zone risk-checks-wrap">
-        <div class="risk-kicker">What sets the level</div>
+        <div class="risk-kicker risk-checks-head"><span>What sets the level</span><span class="risk-count">${warnings} of ${checks.length} warning</span></div>
         <ul class="risk-checks">${rows}</ul>
-        ${noneOn}
+        <p class="risk-key">0 warnings: Normal · 1–2: Elevated · 3: High</p>
       </div>
       ${score}
     </div>
@@ -183,7 +213,7 @@ function threeQuestionsHtml(d) {
     ]),
     questionCard("What's the backdrop?", [
       hy?.value != null && questionRow('HY spread', `${esc(hy.value)}${hy.level ? `, ${esc(hy.level)}` : ''}`),
-      hyg && questionRow('HYG', esc(hyg)),
+      hyg && questionRow(`HYG${hygHintHtml()}`, esc(hyg)),
       liq.fed_path && questionRow('2Y vs Fed funds', sentenceCase(esc(liq.fed_path.lean))),
       liquidity && questionRow('Liquidity', liquidity),
     ], liquidityNoteHtml(liq)),
@@ -469,11 +499,11 @@ function srcLabel(src) {
   if (src.history && src.history !== src.quote) return `${src.quote} · hist ${src.history}`;
   return src.quote || '';
 }
-function mrow(key, val, tagLabel, tagCol, src) {
+function mrow(key, val, tagLabel, tagCol, src, hint = '') {
   const label = srcLabel(src);
   const srcHtml = label ? ` <span class="src-badge">${esc(label)}</span>` : '';
   return `<div class="metric-row">
-    <span class="metric-key">${esc(key)}</span>
+    <span class="metric-key">${esc(key)}${hint}</span>
     <span class="metric-val">${esc(val ?? '')} ${tag(tagLabel, tagCol)}${srcHtml}</span>
   </div>`;
 }
@@ -620,7 +650,7 @@ function renderPillars(d) {
           mrow('10Y Yield',    v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color, ds.tnx),
           mrow('Yield Curve', v.curve_spread != null ? `${v.curve_spread > 0 ? '+' : ''}${v.curve_spread}%` : '—', v.curve_label, v.curve_color),
           mrow('DXY',         v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
-          mrow('HYG Credit',  v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color),
+          mrow('HYG Credit',  v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color, undefined, hygHintHtml()),
           `<div class="pillar-sep"></div>`,
           sf.available ? mrow('Stocks F&G', Math.round(sf.score), sf.rating, fngColor(sf.score)) : mrow('Stocks F&G', '—', null, null),
           cf.available ? mrow('Crypto F&G', Math.round(cf.score), cf.rating, fngColor(cf.score)) : mrow('Crypto F&G', '—', null, null),
@@ -1545,6 +1575,8 @@ function _showToast(msg, type='ok') {
 
 /* ── KICKOFF ───────────────────────────────────────────── */
 if (!globalThis.__TESTING__) {
+  document.addEventListener('click', onHintClick);
+  document.addEventListener('keydown', onHintKey);
   // Expose functions used by HTML inline event handlers (onclick=, oninput=, etc.)
   // Required because ES modules don't leak to global scope.
   window.copySnapshot           = copySnapshot;
@@ -1623,4 +1655,7 @@ export {
   riskLineHtml,
   threeQuestionsHtml,
   todaysReadHtml,
+  hygHintHtml,
+  onHintClick,
+  onHintKey,
 };

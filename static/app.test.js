@@ -23,6 +23,9 @@ import {
   riskLineHtml,
   threeQuestionsHtml,
   todaysReadHtml,
+  hygHintHtml,
+  onHintClick,
+  onHintKey,
 } from './app.js';
 
 beforeEach(() => {
@@ -44,13 +47,30 @@ describe('riskLineHtml', () => {
     expect(html).toContain('Elevated');
     expect(html).toContain('Below its 50-day average');
     expect(html).toContain('11.6%, below the 13.2% median');
-    expect((html.match(/risk-check-state">Off/g) || []).length).toBe(1);
-    expect((html.match(/risk-check-state">On/g) || []).length).toBe(2);
+    expect((html.match(/risk-check-state">OK/g) || []).length).toBe(1);
+    expect((html.match(/risk-check-state">Warning/g) || []).length).toBe(2);
+    expect(html).not.toMatch(/>(On|Off)</);
+  });
+
+  it('counts the warnings and says how the count sets the level', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect(html).toContain('2 of 3 warning');
+    expect(html).toContain('0 warnings: Normal');
+    expect(html).toContain('1–2: Elevated');
+    expect(html).toContain('3: High');
+  });
+
+  it('explains HYG on the credit check only', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect((html.match(/hint-btn/g) || []).length).toBe(1);
+    expect(html.indexOf('hint-btn')).toBeGreaterThan(html.indexOf('>Credit<'));
   });
 
   it('says plainly when no check is on', () => {
     const off = checks.map(c => ({ ...c, on: false }));
-    expect(riskLineHtml(read('Normal', off))).toContain('None of the three checks is on');
+    const html = riskLineHtml(read('Normal', off));
+    expect(html).toContain('0 of 3 warning');
+    expect(html).not.toContain('risk-check-state">Warning');
   });
 
   it('marks the current step on the scale in a way a screen reader gets', () => {
@@ -94,6 +114,74 @@ describe('riskLineHtml', () => {
     const html = riskLineHtml(read('Elevated', [{ label: '<img>', on: true, detail: '<b>' }]));
     expect(html).not.toContain('<img>');
     expect(html).not.toContain('<b>');
+  });
+});
+
+describe('hygHintHtml', () => {
+  it('states the inverse relationship both ways, with a text alternative to the arrows', () => {
+    const html = hygHintHtml();
+    expect(html).toContain('HYG price up ↑ = junk bond yields down ↓');
+    expect(html).toContain('HYG price down ↓ = junk bond yields up ↑');
+    expect(html).toContain('high-yield');
+    expect(html).toContain('aria-label="What HYG means"');
+  });
+
+  it('does not present HYG as a pure credit measure', () => {
+    expect(hygHintHtml()).toContain('Treasury yields');
+  });
+});
+
+describe('hint open and close', () => {
+  const mount = () => {
+    document.body.innerHTML = `<div id="outside"></div><div id="a">${hygHintHtml()}</div><div id="b">${hygHintHtml()}</div>`;
+    return [...document.querySelectorAll('.hint-btn')];
+  };
+  const click = el => onHintClick({ target: el });
+
+  it('opens on tap and reflects that for screen readers', () => {
+    const [btn] = mount();
+    click(btn);
+    expect(btn.closest('.hint').classList.contains('open')).toBe(true);
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('closes on a second tap', () => {
+    const [btn] = mount();
+    click(btn);
+    click(btn);
+    expect(btn.closest('.hint').classList.contains('open')).toBe(false);
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('only keeps one open at a time', () => {
+    const [first, second] = mount();
+    click(first);
+    click(second);
+    expect(first.closest('.hint').classList.contains('open')).toBe(false);
+    expect(second.closest('.hint').classList.contains('open')).toBe(true);
+  });
+
+  it('closes on an outside tap', () => {
+    const [btn] = mount();
+    click(btn);
+    click(document.getElementById('outside'));
+    expect(btn.closest('.hint').classList.contains('open')).toBe(false);
+  });
+
+  it('stays open when tapping inside the explanation', () => {
+    const [btn] = mount();
+    click(btn);
+    click(btn.closest('.hint').querySelector('.hint-panel'));
+    expect(btn.closest('.hint').classList.contains('open')).toBe(true);
+  });
+
+  it('closes on Escape, and ignores other keys', () => {
+    const [btn] = mount();
+    click(btn);
+    onHintKey({ key: 'a' });
+    expect(btn.closest('.hint').classList.contains('open')).toBe(true);
+    onHintKey({ key: 'Escape' });
+    expect(btn.closest('.hint').classList.contains('open')).toBe(false);
   });
 });
 
@@ -166,6 +254,12 @@ describe('threeQuestionsHtml', () => {
     expect(html).not.toContain('19.42');
     expect(html).not.toContain('3.26');
     expect((html.match(/No data/g) || []).length).toBe(3);
+  });
+
+  it('explains HYG beside its row', () => {
+    const html = threeQuestionsHtml(dash);
+    expect((html.match(/hint-btn/g) || []).length).toBe(1);
+    expect(html).toContain('HYG price up');
   });
 
   it('leaves out futures it has no reading for', () => {

@@ -82,6 +82,7 @@
   .risk-step.current.red .risk-step-bar { background: var(--red); }
   .risk-history { color: var(--muted); font-size: 12px; line-height: 1.35; margin-top: 8px; }
   .risk-checks { list-style: none; margin-top: 4px; }
+  .risk-check, .question-row, .metric-row { position: relative; }
   .risk-check { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); }
   .risk-check:first-child { border-top: 0; }
   .risk-check-mark { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--muted); }
@@ -92,6 +93,9 @@
   .risk-check-state { color: var(--muted); font-size: 13px; }
   .risk-check.on .risk-check-state { color: var(--text); font-weight: 600; }
   .risk-note { color: var(--muted2); font-size: 13px; margin-top: 4px; }
+  .risk-checks-head { display: flex; justify-content: space-between; gap: 12px; }
+  .risk-count { color: var(--text); font-weight: 600; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+  .risk-key { color: var(--muted); font-size: 12px; padding-top: 6px; border-top: 1px solid var(--border); }
   .risk-score-line { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
   .risk-score-value { color: var(--text); font-size: 24px; font-weight: 600; line-height: 1.2; }
   .risk-score-band { color: var(--muted2); font-size: 13px; }
@@ -602,3 +606,20 @@
   .read-section { grid-template-columns: minmax(0, 1fr); padding: 0 4px; }
   .todays-read { display: block; }
 }
+
+/* HYG explainer: opens on hover and on tap or keyboard, so it also works on phones. */
+.hint-btn { position: relative; width: 16px; height: 16px; margin: 0 6px 0 5px; padding: 0; border: 1px solid var(--muted); border-radius: 50%; background: transparent; color: var(--muted2); cursor: pointer; font: italic 500 11px/14px var(--serif); text-align: center; vertical-align: 1px; }
+.hint-btn::after { content: ""; position: absolute; inset: -14px; }
+.hint-btn:hover, .hint.open .hint-btn { border-color: var(--text); color: var(--text); }
+.hint-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hint-panel { display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; width: min(340px, calc(100vw - 48px)); padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); color: var(--muted2); font-size: 13px; font-weight: 400; line-height: 1.45; text-align: left; white-space: normal; }
+.hint-panel::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
+.hint-panel > * { display: block; }
+.hint-panel > * + * { margin-top: 6px; }
+.hint-panel strong { color: var(--text); font-weight: 600; }
+.hint-rule { color: var(--text); font-weight: 500; }
+.hint-rule + .hint-rule { margin-top: 2px; }
+.hint-note { color: var(--muted); font-size: 12px; }
+.hint:hover .hint-panel, .hint.open .hint-panel { display: block; }
+.light-theme .hint-panel { box-shadow: 0 8px 24px rgba(23, 35, 33, .14); }
+
