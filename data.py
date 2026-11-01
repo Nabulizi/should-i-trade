@@ -557,7 +557,7 @@ def _liquidity_summary(tone: str, longer_tone: str) -> str | None:
 
 def _liquidity_tone(items: list[dict]) -> tuple[str, str, float, float]:
     """(tone, color, loosening votes, tightening votes). Only Tightening gets a
-    color: the replay's evidence is about risk, so Loosening is not a green light."""
+    color: the replay's evidence is about risk, so Loosening isn't shown as positive."""
     loosening = _liquidity_votes(items, "loosening")
     tightening = _liquidity_votes(items, "tightening")
     if loosening - tightening >= _LIQUIDITY_HEADLINE_VOTES:
@@ -653,7 +653,7 @@ def fetch_futures_tape() -> dict:
             "valid": False,
             "tone": "Unavailable",
             "tone_color": "gray",
-            "read": "Futures tape unavailable. Use cash-market breadth and daily trend context.",
+            "read": "Futures tape unavailable.",
             "items": items,
             "source": "Yahoo futures",
             "context_only": True,
@@ -692,11 +692,11 @@ def fetch_futures_tape() -> dict:
         flags.append("Gap risk elevated")
 
     if tone in {"Risk-On", "Mild Risk-On"}:
-        read = "Futures lean positive. Still wait for cash breadth before chasing the open."
+        read = "Futures lean positive, before the cash session has confirmed."
     elif tone in {"Risk-Off", "Mild Risk-Off"}:
-        read = "Futures lean defensive. Be patient with longs until the cash session confirms buyers."
+        read = "Futures lean defensive, before the cash session has confirmed."
     else:
-        read = "Futures are mixed. Let the first cash-market range and breadth confirm direction."
+        read = "Futures are mixed."
     if flags:
         read = f"{read} {'; '.join(flags)}."
 

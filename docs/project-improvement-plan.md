@@ -348,6 +348,8 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-026 | done | Remove OpEx point adjustment | Event remains visible context |
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
+| P1-039 | in_progress | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
+| P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
 | P1-038 | in_progress | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |
 | P1-037 | in_progress | Lead with a risk line, three questions and one read | Rule and criteria frozen before replay; pillars, personas and series one click down; score calculation unchanged |
 | P1-036 | done | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |

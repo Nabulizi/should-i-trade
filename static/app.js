@@ -63,7 +63,7 @@ function renderFuturesTape(tape) {
   }).join('') : '<div style="color:var(--muted);font-size:10px;">Futures unavailable</div>';
 
   const source = tape?.source || 'Futures';
-  readEl.innerHTML = `${esc(tape?.read || 'Futures tape unavailable. Use the cash session for confirmation.')}
+  readEl.innerHTML = `${esc(tape?.read || 'Futures tape unavailable.')}
     <span class="futures-meta"><span>${esc(source)}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
@@ -428,7 +428,7 @@ function renderHero(d) {
   // Fallback copy mirrors scoring.py DECISION_BANDS (D-001: descriptive
   // conditions language only — no trade instructions).
   const posture = d.action_hint
-                || (invalidData ? 'Exposure off — live market data is unavailable'
+                || (invalidData ? 'No reading — live market data is unavailable'
                 : s >= 85 ? 'Calm, broad, established uptrend conditions'
                 : s >= 70 ? 'Positive trend with generally supportive participation'
                 : s >= 55 ? 'Mixed conditions — internal signals disagree'

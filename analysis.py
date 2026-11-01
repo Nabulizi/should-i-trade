@@ -51,34 +51,34 @@ def persona_technician(d: dict) -> dict:
 
     # Opening read — regime + market character
     if ma_count == 3 and char_label == "Trending":
-        read = "Full bull stack + trending tape. This is an environment for offense — entries pull back clean and follow through."
+        read = "Full bull stack + trending tape. SPY is above its 20/50/200-day averages and moving with follow-through."
     elif ma_count == 3 and char_label == "Choppy":
-        read = "Full bull stack but the tape is choppy. Structure is intact; execution is hard. Stick to A+ pullbacks, skip intraday noise."
+        read = "Full bull stack but the tape is choppy. Structure is intact, but daily moves lack follow-through."
     elif ma_count == 3 and char_label == "Extended":
-        read = "Full bull stack but SPY is extended. Regime says long; price says don't chase. Wait for the first pullback base."
+        read = "Full bull stack but SPY is extended. Structure is strong, but price is stretched above its averages."
     elif ma_count == 3:
-        read = "Full bull stack — SPY above 20/50/200. This is an environment for offense, not defense."
+        read = "Full bull stack — SPY above 20/50/200."
     elif ma_count == 2:
-        read = f"Trend is repairing but not confirmed. Price above {ma_count}/3 majors — treat rallies with discipline, not conviction."
+        read = f"Trend is repairing but not confirmed. Price above {ma_count}/3 major averages."
     elif ma_count == 1:
-        read = "Broken structure. Price below key MAs. Longs are against the tape here."
+        read = "Broken structure. Price is below most of its key moving averages."
     else:
-        read = "All three MAs rolling over. This is a bear market in SPY until proven otherwise."
+        read = "All three MAs rolling over. SPY is in a bear-market structure."
 
     points = []
 
     # RSI
     if rsi is not None:
         if rsi >= 75:
-            points.append({"icon": "🔴", "text": f"RSI {rsi} — severely overbought. Mean reversion risk elevated; don't chase."})
+            points.append({"icon": "🔴", "text": f"RSI {rsi} — severely overbought. Mean-reversion risk is elevated."})
         elif rsi >= 70:
-            points.append({"icon": "⚠️", "text": f"RSI {rsi} — overbought. Wait for pullback to 20d before adding."})
+            points.append({"icon": "⚠️", "text": f"RSI {rsi} — overbought. Mean-reversion risk is rising."})
         elif rsi <= 30:
-            points.append({"icon": "✅", "text": f"RSI {rsi} — oversold. Look for failed breakdown → reversal setups."})
+            points.append({"icon": "✅", "text": f"RSI {rsi} — oversold. Selling pressure has been heavy."})
         elif 45 <= rsi <= 60:
-            points.append({"icon": "✅", "text": f"RSI {rsi} — sweet spot. Ideal swing entry zone; room to run."})
+            points.append({"icon": "✅", "text": f"RSI {rsi} — mid-range. Neither overbought nor oversold."})
         else:
-            points.append({"icon": "⚠️", "text": f"RSI {rsi} — no clean edge here. Wait for reset toward 45–60 before adding."})
+            points.append({"icon": "⚠️", "text": f"RSI {rsi} — outside the 45–60 mid-range, with no strong signal."})
 
     # MACD — label values from scoring engine are e.g. "Bullish (above 0)", "Bearish (below 0)"
     if macd_hist is not None:
@@ -90,37 +90,37 @@ def persona_technician(d: dict) -> dict:
         elif bull and not above_zero:
             points.append({"icon": "⚠️", "text": f"MACD histogram positive but line still below zero ({macd_label}) — early recovery, not yet confirmed."})
         elif bear and above_zero:
-            points.append({"icon": "⚠️", "text": f"MACD line above zero but histogram negative ({macd_label}) — momentum fading. Tighten stops."})
+            points.append({"icon": "⚠️", "text": f"MACD line above zero but histogram negative ({macd_label}) — momentum fading."})
         elif bear and not above_zero:
-            points.append({"icon": "🔴", "text": f"MACD line and histogram both below zero ({macd_label}) — no momentum tailwind. No new longs until crossover."})
+            points.append({"icon": "🔴", "text": f"MACD line and histogram both below zero ({macd_label}) — no momentum tailwind."})
         else:
             points.append({"icon": "⚪", "text": f"MACD {macd_label} — no clear signal."})
 
     # ATH distance
     if ath >= -1:
-        points.append({"icon": "⚠️", "text": f"SPY {ath:+.1f}% from 52W high — breakout zone, but chasing extended moves is where capital goes to die."})
+        points.append({"icon": "⚠️", "text": f"SPY {ath:+.1f}% from 52W high — at or near its high."})
     elif ath >= -5:
-        points.append({"icon": "✅", "text": f"SPY {ath:+.1f}% from high — healthy consolidation, textbook re-entry zone."})
+        points.append({"icon": "✅", "text": f"SPY {ath:+.1f}% from high — a modest pullback."})
     elif ath >= -10:
-        points.append({"icon": "⚠️", "text": f"SPY {ath:+.1f}% from high — correction territory, wait for reclaim of key levels."})
+        points.append({"icon": "⚠️", "text": f"SPY {ath:+.1f}% from high — correction territory."})
     else:
-        points.append({"icon": "🔴", "text": f"SPY {ath:+.1f}% from high — significant drawdown. Capital preservation first."})
+        points.append({"icon": "🔴", "text": f"SPY {ath:+.1f}% from high — significant drawdown."})
 
     # SPY today
     if spy_chg >= 1.5:
-        points.append({"icon": "⚠️", "text": f"SPY {spy_chg:+.2f}% — strong move, but don't chase the close. Wait for an intraday pullback."})
+        points.append({"icon": "⚠️", "text": f"SPY {spy_chg:+.2f}% — a strong up day."})
     elif spy_chg <= -1.5:
-        points.append({"icon": "🔴", "text": f"SPY {spy_chg:+.2f}% — wide-range down day. Let it settle before probing longs."})
+        points.append({"icon": "🔴", "text": f"SPY {spy_chg:+.2f}% — a wide-range down day."})
 
     # Closing verdict — incorporate character
     if score >= 75 and char_label == "Trending":
-        verdict = "Trending tape. A/B+ pullbacks to 20d are the play — high follow-through probability."
+        verdict = "Trending tape with strong trend readings."
     elif score >= 75:
-        verdict = "Trade the trend. A+ setups on pullbacks to 20d."
+        verdict = "Trend readings are strong."
     elif score >= 55:
-        verdict = "Selective longs only. No breakouts into resistance."
+        verdict = "Trend readings are mixed: some structure intact, some not."
     else:
-        verdict = "Stand aside. Trends don't resume until MAs flip."
+        verdict = "Trend readings are weak, and the moving averages haven't recovered."
 
     return {
         "persona": "The Technician",
@@ -151,22 +151,22 @@ def persona_macro(d: dict) -> dict:
 
     # Opening read — yield+DXY as a paired signal, not individual reads
     if tnx is None:
-        read = "Macro inputs offline — flying without instruments. Size down until yields print."
+        read = "Macro inputs offline — yield data is missing, so this read is limited."
     elif yield_dir == "Falling" and dxy_label == "Weakening":
         read = (f"10Y falling ({tnx:.2f}%) + dollar weakening — the clearest liquidity tailwind this framework sees. "
                 "Growth names, small caps, and cyclicals have historically benefited most in this backdrop.")
     elif yield_dir == "Rising" and dxy_label == "Strengthening":
         read = (f"10Y rising ({tnx:.2f}%) + dollar strengthening simultaneously — textbook risk-off squeeze. "
-                "Growth and EM get repriced first; defensives and cash earn a real return. Reduce duration exposure.")
+                "Growth and EM often reprice first.")
     elif yield_dir == "Rising" and dxy_label == "Weakening":
         read = (f"10Y rising ({tnx:.2f}%) but dollar weakening — yields moving on growth expectations, not fear. "
                 "Cyclicals can absorb this; it's the unprofitable growth and long-duration that struggles.")
     elif yield_dir == "Falling" and dxy_label == "Strengthening":
         read = (f"10Y falling ({tnx:.2f}%) but dollar strengthening — flight to quality signal. "
-                "Something is bid underneath; watch whether equities hold or follow bonds lower.")
+                "Something is bid underneath; equities could hold or follow bonds lower.")
     else:
         read = (f"Macro is static. 10Y {tnx:.2f}% ({yield_label}), DXY {dxy_label}. "
-                "No directional conviction from rates or dollar — trade what's moving, not the macro narrative.")
+                "No directional signal from rates or the dollar.")
 
     points = []
 
@@ -185,9 +185,9 @@ def persona_macro(d: dict) -> dict:
 
     # DXY direction with magnitude
     if dxy_label == "Weakening" and abs(dxy_chg) >= 0.3:
-        points.append({"icon": "✅", "text": f"Dollar down {abs(dxy_chg):.2f}% — tailwind for multinationals, commodities, and EM. Broadens the hunt list."})
+        points.append({"icon": "✅", "text": f"Dollar down {abs(dxy_chg):.2f}% — tailwind for multinationals, commodities, and EM."})
     elif dxy_label == "Strengthening" and abs(dxy_chg) >= 0.3:
-        points.append({"icon": "⚠️", "text": f"Dollar up {dxy_chg:+.2f}% — headwind for MNCs and risk assets. Narrows the hunt list to domestic US."})
+        points.append({"icon": "⚠️", "text": f"Dollar up {dxy_chg:+.2f}% — headwind for multinationals and risk assets."})
     elif dxy_label == "Weakening":
         points.append({"icon": "✅", "text": "Dollar drifting lower — mild tailwind, not a strong signal on its own."})
     elif dxy_label == "Strengthening":
@@ -200,32 +200,32 @@ def persona_macro(d: dict) -> dict:
     elif btc_trend == "Recovering":
         points.append({"icon": "⚠️", "text": f"BTC recovering but below 200d{btc_high_str} — liquidity repairing, not yet restored."})
     elif btc_trend == "Mixed":
-        points.append({"icon": "⚠️", "text": f"BTC mixed structure{btc_high_str} — above 20/50d but not 200d. Liquidity is tentative; don't read it as a tailwind."})
+        points.append({"icon": "⚠️", "text": f"BTC mixed structure{btc_high_str} — above 20/50d but not 200d. Liquidity is tentative, not yet a tailwind."})
     elif btc_trend == "Early Bounce":
         points.append({"icon": "⚠️", "text": f"BTC early bounce only{btc_high_str} — above 20d but not 50d or 200d. No sustained liquidity signal yet."})
     elif btc_trend == "Bear":
-        points.append({"icon": "🔴", "text": f"BTC bear{btc_high_str} — liquidity tightening at the margin; watch for risk-off spillover."})
+        points.append({"icon": "🔴", "text": f"BTC bear{btc_high_str} — liquidity tightening at the margin, and risk-off spillover is possible."})
 
     # FOMC proximity
     if fomc_days is not None:
         if fomc_days == 0:
-            points.append({"icon": "🔴", "text": "FOMC is TODAY. Markets typically pin then range-break. Don't hold size into 2:00 ET."})
+            points.append({"icon": "🔴", "text": "FOMC is TODAY. The decision is due at 2:00 ET, so event risk is at its highest."})
         elif fomc_days == 1:
-            points.append({"icon": "🔴", "text": f"FOMC TOMORROW ({fomc_date}). Positioning is frozen; most edges disappear into the print."})
+            points.append({"icon": "🔴", "text": f"FOMC TOMORROW ({fomc_date}). Event risk is high into the decision."})
         elif fomc_days <= 3:
-            points.append({"icon": "⚠️", "text": f"FOMC in {fomc_days} days ({fomc_date}). Reduce size; exits get messy into the meeting."})
+            points.append({"icon": "⚠️", "text": f"FOMC in {fomc_days} days ({fomc_date}). Event risk is rising."})
         elif fomc_days <= 7:
-            points.append({"icon": "⚠️", "text": f"FOMC in {fomc_days} days ({fomc_date}). Still tradeable — start planning the exit."})
+            points.append({"icon": "⚠️", "text": f"FOMC in {fomc_days} days ({fomc_date}). Event risk is approaching."})
 
     # Closing verdict
     if score >= 70 and (fomc_days is None or fomc_days > 7):
         verdict = "Macro tailwind + clean calendar — the strongest macro alignment this framework tracks."
     elif fomc_days is not None and fomc_days <= 3:
-        verdict = "Event risk dominates. Trade small or sit out."
+        verdict = "Event risk dominates the macro picture."
     elif score >= 55:
-        verdict = "Neutral macro. Don't let it veto a good setup."
+        verdict = "Neutral macro. No strong signal either way."
     else:
-        verdict = "Macro is against you. Respect it."
+        verdict = "Macro conditions are a headwind."
 
     return {
         "persona": "The Macro Strategist",
@@ -261,17 +261,17 @@ def persona_risk(d: dict) -> dict:
 
     # Opening read
     if vix is None:
-        read = "No vol data — assume the worst case until it's back."
+        read = "No vol data — this read is limited until it's back."
     elif vix < 13 and flow_score >= 70:
-        read = f"VIX {vix:.1f} and flow is euphoric — this is where complacency bites. Size down, not up."
+        read = f"VIX {vix:.1f} and flow is euphoric — complacency risk is elevated."
     elif vix < 15:
-        read = f"VIX {vix:.1f} ({vix_label}) — calm tape. Good for swing work, but don't mistake quiet for safe."
+        read = f"VIX {vix:.1f} ({vix_label}) — calm tape, though quiet isn't the same as safe."
     elif vix < 20:
-        read = f"VIX {vix:.1f} — normal operating range. Standard size, standard stops."
+        read = f"VIX {vix:.1f} ({vix_label})."
     elif vix < 28:
-        read = f"VIX {vix:.1f} — elevated. Widen stops or cut size in half, pick one."
+        read = f"VIX {vix:.1f} — elevated. Daily swings tend to be larger."
     else:
-        read = f"VIX {vix:.1f} — panic zone. Either stand aside or hunt for capitulation bounces only."
+        read = f"VIX {vix:.1f} — panic zone. Stress is high, and moves can be violent in both directions."
 
     points = []
 
@@ -281,24 +281,22 @@ def persona_risk(d: dict) -> dict:
             points.append({"icon": "🔴", "text": (
                 f"VIX9D/VIX {vix9d_ratio:.2f}x ({vix9d_label}) + SKEW {skew_value:.0f} ({skew_label}) — "
                 "near-term fear AND tail hedging both elevated simultaneously. "
-                "This is a dual-layer risk-off signal. Cut size aggressively."
+                "This is a dual-layer risk-off signal."
             )})
         elif vix9d_label == "Fear Spike":
             points.append({"icon": "⚠️", "text": (
                 f"VIX9D/VIX {vix9d_ratio:.2f}x — near-term fear elevated above baseline. "
-                f"SKEW is not flashing ({skew_label}), so tail risk isn't the worry — it's the next few sessions. "
-                "Reduce intraweek exposure."
+                f"SKEW is not flashing ({skew_label}), so tail risk isn't the worry — it's the next few sessions."
             )})
         elif skew_label in SKEW_HEDGING_LABELS:
             points.append({"icon": "⚠️", "text": (
                 f"SKEW {skew_value:.0f} ({skew_label}) without a near-term fear spike (VIX9D {vix9d_label}) — "
-                "tail-risk hedging is elevated while short-dated vol stays quiet. "
-                "Carry protection or reduce gross exposure."
+                "tail-risk hedging is elevated while short-dated vol stays quiet."
             )})
         elif vix9d_label == "Calm" and skew_label == "Complacent":
             points.append({"icon": "⚠️", "text": (
                 f"VIX9D calm + SKEW {skew_value:.0f} (complacent) — no hedging demand anywhere. "
-                "This is peak complacency territory; cheap protection worth considering."
+                "This is peak complacency territory."
             )})
         else:
             points.append({"icon": "✅", "text": (
@@ -307,52 +305,52 @@ def persona_risk(d: dict) -> dict:
             )})
     elif vix9d_ratio is not None:
         if vix9d_label == "Fear Spike":
-            points.append({"icon": "⚠️", "text": f"VIX9D/VIX {vix9d_ratio:.2f}x — near-term fear elevated. Reduce intraweek exposure."})
+            points.append({"icon": "⚠️", "text": f"VIX9D/VIX {vix9d_ratio:.2f}x — near-term fear elevated."})
         elif vix9d_label == "Calm":
             points.append({"icon": "✅", "text": f"VIX9D/VIX {vix9d_ratio:.2f}x — near-term calm, event risk low."})
 
     # VIX percentile
     if vix_pctile is not None:
         if vix_pctile <= 20:
-            points.append({"icon": "⚠️", "text": f"VIX at {vix_pctile}th %ile of the year — historically cheap to hedge here."})
+            points.append({"icon": "⚠️", "text": f"VIX at percentile {vix_pctile} of the past year — low."})
         elif vix_pctile >= 80:
-            points.append({"icon": "✅", "text": f"VIX at {vix_pctile}th %ile — stress well-priced, contrarian long window often opens here."})
+            points.append({"icon": "✅", "text": f"VIX at percentile {vix_pctile} of the past year — stress is well priced."})
 
     # Flow sentiment
     if flow_score >= 80:
-        points.append({"icon": "⚠️", "text": f"Flow Sentiment {flow_score}/100 ({flow_label}) — crowd is all-in. Fade-the-last-buyer risk."})
+        points.append({"icon": "⚠️", "text": f"Flow Sentiment {flow_score}/100 ({flow_label}) — crowd is all-in, and crowded positioning can unwind quickly."})
     elif flow_score <= 25:
-        points.append({"icon": "✅", "text": f"Flow Sentiment {flow_score}/100 ({flow_label}) — max pessimism, contrarian long territory."})
+        points.append({"icon": "✅", "text": f"Flow Sentiment {flow_score}/100 ({flow_label}) — max pessimism."})
     elif 45 <= flow_score <= 65:
-        points.append({"icon": "✅", "text": f"Flow Sentiment {flow_score}/100 — healthy middle ground, no extremes to fade."})
+        points.append({"icon": "✅", "text": f"Flow Sentiment {flow_score}/100 — healthy middle ground, no extremes."})
 
     # VIX trend — all four values: Spiking / Rising / Calming / Falling
     if vix_trend == "Spiking":
-        points.append({"icon": "🔴", "text": "VIX spiking — something is breaking. Reduce exposure first, ask questions later."})
+        points.append({"icon": "🔴", "text": "VIX spiking — stress is rising fast."})
     elif vix_trend == "Rising":
-        points.append({"icon": "⚠️", "text": "VIX rising — uncertainty building. Hold off on new entries until vol stabilises."})
+        points.append({"icon": "⚠️", "text": "VIX rising — uncertainty is building."})
     elif vix_trend == "Calming" and vix and vix < 20:
-        points.append({"icon": "✅", "text": "VIX calming from an already moderate level — improving conditions for swing setups."})
+        points.append({"icon": "✅", "text": "VIX calming from an already moderate level — conditions are improving."})
     elif vix_trend == "Falling" and vix and vix < 20:
-        points.append({"icon": "✅", "text": "VIX falling into a calm tape — historically a supportive backdrop for trend continuation."})
+        points.append({"icon": "✅", "text": "VIX falling into a calm tape — a calmer backdrop."})
 
     # Breadth divergence
     if rsp_vs_spy < -0.4:
         points.append({"icon": "⚠️", "text": f"RSP lagging SPY by {abs(rsp_vs_spy):.2f}% — mega-caps masking weakness underneath."})
     elif sectors_pos <= 4:
-        points.append({"icon": "🔴", "text": f"Only {sectors_pos}/{sectors_tot} sectors positive — breadth rolling, don't trust the index."})
+        points.append({"icon": "🔴", "text": f"Only {sectors_pos}/{sectors_tot} sectors positive — breadth rolling, and the index looks stronger than most stocks."})
 
     # Closing verdict
     if vix and vix < 15 and flow_score >= 75:
-        verdict = "Complacency risk is my concern. Hedge cheap — it won't stay cheap."
+        verdict = "Complacency risk is my concern while VIX is this low."
     elif vix9d_label == "Fear Spike" and skew_label in SKEW_HEDGING_LABELS:
-        verdict = "Dual vol warning active. Half size max until either VIX9D or SKEW normalises."
+        verdict = "Dual vol warning active until either VIX9D or SKEW normalises."
     elif vix and vix >= 25:
-        verdict = "Volatility is in charge. Small size, tight stops, or nothing."
+        verdict = "Volatility is in charge, and swings are large."
     elif score >= 65:
         verdict = "Vol backdrop supportive — no elevated-risk flags from this desk."
     else:
-        verdict = "Amber light. Half-size everything until signals clear."
+        verdict = "Mixed vol signals, with some risk flags active."
 
     return {
         "persona": "The Risk Manager",
@@ -392,39 +390,38 @@ def persona_rotator(d: dict) -> dict:
         top_rs   = rs_leaders[0].get("rs_score", 0)
         if participation == "Broad" and growth >= 2:
             read = (f"Broad participation + growth leading. {top_name} is the RS leader ({top_rs:+.1f}). "
-                    "This is the kind of tape that makes winners out of mediocre entries.")
+                    "Participation is broad across sectors.")
         elif participation == "Narrow":
             read = (f"Narrow tape — {n_pos}/{n_tot} sectors positive. "
                     f"RS is concentrating in {top_name} ({top_rs:+.1f}). "
-                    "Index is up because a handful of names are doing the work — don't confuse that with a healthy tape.")
+                    "A handful of names are doing the work, so the index looks healthier than the average stock.")
         elif iwm_vs_spy > 0.4:
             read = (f"Small caps leading mega-caps by {iwm_vs_spy:+.2f}% with {top_name} topping the RS table — "
-                    "textbook risk-on rotation, reach out the risk curve.")
+                    "textbook risk-on rotation.")
         else:
             read = (f"Rotation is active. RS leaders: {', '.join(s['name'] for s in rs_leaders[:2])}. "
-                    f"RS laggards: {', '.join(s['name'] for s in rs_laggards[:2]) if rs_laggards else '—'}. "
-                    "Follow the RS rankings, not the headlines.")
+                    f"RS laggards: {', '.join(s['name'] for s in rs_laggards[:2]) if rs_laggards else '—'}.")
     elif participation == "Narrow":
         read = f"Narrow tape — {n_pos}/{n_tot} sectors holding. Index strength masks underlying weakness."
     else:
         read = (f"Rotation is active — leader {leader.get('name', '—')} "
                 f"({leader.get('change_pct', 0):+.2f}%), laggard {laggard.get('name', '—')} "
-                f"({laggard.get('change_pct', 0):+.2f}%). Follow the money.")
+                f"({laggard.get('change_pct', 0):+.2f}%).")
 
     points = []
 
-    # RS-ranked hunt list — sharper than simple day-change sort
+    # RS-ranked leaders and laggards — sharper than simple day-change sort
     if rs_leaders:
-        hunt_str = " · ".join(
+        leaders_str = " · ".join(
             f"{s['name']} (RS {s['rs_score']:+.1f})" for s in rs_leaders
         )
-        points.append({"icon": "🎯", "text": f"RS LEADERS — hunt here: {hunt_str}"})
+        points.append({"icon": "🎯", "text": f"RS leaders: {leaders_str}"})
 
     if rs_laggards:
-        avoid_str = " · ".join(
+        laggards_str = " · ".join(
             f"{s['name']} (RS {s['rs_score']:+.1f})" for s in rs_laggards
         )
-        points.append({"icon": "⛔", "text": f"RS LAGGARDS — avoid or short: {avoid_str}"})
+        points.append({"icon": "⛔", "text": f"RS laggards: {laggards_str}"})
 
     # Equal-weight signal
     if rsp_vs_spy > 0.3:
@@ -434,18 +431,18 @@ def persona_rotator(d: dict) -> dict:
 
     # Small caps
     if iwm_vs_spy > 0.4:
-        points.append({"icon": "✅", "text": f"IWM leading by {iwm_vs_spy:+.2f}% — speculative appetite back, reach further out the risk curve."})
+        points.append({"icon": "✅", "text": f"IWM leading by {iwm_vs_spy:+.2f}% — speculative appetite is back."})
     elif iwm_vs_spy < -0.4:
         points.append({"icon": "⚠️", "text": f"IWM lagging by {abs(iwm_vs_spy):.2f}% — defensive rotation, risk-off under the surface."})
 
     # Closing verdict — keyed to RS leader
     top_leader_name = rs_leaders[0]["name"] if rs_leaders else leader.get("name", "—")
     if participation == "Broad" and growth >= 2:
-        verdict = f"Rotate into RS leaders ({top_leader_name}). Follow, don't predict."
+        verdict = f"Broad participation, led by {top_leader_name}."
     elif participation == "Narrow":
-        verdict = "Stay out of laggards. Only trade confirmed RS leaders with volume."
+        verdict = "Narrow participation, with few sectors leading."
     else:
-        verdict = f"RS leader is {top_leader_name} — that's your shopping list."
+        verdict = f"RS leader is {top_leader_name}."
 
     return {
         "persona": "The Sector Rotator",
@@ -498,29 +495,29 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
     elif bulls >= 2 and bears <= 1:
         read = f"Desk lenses lean constructive but not unanimous — {bulls} supportive, {cautious} cautious, {bears} defensive. Mixed but leaning positive."
     elif bulls == bears:
-        read = "Split desk. That usually means chop. Smallest setups only, or sit on hands."
+        read = "Split desk: the positive and negative lenses offset each other."
     else:
-        read = f"Mixed picture — {bulls} bullish, {cautious} cautious, {bears} defensive. This is selectivity weather."
+        read = f"Mixed picture — {bulls} bullish, {cautious} cautious, {bears} defensive."
 
     points = []
     points.append({"icon": "🎯", "text": f"VERDICT: {decision} · Score {total}/100 · {pos_size}"})
 
     # Key event risk
     if fomc_days is not None and fomc_days <= 3:
-        points.append({"icon": "🔴", "text": f"FOMC IN {fomc_days} DAYS — this overrides everything else. Cut size now."})
+        points.append({"icon": "🔴", "text": f"FOMC IN {fomc_days} DAYS — event risk dominates everything else here."})
     elif vix >= 25:
-        points.append({"icon": "⚠️", "text": "Elevated vol — realized and implied both up. Risk budget shrinks mechanically."})
+        points.append({"icon": "⚠️", "text": "Elevated vol — the illustrative volatility budget is lower."})
     elif not above_200:
-        points.append({"icon": "⚠️", "text": "SPY below 200d — bear-market rules apply. Quick in, quick out."})
+        points.append({"icon": "⚠️", "text": "SPY below 200d — a bear-market structure."})
 
-    # Surface top-2 WARNING conflicts as direct action items.
-    # Extract the actionable clause after the em-dash; trim to 100 chars.
+    # Surface top-2 WARNING conflicts.
+    # Extract the clause after the em-dash; trim to 100 chars.
     for c in warnings[:2]:
         parts = c["detail"].split(" — ", 1)
-        action = parts[1] if len(parts) > 1 else c["detail"]
-        if len(action) > 100:
-            action = action[:97] + "…"
-        points.append({"icon": "⚠️", "text": f"{c['title']}: {action}"})
+        clause = parts[1] if len(parts) > 1 else c["detail"]
+        if len(clause) > 100:
+            clause = clause[:97] + "…"
+        points.append({"icon": "⚠️", "text": f"{c['title']}: {clause}"})
 
     # Conditions tier — describes the band and any active conflicts. This is
     # a conditions report, not an execution instruction (D-001): the replay
@@ -554,17 +551,17 @@ def persona_desk_head(d: dict, others: list[dict]) -> dict:
     if n_warn >= 2 and total >= 55:
         verdict = f"{n_warn} active conflicts — the composite overstates how aligned conditions are."
     elif n_warn >= 1 and total >= 70:
-        verdict = "Good tape with active conflicts — respect the warnings."
+        verdict = "Good tape, but the active conflicts matter."
     elif total >= 85:
         verdict = "Strong tape across every lens — conditions rarely read this clean."
     elif total >= 70:
-        verdict = "Good tape. Run your process, don't force it."
+        verdict = "Good tape with no active conflicts."
     elif total >= 55:
-        verdict = "Be patient. One A+ trade beats five B trades."
+        verdict = "Mixed tape, with signals only partly aligned."
     elif total >= 40:
-        verdict = "Skeptical participation only. Protect your capital."
+        verdict = "Weak tape with elevated adverse-move risk."
     else:
-        verdict = "Cash is a position. Sit on hands."
+        verdict = "Stressed tape. Risk is high, and the replay found no timing edge."
 
     return {
         "persona": "The Desk Head",
