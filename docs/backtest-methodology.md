@@ -64,6 +64,15 @@ The README summarizes the composite score conservatively:
   13.2% cutoff came from this history, and daily samples overlap. It describes
   risk; it has shown no return-timing edge.
 
+- Classic's Execution Window failed `backtest_execution_window.py`, whose rows,
+  outcomes and pass criteria were committed before the first run. Its labels don't
+  match their calculations (for example, "Breakouts working?" only counts sectors
+  up on the day), so each row was tested against an outcome matching its label.
+  0 of 5 rows passed over 2006-2026: gaps between on and off were -2.4 to +3.4
+  points, and every 95% interval included zero. It added to the risk line in only
+  1 of 3 risk levels. It tested sector ETFs and SPY, so it says nothing about
+  breakouts in individual stocks.
+
 Keep this claim attached to the exact implementation in `backtest.py` and the
 current scoring engine. If scoring rules or thresholds change, rerun and update
 this document before strengthening any public claim.

@@ -434,6 +434,7 @@ prediction is optional and must be explicitly selected.
 | P2-010 | pending | Audit RSP/sector duplication | Shared exposure measured and reduced/disclosed |
 | P2-011 | pending | Audit volatility collinearity | VIX features tested jointly and individually |
 | P2-012 | pending | Compare five pillars with three factors | Trend, participation, stress/liquidity candidate evaluated |
+| P2-022 | in_progress | Test Classic's Execution Window | Frozen test failed (0 of 5 rows); not added to the new page; Classic's labels still need correcting or removing |
 | P2-021 | done | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed. Audit found no case for a change: see `docs/backtest-methodology.md` |
 
 ### P2-D — Normalize without hiding uncertainty
