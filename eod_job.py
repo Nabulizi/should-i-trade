@@ -9,13 +9,15 @@ grades any pending forecasts whose next session has completed.
 
 Intended for launchd/cron on a machine where the server isn't running all
 day. Safe by construction:
-  - non-trading days (weekend/holiday) are a no-op
+  - it only records in after-hours (4-8 PM ET on a trading day); anything else
+    is a no-op, so a job launchd fires late on wake can't log a mid-session
+    reading as that day's end-of-day forecast
   - every write is idempotent (same-date replace / one record per day),
     so overlapping with a running server or a retry run is harmless
   - invalid data quality records nothing (a disabled reading is not a
     forecast)
 
-Run:  python3 eod_job.py          # after the close on a trading day
+Run:  python3 eod_job.py          # 4-8 PM ET on a trading day
 Exit: 0 on success or clean no-op, 1 when live data was unusable.
 """
 from __future__ import annotations
@@ -33,8 +35,8 @@ def run() -> int:
     import forecast_log
 
     state = market_state()["state"]
-    if state in ("weekend", "closed"):
-        logger.info("Not a trading session (state=%s) — nothing to do.", state)
+    if state != "afterhours":
+        logger.info("Not after hours on a trading day (state=%s) — nothing to do.", state)
         return 0
 
     today = et_now().date().isoformat()
