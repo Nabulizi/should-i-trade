@@ -1035,10 +1035,11 @@ _ECON_CALENDAR = [
     ("2026-11-06", "NFP",  "Jobs Report"),
     ("2026-11-10", "CPI",  "CPI"),
     ("2026-11-13", "PPI",  "PPI"),
+    ("2026-11-25", "GDP",  "GDP (2nd)"),
     ("2026-12-04", "NFP",  "Jobs Report"),
     ("2026-12-10", "CPI",  "CPI"),
     ("2026-12-15", "PPI",  "PPI"),
-    ("2026-12-17", "GDP",  "GDP (Rev)"),
+    ("2026-12-23", "GDP",  "GDP (Rev)"),
     # --- 2027 ---
     ("2027-01-08", "NFP",  "Jobs Report"),
     ("2027-01-13", "CPI",  "CPI"),
@@ -1047,21 +1048,23 @@ _ECON_CALENDAR = [
     ("2027-02-05", "NFP",  "Jobs Report"),
     ("2027-02-11", "CPI",  "CPI"),
     ("2027-02-12", "PPI",  "PPI"),
+    ("2027-02-25", "GDP",  "GDP (2nd)"),
     ("2027-03-05", "NFP",  "Jobs Report"),
-    ("2027-03-11", "CPI",  "CPI"),
+    ("2027-03-10", "CPI",  "CPI"),
     ("2027-03-12", "PPI",  "PPI"),
-    ("2027-03-25", "GDP",  "GDP (Rev)"),
+    ("2027-03-31", "GDP",  "GDP (Rev)"),
     ("2027-04-02", "NFP",  "Jobs Report"),
-    ("2027-04-09", "CPI",  "CPI"),
-    ("2027-04-08", "PPI",  "PPI"),
+    ("2027-04-13", "CPI",  "CPI"),
+    ("2027-04-14", "PPI",  "PPI"),
     ("2027-04-29", "GDP",  "GDP (Adv)"),
     ("2027-05-07", "NFP",  "Jobs Report"),
-    ("2027-05-13", "CPI",  "CPI"),
-    ("2027-05-14", "PPI",  "PPI"),
+    ("2027-05-12", "CPI",  "CPI"),
+    ("2027-05-13", "PPI",  "PPI"),
+    ("2027-05-27", "GDP",  "GDP (2nd)"),
     ("2027-06-04", "NFP",  "Jobs Report"),
     ("2027-06-10", "CPI",  "CPI"),
     ("2027-06-11", "PPI",  "PPI"),
-    ("2027-06-24", "GDP",  "GDP (Rev)"),
+    ("2027-06-25", "GDP",  "GDP (Rev)"),
 ]
 
 # Last date in _ECON_CALENDAR — used to warn when coverage is running out.
@@ -1071,7 +1074,7 @@ _ECON_EXPIRY_WARN_DAYS = 30
 
 def econ_proximity() -> list[dict]:
     """Return the next 3 upcoming economic releases with days-until and risk color."""
-    today = datetime.now(timezone.utc).date()
+    today = et_now().date()
 
     # Warn when fewer than _ECON_EXPIRY_WARN_DAYS of coverage remain.
     last_date = datetime.strptime(_ECON_CALENDAR_LAST, "%Y-%m-%d").date()
@@ -1194,7 +1197,7 @@ def econ_calendar_window(days_ahead: int = 7) -> list[dict]:
     an exact date).  Built for the briefing routines, which need the full picture;
     the dashboard keeps using econ_proximity() and sees tier-1 only.
     """
-    today = datetime.now(timezone.utc).date()
+    today = et_now().date()
     end = today + timedelta(days=days_ahead)
     events: list[dict] = []
 
@@ -1233,7 +1236,7 @@ def _third_friday(year: int, month: int):
 
 def opex_proximity() -> dict:
     """Days until next options expiration (3rd Friday). Flags Triple Witching months."""
-    today = datetime.now(timezone.utc).date()
+    today = et_now().date()
     y, m = today.year, today.month
     # Scan the next 6 months to find the next OpEx >= today
     for _ in range(6):
@@ -1288,7 +1291,7 @@ _MONTHLY_SEASONALITY = {
 
 def seasonality() -> dict:
     """Current month's historical seasonal bias for US equities."""
-    month = datetime.now(timezone.utc).month
+    month = et_now().month
     s = _MONTHLY_SEASONALITY[month]
     return {
         "month":     month,
@@ -1312,7 +1315,7 @@ _EARNINGS_WINDOWS = [
 
 def earnings_season() -> dict:
     """Return current or next earnings season status with gap-risk context."""
-    today = datetime.now(timezone.utc).replace(tzinfo=None)
+    today = et_now()
     year  = today.year
 
     for ms, ds, me, de, quarter in _EARNINGS_WINDOWS:
@@ -1365,7 +1368,7 @@ _FOMC_EXPIRY_WARN_DAYS = 30
 
 def fomc_proximity() -> dict:
     """Days until next FOMC decision + event-risk label."""
-    today = datetime.now(timezone.utc).date()
+    today = et_now().date()
 
     # Warn when fewer than _FOMC_EXPIRY_WARN_DAYS of coverage remain.
     last_date = datetime.strptime(_FOMC_LAST, "%Y-%m-%d").date()
