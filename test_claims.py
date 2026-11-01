@@ -94,6 +94,10 @@ PROHIBITED = [
     r"drawdown-timed",
     r"swing trading",
     r"quality terminal",
+    # Execution Window rows, which failed backtest_execution_window.py
+    r"breakouts working",
+    r"leaders holding",
+    r"pullbacks bought",
     # Direction and selection instructions
     r"contrarian long",
     r"avoid or short",

@@ -486,29 +486,6 @@ function renderBars(elId, data) {
   }).join('');
 }
 
-/* ── EXECUTION WINDOW ──────────────────────────────────── */
-function renderExecution(d) {
-  const t = d.pillars.trend.details;
-  const b = d.pillars.breadth.details;
-  const m = d.pillars.momentum.details;
-
-  const checks = [
-    { label: 'Breakouts working?', ok: m.sectors_positive >= 7,       t: 'Working',     f: 'Failing'  },
-    { label: 'Leaders holding?',   ok: t.above_50 && t.above_20,      t: 'Holding',     f: 'Breaking' },
-    { label: 'Pullbacks bought?',  ok: b.rsp_change_pct >= 0,         t: 'Supported',   f: 'Sold'     },
-    { label: 'Equal-weight leading?', ok: b.rsp_vs_spy > 0,             t: 'Equal-Wt Led', f: 'Large-Cap Led' },
-    { label: 'Follow-through?',    ok: d.total_score >= 70,           t: 'Conviction',  f: 'Weak'     },
-  ];
-
-  $('exec-window').innerHTML = checks.map(c => {
-    const col = c.ok ? 'var(--green)' : 'var(--red)';
-    return `<div class="exec-row">
-      <span class="exec-key"><span class="exec-dot" style="background:${col}"></span>${c.label}</span>
-      <span style="color:${col};font-size:10px;font-weight:700">${c.ok ? c.t : c.f}</span>
-    </div>`;
-  }).join('');
-}
-
 /* ── WATCHLIST HEALTH ─────────────────────────────────── */
 let _watchlistData = null;
 let _watchlistView = 'a_plus';
@@ -1062,7 +1039,6 @@ async function load(isManual = false) {
       renderConflicts(raw);
       renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
       renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
-      renderExecution(raw);
       renderWeights(weightScenario);
       // Show/hide sparkline paused indicator based on data quality
       const paused = $('spark-paused');

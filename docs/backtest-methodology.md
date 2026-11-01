@@ -71,7 +71,7 @@ The README summarizes the composite score conservatively:
   0 of 5 rows passed over 2006-2026: gaps between on and off were -2.4 to +3.4
   points, and every 95% interval included zero. It added to the risk line in only
   1 of 3 risk levels. It tested sector ETFs and SPY, so it says nothing about
-  breakouts in individual stocks.
+  breakouts in individual stocks. The panel was removed from Classic.
 
 Keep this claim attached to the exact implementation in `backtest.py` and the
 current scoring engine. If scoring rules or thresholds change, rerun and update
