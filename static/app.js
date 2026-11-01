@@ -220,6 +220,40 @@ function threeQuestionsHtml(d) {
   ].join('');
 }
 
+function moverEntries(group) {
+  return Object.values(group || {})
+    .filter(v => Number.isFinite(v?.change_pct))
+    .sort((a, b) => b.change_pct - a.change_pct);
+}
+
+function moverGroup(title, entries, scale, columns) {
+  const rows = entries.map(v => `<li class="mover">
+      <span class="mover-name" title="${esc(v.name)}">${esc(v.name)}</span>
+      <span class="mover-track" aria-hidden="true"><span class="mover-fill ${v.change_pct >= 0 ? 'up' : 'dn'}" style="width:${Math.round(Math.abs(v.change_pct) / scale * 100)}%"></span></span>
+      <span class="mover-pct">${chgStr(v.change_pct)}</span>
+    </li>`).join('');
+  return `<div class="mover-group" style="--mover-rows:${Math.ceil(entries.length / columns)}">
+    <h3>${title}</h3>
+    <ul class="mover-list">${rows}</ul>
+  </div>`;
+}
+
+function moversHtml(d) {
+  const breadth = d?.pillars?.breadth?.details;
+  const sectors = d?.data_quality?.valid === false ? [] : moverEntries(breadth?.sector_data);
+  const industries = d?.data_quality?.valid === false ? [] : moverEntries(breadth?.industry_data);
+  if (!sectors.length && !industries.length) {
+    return `<div class="movers-head"><h2>What's moving</h2></div><p class="question-empty">No data</p>`;
+  }
+  // One scale across both groups, so bar lengths compare. The floor keeps a quiet day looking quiet.
+  const scale = Math.max(...[...sectors, ...industries].map(v => Math.abs(v.change_pct)), 0.5);
+  return `<div class="movers-head"><h2>What's moving</h2><span>1-day change, best to worst</span></div>
+    <div class="movers-groups">
+      ${sectors.length ? moverGroup('Sectors', sectors, scale, 3) : ''}
+      ${industries.length ? moverGroup('Industry &amp; style', industries, scale, 2) : ''}
+    </div>`;
+}
+
 function todaysReadHtml(d) {
   const next = (d?.econ_events || [])[0];
   const lines = [
@@ -709,25 +743,6 @@ function toggleDetail(el) {
 }
 
 /* ── SECTOR + INDUSTRY BARS ────────────────────────────── */
-function renderBars(elId, data) {
-  const entries = Object.entries(data || {}).sort((a, b) => b[1].change_pct - a[1].change_pct);
-  if (!entries.length) { $(elId).innerHTML = '<div style="color:var(--muted);font-size:10px;">No data</div>'; return; }
-  const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
-  $(elId).innerHTML = entries.map(([, v]) => {
-    const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
-    const bg = v.change_pct >= 0 ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)';
-    const c  = 'var(--text)';
-    return `<div class="sector-row">
-      <span class="sector-name">${esc(v.name)}</span>
-      <div class="sector-bar-wrap">
-        <div class="sector-bar" style="width:${w}%;background:${bg}">
-          <span class="sector-pct" style="color:${c}">${chgStr(v.change_pct)}</span>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
 /* ── WATCHLIST HEALTH ─────────────────────────────────── */
 let _watchlistData = null;
 let _watchlistView = 'a_plus';
@@ -1388,6 +1403,7 @@ async function load(isManual = false) {
       renderHero(raw);
       $('risk-line').innerHTML = riskLineHtml(raw);
       $('three-questions').innerHTML = threeQuestionsHtml(raw);
+      $('movers').innerHTML = moversHtml(raw);
       $('todays-read').innerHTML = todaysReadHtml(raw);
       const ystrip = $('yesterday-strip');
       if (ystrip) {
@@ -1399,8 +1415,6 @@ async function load(isManual = false) {
       renderPillars(raw);
       renderConflicts(raw);
       renderLiquidity(raw.liquidity);
-      renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
-      renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
       renderWeights(weightScenario);
       // Show/hide sparkline paused indicator based on data quality
       const paused = $('spark-paused');
@@ -1655,6 +1669,7 @@ export {
   riskLineHtml,
   threeQuestionsHtml,
   todaysReadHtml,
+  moversHtml,
   hygHintHtml,
   onHintClick,
   onHintKey,

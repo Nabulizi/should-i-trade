@@ -633,7 +633,7 @@ A task or phase is complete only when applicable conditions hold:
 | Q-004 | Keep five descriptive pillars or target three factors in v7? | P2-012 |
 | Q-005 | Which outcome is primary for each horizon? | P2-001 |
 | Q-006 | ~~Where should public-demo forecast records persist?~~ Resolved: local-first JSONL; the Render demo is explicitly non-persistent (`/health` flags it) | P3-010 |
-| Q-007 | Keep classic UI supported or archive it? | Major P1 UI work |
+| Q-007 | Keep classic UI supported or archive it? The two views are the maintainer's own comparison, not a user A/B test, so this is decided by which one gets used. Classic stays frozen apart from fixes until then | Major P1 UI work |
 
 ---
 

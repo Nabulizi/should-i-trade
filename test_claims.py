@@ -90,6 +90,10 @@ PROHIBITED = [
     r"let it settle",
     r"bear-market rules",
     r"defined[- ]risk",
+    # Labels that imply a timing or trading style the evidence doesn't support
+    r"drawdown-timed",
+    r"swing trading",
+    r"quality terminal",
     # Direction and selection instructions
     r"contrarian long",
     r"avoid or short",

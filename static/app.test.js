@@ -26,6 +26,7 @@ import {
   hygHintHtml,
   onHintClick,
   onHintKey,
+  moversHtml,
 } from './app.js';
 
 beforeEach(() => {
@@ -182,6 +183,68 @@ describe('hint open and close', () => {
     expect(btn.closest('.hint').classList.contains('open')).toBe(true);
     onHintKey({ key: 'Escape' });
     expect(btn.closest('.hint').classList.contains('open')).toBe(false);
+  });
+});
+
+describe('moversHtml', () => {
+  const details = {
+    sector_data: {
+      XLE: { name: 'Energy', change_pct: 1.91 },
+      XLK: { name: 'Technology', change_pct: -4.89 },
+      XLU: { name: 'Utilities', change_pct: 0.67 },
+    },
+    industry_data: {
+      SMH: { name: 'Semis', change_pct: -6.98 },
+      XHB: { name: 'Homebuilders', change_pct: 0.69 },
+    },
+  };
+  const dash = (d = details, extra = {}) => ({ data_quality: { valid: true }, pillars: { breadth: { details: d } }, ...extra });
+  const widthOf = (html, name) => {
+    const row = html.slice(html.indexOf(`>${name}<`));
+    return Number(row.match(/width:(\d+)%/)[1]);
+  };
+
+  it('shows both groups with signed changes', () => {
+    const html = moversHtml(dash());
+    for (const text of ['Sectors', 'Industry &amp; style', 'Energy', '+1.91%', 'Semis', '-6.98%']) expect(html).toContain(text);
+  });
+
+  it('sorts each group from best to worst', () => {
+    const html = moversHtml(dash());
+    expect(html.indexOf('Energy')).toBeLessThan(html.indexOf('Utilities'));
+    expect(html.indexOf('Utilities')).toBeLessThan(html.indexOf('Technology'));
+    expect(html.indexOf('Homebuilders')).toBeLessThan(html.indexOf('Semis'));
+  });
+
+  it('uses one scale across both groups, so bar lengths compare', () => {
+    const html = moversHtml(dash());
+    expect(widthOf(html, 'Semis')).toBe(100);
+    expect(widthOf(html, 'Technology')).toBe(70);    // 4.89 / 6.98
+    expect(widthOf(html, 'Energy')).toBe(27);        // 1.91 / 6.98
+  });
+
+  it('marks direction in the class as well as the signed text', () => {
+    const html = moversHtml(dash());
+    expect(html.slice(html.indexOf('>Energy<')).indexOf('mover-fill up')).toBeGreaterThan(-1);
+    expect(html.slice(html.indexOf('>Semis<')).indexOf('mover-fill dn')).toBeGreaterThan(-1);
+  });
+
+  it('does not exaggerate a quiet day into full-length bars', () => {
+    const html = moversHtml(dash({ sector_data: { A: { name: 'Quiet', change_pct: 0.1 } }, industry_data: {} }));
+    expect(widthOf(html, 'Quiet')).toBe(20);         // 0.1 / the 0.5 minimum scale
+  });
+
+  it('skips entries without a number and escapes names', () => {
+    const html = moversHtml(dash({ sector_data: { A: { name: '<img>', change_pct: 1 }, B: { name: 'Gap', change_pct: null } }, industry_data: {} }));
+    expect(html).not.toContain('<img>');
+    expect(html).not.toContain('Gap');
+    expect(html).not.toContain('NaN');
+  });
+
+  it('shows no figures beside a data-unavailable headline, or when nothing is there', () => {
+    expect(moversHtml(dash(details, { data_quality: { valid: false } }))).not.toContain('Semis');
+    expect(moversHtml(dash(details, { data_quality: { valid: false } }))).toContain('No data');
+    expect(moversHtml({ pillars: {} })).toContain('No data');
   });
 });
 
