@@ -1,6 +1,8 @@
-<p align="center"><img src="assets/logo.svg" alt="Should I Trade? — Market Quality Terminal" width="520"></p>
+<p align="center"><img src="assets/logo.svg" alt="Before You Trade — a daily market risk check" width="520"></p>
 
-# Should I Trade? — Market Quality Terminal v6
+# Before You Trade — a daily market risk check
+
+*Formerly "Should I Trade?". The repository and demo addresses still use the old name.*
 
 A single-page, self-hosted **market-conditions gauge** for the session: it reads the market regime and turns current conditions into a suggested exposure posture.
 

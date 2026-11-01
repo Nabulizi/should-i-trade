@@ -1,5 +1,5 @@
 """
-config.py — User-tunable settings for Should I Trade?
+config.py — User-tunable settings for Before You Trade
 
 Edit this file to adjust port, cache refresh rates, pillar weights, or
 rate-limiting without touching any logic files.  All values here are

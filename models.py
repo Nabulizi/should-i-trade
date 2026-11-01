@@ -1,5 +1,5 @@
 """
-models.py — Shared TypedDict schemas for Should I Trade?
+models.py — Shared TypedDict schemas for Before You Trade
 
 TypedDicts give IDE autocomplete and let static analysers (mypy / pyright)
 catch key typos at analysis time with zero runtime overhead.

@@ -42,6 +42,14 @@ class TestFmtDelta(unittest.TestCase):
         self.assertEqual(_fmt_delta(60, None), "")
 
 
+class TestReportTitle(unittest.TestCase):
+    def test_report_leads_with_the_product_name_and_date(self):
+        data = _payload()
+        data["market_state"] = {"et_date": "Mon Nov 02"}
+        self.assertEqual(build_report(data, None).splitlines()[0],
+                         "*Before You Trade — Mon Nov 02*")
+
+
 class TestBandChanged(unittest.TestCase):
     def test_changed_and_unchanged_and_missing(self):
         self.assertTrue(band_changed(_payload(), _yesterday()))

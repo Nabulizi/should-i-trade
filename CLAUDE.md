@@ -39,7 +39,7 @@ GitHub Actions runs Python tests on 3.10/3.11/3.12, JS tests on Python 3.12 + No
 
 ## Architecture
 
-The app is a single-page market quality dashboard that answers "Should I trade today?" It has no third-party Python dependencies (stdlib only). Gemini AI integration is optional.
+The app, Before You Trade (formerly "Should I Trade?"; the repo, Render service and HTML filename keep the old name), is a single-page daily market risk check. It has no third-party Python dependencies (stdlib only). Gemini AI integration is optional.
 
 ```
 Browser

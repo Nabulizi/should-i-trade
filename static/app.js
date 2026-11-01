@@ -1072,7 +1072,7 @@ function copySnapshot() {
   const p = d.pillars;
   const now = new Date().toLocaleString();
   const lines = [
-    `=== Should I Trade? — ${now} ===`,
+    `=== Before You Trade — ${now} ===`,
     `Decision: ${d.decision}  |  Score: ${d.total_score}/100  |  Band: ${d.position_size}`,
     ...(scenario._customWeights ? [
       `Custom-weight what-if: ${scenario.decision}  |  Score: ${scenario.total_score}/100  |  Band: ${scenario.position_size}`,
@@ -1514,7 +1514,7 @@ function _maybeAlert(score, decision) {
   const iconSvg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">${emoji}</text></svg>`
   );
-  new Notification(`Should I Trade? → ${zone}`, {
+  new Notification(`Before You Trade → ${zone}`, {
     body: `Score ${score} • ${decision || zone}\nWas: ${prev}`,
     icon: `data:image/svg+xml,${iconSvg}`,
     tag:  'sit-score-alert',  // collapses duplicate rapid flips

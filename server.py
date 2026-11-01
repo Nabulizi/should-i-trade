@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Should I Trade? — Market Quality Terminal v6
+Before You Trade — a daily market risk check
 
 Run:  python3 server.py
 Open: http://localhost:8765
@@ -708,8 +708,8 @@ def main():
     missing = "" if os.path.exists(html) else f"  ⚠  {HTML_FILE} not found in this folder!\n"
 
     print("\n  ╔══════════════════════════════════════════════╗")
-    print("  ║  Should I Trade?  ·  Market Quality v6       ║")
-    print("  ║  5-Pillar Score + Desk Roundtable            ║")
+    print("  ║  Before You Trade  ·  Market risk check      ║")
+    print("  ║  Risk line + 5-Pillar Score                  ║")
     print("  ╚══════════════════════════════════════════════╝")
     if missing:
         print(f"\n{missing}")

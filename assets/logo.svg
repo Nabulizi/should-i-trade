@@ -1,24 +1,22 @@
-<svg width="520" height="120" viewBox="0 0 520 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Should I Trade? — Market Quality Terminal">
+<svg width="520" height="120" viewBox="0 0 520 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Before You Trade — a daily market risk check">
   <!-- background card -->
-  <rect x="0" y="0" width="520" height="120" rx="12" fill="#020617"/>
-  <rect x="0.5" y="0.5" width="519" height="119" rx="11.5" fill="none" stroke="#1a2530"/>
+  <rect x="0" y="0" width="520" height="120" rx="12" fill="#0a0e13"/>
+  <rect x="0.5" y="0.5" width="519" height="119" rx="11.5" fill="none" stroke="#1f2732"/>
 
-  <!-- score gauge mark -->
+  <!-- gauge mark -->
   <g transform="translate(60,60)">
     <!-- track -->
-    <circle r="38" fill="none" stroke="#1a2530" stroke-width="9"/>
-    <!-- score arc: ~72/100, rotated to start at 12 o'clock -->
-    <circle r="38" fill="none" stroke="#00e676" stroke-width="9" stroke-linecap="round"
+    <circle r="38" fill="none" stroke="#1f2732" stroke-width="9"/>
+    <!-- arc, rotated to start at 12 o'clock -->
+    <circle r="38" fill="none" stroke="#fb923c" stroke-width="9" stroke-linecap="round"
             stroke-dasharray="171.8 238.8" transform="rotate(-90)"/>
-    <!-- gauge needle / trend tick -->
-    <polyline points="-16,8 -5,-4 3,3 17,-13" fill="none" stroke="#00b0ff"
+    <!-- trend tick -->
+    <polyline points="-16,8 -5,-4 3,3 17,-13" fill="none" stroke="#60a5fa"
               stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="17" cy="-13" r="3.5" fill="#00b0ff"/>
+    <circle cx="17" cy="-13" r="3.5" fill="#60a5fa"/>
   </g>
 
   <!-- wordmark -->
-  <g font-family="'Fira Code', 'SF Mono', Menlo, monospace">
-    <text x="120" y="56" font-size="26" font-weight="700" letter-spacing="1" fill="#e0e8f0">SHOULD I TRADE<tspan fill="#00b0ff">?</tspan></text>
-    <text x="121" y="82" font-size="12" letter-spacing="4" fill="#7e94a9">MARKET QUALITY TERMINAL · V6</text>
-  </g>
+  <text x="120" y="58" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="34" font-weight="500" fill="#e8edf3">Before You Trade</text>
+  <text x="121" y="84" font-family="'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="14" fill="#8d99a8">A daily market risk check</text>
 </svg>
