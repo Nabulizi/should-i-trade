@@ -75,24 +75,6 @@ const RISK_STEPS = [
   { level: 'High', history: '41%', ordinal: 'third' },
 ];
 
-function riskStat(label, value, note) {
-  return `<div class="risk-stat">
-    <div class="risk-stat-label">${label}</div>
-    <div class="risk-stat-value">${value}</div>
-    <div class="risk-stat-note">${note}</div>
-  </div>`;
-}
-
-function riskStatsHtml(d) {
-  const stats = [];
-  if (d.total_score != null) stats.push(riskStat('Score', esc(d.total_score), `${esc(d.decision)} band`));
-  const budget = volBudget(d.vol_target, loadVolTarget());
-  if (budget) stats.push(riskStat('SPY volatility budget', `${budget.spyPct}%`, `Illustrative, at a ${esc(budget.target)}% annual-vol target`));
-  const coverage = d.reliability?.coverage_pct;
-  if (coverage != null) stats.push(riskStat('Data coverage', `${Math.round(coverage)}%`, d.timestamp ? `As of ${esc(d.timestamp)}` : 'Latest refresh'));
-  return stats.length ? `<div class="risk-stats">${stats.join('')}</div>` : '';
-}
-
 function riskLineHtml(d) {
   const invalid = d?.data_quality?.valid === false;
   const read = d?.risk_read;
@@ -106,32 +88,38 @@ function riskLineHtml(d) {
   const current = RISK_STEPS.find(step => step.level === read.level);
   const steps = RISK_STEPS.map(step => `<div class="risk-step${step === current ? ` current ${tagColor(read.color)}` : ''}">
       <span class="risk-step-bar"></span>
-      <span class="risk-step-name">${step.level}</span>
-      <span class="risk-step-history">${step.history}</span>
+      <span class="risk-step-name">${step.level} <span class="risk-step-history">${step.history}</span></span>
     </div>`).join('');
   const rows = checks.map(c => `<li class="risk-check${c.on ? ' on' : ''}">
       <span class="risk-check-mark" aria-hidden="true"></span>
-      <span class="risk-check-text"><span class="risk-check-label">${esc(c.label)}</span><span class="risk-check-detail">${esc(c.detail)}</span></span>
+      <span class="risk-check-text"><span class="risk-check-label">${esc(c.label)}</span> <span class="risk-check-detail">${esc(c.detail)}</span></span>
       <span class="risk-check-state">${c.on ? 'On' : 'Off'}</span>
     </li>`).join('');
   const noneOn = checks.length && !checks.some(c => c.on)
     ? '<p class="risk-note">None of the three checks is on.</p>' : '';
+  const score = d.total_score != null ? `<div class="risk-zone risk-score">
+      <div class="risk-kicker">Score</div>
+      <div class="risk-score-line"><span class="risk-score-value">${esc(d.total_score)}</span><span class="risk-score-band">${esc(d.decision)} band</span></div>
+      ${buildPillarBars(d.pillars)}
+    </div>` : '';
+  const coverage = d.reliability?.coverage_pct;
   return `<div class="risk-top">
-      <div class="risk-summary">
+      <div class="risk-zone risk-summary">
         <div class="risk-kicker">Risk today</div>
         <div class="risk-level">${esc(read.level)}</div>
         <div class="risk-scale" role="img" aria-label="Risk level ${esc(read.level)}, ${current?.ordinal || 'unknown'} of three">${steps}</div>
-        <p class="risk-history">Share of past days followed by a 10%+ SPY drop within 3 months, 2007–2026 replay. Exploratory, not a forecast.</p>
+        <p class="risk-history">% of past days followed by a 10%+ SPY drop within 3 months, 2007–2026 replay. Exploratory, not a forecast.</p>
       </div>
-      <div class="risk-checks-wrap">
-        <div class="risk-checks-title">What sets the level</div>
+      <div class="risk-zone risk-checks-wrap">
+        <div class="risk-kicker">What sets the level</div>
         <ul class="risk-checks">${rows}</ul>
         ${noneOn}
       </div>
+      ${score}
     </div>
-    ${riskStatsHtml(d)}
     <div class="risk-foot">
       ${asOfLine(d.as_of)}
+      ${coverage != null ? `<div>Data ${Math.round(coverage)}%${d.timestamp ? `, as of ${esc(d.timestamp)}` : ''}</div>` : ''}
       <div>Conditions report. No demonstrated return-timing edge (<a href="https://github.com/Nabulizi/should-i-trade/blob/main/docs/backtest-report.md" target="_blank" rel="noopener">2005–2026 replay</a>).</div>
     </div>`;
 }
@@ -159,6 +147,9 @@ function sentenceCase(text) {
 }
 
 function threeQuestionsHtml(d) {
+  if (d?.data_quality?.valid === false) {
+    return ['How rough?', 'How healthy?', "What's the backdrop?"].map(title => questionCard(title, [])).join('');
+  }
   const vol = d?.pillars?.volatility?.details || {};
   const trend = d?.pillars?.trend?.details || {};
   const breadth = d?.pillars?.breadth?.details || {};
@@ -169,22 +160,33 @@ function threeQuestionsHtml(d) {
   const hy = (liq.items || []).find(i => i.key === 'hy_spread');
   const sides = [maSide(trend.above_50, 50), maSide(trend.above_200, 200)].filter(Boolean);
   const hyg = macro.hyg_label && macro.hyg_label !== 'N/A' ? macro.hyg_label : null;
+  const budget = volBudget(d?.vol_target, loadVolTarget());
+  const futures = (d?.futures_tape?.items || [])
+    .filter(i => i.available && ['ES', 'NQ'].includes(i.symbol))
+    .map(i => `${esc(i.symbol)} ${chgStr(i.change_pct)}`);
+  const liquidityWord = { Tightening: 'tighter', Loosening: 'easing', Neutral: 'flat' };
+  const short = liquidityWord[liq.tone];
+  const long = liquidityWord[liq.longer?.tone];
+  const liquidity = short && long && `${sentenceCase(short)} 4w, ${long} 13w`;
   return [
     questionCard('How rough?', [
       vol.vix_level != null && questionRow('VIX', `${esc(vol.vix_level)}${vol.vix_label ? `, ${esc(vol.vix_label)}` : ''}`),
       vol.vix_trend && questionRow('VIX trend', esc(vol.vix_trend)),
       realized != null && questionRow('SPY 20-day volatility', `${esc(realized)}%`),
+      budget && questionRow('SPY volatility budget', `${budget.spyPct}%, illustrative`),
     ]),
     questionCard('How healthy?', [
       sides.length && questionRow('SPY', sentenceCase(sides.join(', '))),
       breadth.sectors_total && questionRow('Sectors up', `${esc(breadth.sectors_positive)} of ${esc(breadth.sectors_total)}`),
       momentum.rs_rotation_label && questionRow('Leadership', esc(momentum.rs_rotation_label)),
+      futures.length && questionRow('Futures', futures.join(', ')),
     ]),
     questionCard("What's the backdrop?", [
       hy?.value != null && questionRow('HY spread', `${esc(hy.value)}${hy.level ? `, ${esc(hy.level)}` : ''}`),
       hyg && questionRow('HYG', esc(hyg)),
       liq.fed_path && questionRow('2Y vs Fed funds', sentenceCase(esc(liq.fed_path.lean))),
-    ], `${liq.summary ? `<p class="question-note">${esc(liq.summary)}</p>` : ''}${liquidityNoteHtml(liq)}`),
+      liquidity && questionRow('Liquidity', liquidity),
+    ], liquidityNoteHtml(liq)),
   ].join('');
 }
 
@@ -276,7 +278,7 @@ function renderLiquidity(liq) {
     fedEl.title = 'Above Fed funds suggests markets lean toward higher rates; below, toward cuts. The 2Y also carries term premium, so this is a lean, not an expected path.';
   }
   itemsEl.innerHTML = buildLiquidityChips(liq?.items);
-  readEl.innerHTML = `${liquidityNoteHtml(liq)}${esc(liq?.read || 'Liquidity data unavailable.')}
+  readEl.innerHTML = `${liquidityNoteHtml(liq)}${liq?.summary ? `<strong class="liquidity-summary">${esc(liq.summary)}</strong> ` : ''}${esc(liq?.read || 'Liquidity data unavailable.')}
     <span class="futures-meta"><span>${esc(liq?.source || 'FRED')}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
@@ -345,7 +347,7 @@ function renderHeader(d) {
 // a pillar fell back to neutral because its inputs were unavailable.
 function buildPillarBars(pillars) {
   const keys = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
-  const labels = ['VOL', 'TRND', 'BRDT', 'MOM', 'MACR'];
+  const labels = ['Volatility', 'Trend', 'Breadth', 'Momentum', 'Macro'];
   const rows = keys.map((key, i) => {
     const pillar = pillars?.[key] || {};
     const score = Math.max(0, Math.min(100, Number(pillar.score) || 0));
@@ -420,8 +422,6 @@ function renderHero(d) {
   arc.style.stroke = scoreColor(s);
   $('score-val').textContent = s;
   $('score-val').style.color = scoreColor(s);
-  const radar = $('hero-radar');
-  if (radar) radar.innerHTML = buildPillarBars(d.pillars);
 
   // Score delta badge
   const delta = d.score_delta;

@@ -64,16 +64,21 @@ describe('riskLineHtml', () => {
     for (const text of ['10%', '22%', '41%', 'not a forecast']) expect(html).toContain(text);
   });
 
-  it('shows the score, illustrative budget, coverage and basis of the reading', () => {
+  it('shows the score with its pillars beside the level', () => {
     const html = riskLineHtml(read('Elevated', checks, {
-      total_score: 32, decision: 'RISK-OFF', timestamp: '20:32 ET',
-      vol_target: { exposure_pct: 67, realized_annual_vol_pct: 11.6, target_annual_vol_pct: 7.8 },
-      reliability: { coverage_pct: 100 },
+      total_score: 32, decision: 'RISK-OFF',
+      pillars: { trend: { score: 12, details: { x: 1 }, reasons: [] } },
+    }));
+    for (const text of ['>32<', 'RISK-OFF', 'Trend']) expect(html).toContain(text);
+  });
+
+  it('keeps coverage, basis and the disclaimer visible as one line of fine print', () => {
+    const html = riskLineHtml(read('Elevated', checks, {
+      timestamp: '20:32 ET', reliability: { coverage_pct: 100 },
       as_of: { session: 'weekend', market_data_as_of: '2026-10-30' },
     }));
-    for (const text of ['32', 'RISK-OFF', '67%', 'Illustrative', '100%', '20:32 ET', '2026-10-30', 'return-timing edge']) {
-      expect(html).toContain(text);
-    }
+    const foot = html.slice(html.indexOf('risk-foot'));
+    for (const text of ['100%', '20:32 ET', '2026-10-30', 'return-timing edge']) expect(foot).toContain(text);
   });
 
   it('never shows a level or score when data is invalid or missing', () => {
@@ -122,16 +127,21 @@ describe('todaysReadHtml', () => {
 
 describe('threeQuestionsHtml', () => {
   const dash = {
-    vol_target: { realized_annual_vol_pct: 11.6 },
+    vol_target: { exposure_pct: 67, realized_annual_vol_pct: 11.6, target_annual_vol_pct: 7.8 },
+    futures_tape: { items: [
+      { symbol: 'ES', change_pct: -1.81, available: true },
+      { symbol: 'NQ', change_pct: -3.48, available: true },
+      { symbol: 'RTY', change_pct: -1.6, available: true },
+    ] },
     pillars: {
-      volatility: { details: { vix_level: 19.42, vix_trend: 'Spiking' } },
+      volatility: { details: { vix_level: 19.42, vix_label: 'Elevated', vix_trend: 'Spiking' } },
       trend: { details: { above_50: false, above_200: true } },
       breadth: { details: { sectors_positive: 6, sectors_total: 11 } },
       momentum: { details: { rs_rotation_label: 'Defensive Rotation' } },
       macro: { details: { hyg_label: 'Below 50d' } },
     },
     liquidity: {
-      summary: 'Little net change over 4 weeks.',
+      tone: 'Neutral', longer: { tone: 'Tightening' },
       items: [{ key: 'hy_spread', value: 3.26, level: 'Calm' }],
       fed_path: { spread: 0.73, lean: 'leans hikes' },
     },
@@ -141,9 +151,26 @@ describe('threeQuestionsHtml', () => {
     const html = threeQuestionsHtml(dash);
     for (const text of ['How rough?', 'How healthy?', "What's the backdrop?", '19.42', 'Spiking', '11.6%',
       'Below 50-day', 'above 200-day', '6 of 11', 'Defensive Rotation', '3.26', 'Calm',
-      'Below 50d', 'Little net change', 'Leans hikes']) {
+      'Below 50d', 'Leans hikes', 'Flat 4w, tighter 13w', '67%, illustrative', 'ES -1.81%, NQ -3.48%']) {
       expect(html).toContain(text);
     }
+  });
+
+  it('gives every question the same number of rows when data is complete', () => {
+    const cards = threeQuestionsHtml(dash).split('question-card').slice(1);
+    expect(cards.map(card => (card.match(/question-row/g) || []).length)).toEqual([4, 4, 4]);
+  });
+
+  it('shows no figures beside a data-unavailable headline', () => {
+    const html = threeQuestionsHtml({ ...dash, data_quality: { valid: false } });
+    expect(html).not.toContain('19.42');
+    expect(html).not.toContain('3.26');
+    expect((html.match(/No data/g) || []).length).toBe(3);
+  });
+
+  it('leaves out futures it has no reading for', () => {
+    const html = threeQuestionsHtml({ ...dash, futures_tape: { items: [{ symbol: 'ES', change_pct: null, available: false }] } });
+    expect(html).not.toContain('Futures');
   });
 
   it('shows no data rather than undefined when inputs are missing', () => {
@@ -237,7 +264,7 @@ describe('buildPillarBars (P1-014/P1-015)', () => {
 
   it('renders one accessible bar per pillar with its score', () => {
     const html = buildPillarBars(pillars);
-    expect(html).toContain('VOL');
+    expect(html).toContain('Volatility');
     expect(html).toContain('pillar 95 of 100');
     expect(html).toContain('width:100%');
     expect((html.match(/hero-pillar-row/g) || []).length).toBe(5);
