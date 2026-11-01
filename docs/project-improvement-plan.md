@@ -340,6 +340,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-026 | done | Remove OpEx point adjustment | Event remains visible context |
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
+| P1-036 | in_progress | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |
 
 The replay already neutralizes these overlays, but removing them live changes totals.
 Treat this as a small model-version change.

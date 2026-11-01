@@ -445,6 +445,87 @@ class TestTier1InflationDates(unittest.TestCase):
         self.assertLess(sep["PPI"], sep["CPI"])
 
 
+class TestForwardCalendarRows(unittest.TestCase):
+    """Rows still ahead as of Nov 2026, as published by the agencies. Tier 1 is
+    treated as ground truth, so this guards against an edit drifting from them.
+    Sources: bls.gov/schedule/news_release/{cpi,ppi,empsit}.htm and
+    bea.gov/news/schedule (including /next-year), read 2026-11-01.
+    """
+
+    PUBLISHED = {
+        "CPI": ["2026-11-10", "2026-12-10", "2027-01-13", "2027-02-11", "2027-03-10",
+                "2027-04-13", "2027-05-12", "2027-06-10"],
+        "PPI": ["2026-11-13", "2026-12-15", "2027-01-14", "2027-02-12", "2027-03-12",
+                "2027-04-14", "2027-05-13", "2027-06-11"],
+        "NFP": ["2026-11-06", "2026-12-04", "2027-01-08", "2027-02-05", "2027-03-05",
+                "2027-04-02", "2027-05-07", "2027-06-04"],
+        "GDP": ["2026-11-25", "2026-12-23", "2027-01-28", "2027-02-25", "2027-03-31",
+                "2027-04-29", "2027-05-27", "2027-06-25"],
+    }
+
+    def test_rows_match_the_published_schedules(self):
+        for etype, expected in self.PUBLISHED.items():
+            actual = sorted(d for d, t, _ in data._ECON_CALENDAR
+                            if t == etype and d >= "2026-11-01")
+            self.assertEqual(actual, expected, etype)
+
+    def test_coverage_warning_uses_the_real_last_date(self):
+        self.assertEqual(data._ECON_CALENDAR_LAST,
+                         max(d for d, _, _ in data._ECON_CALENDAR))
+
+
+def _frozen_utc(*args):
+    """A data.datetime whose now() is fixed, so et_now() and any direct UTC read
+    both see the same instant. The real clock can't affect these tests."""
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(*args, tzinfo=timezone.utc)
+    return patch("data.datetime", Frozen)
+
+
+class TestCalendarsUseEasternDate(unittest.TestCase):
+    """US release calendars run on the ET date. The UTC date rolls over at
+    7-8 PM ET, which used to shift every countdown a day early each evening."""
+
+    def test_event_tomorrow_is_not_called_today_in_the_evening(self):
+        with _frozen_utc(2026, 11, 10, 1, 30):   # Nov 9, 8:30 PM ET
+            cpi = next(e for e in data.econ_proximity() if e["type"] == "CPI")
+        self.assertEqual(cpi["days_until"], 1)
+        self.assertEqual(cpi["urgency"], "Tomorrow")
+
+    def test_todays_event_stays_listed_in_the_evening(self):
+        with _frozen_utc(2026, 11, 11, 1, 30):   # Nov 10, 8:30 PM ET
+            dates = [e["date"] for e in data.econ_calendar_window(1) if e["type"] == "CPI"]
+        self.assertEqual(dates, ["2026-11-10"])
+
+    def test_fomc_countdown(self):
+        with _frozen_utc(2026, 12, 9, 1, 30):    # Dec 8, 8:30 PM ET
+            fomc = data.fomc_proximity()
+        self.assertEqual(fomc["days_until"], 1)
+        self.assertEqual(fomc["label"], "FOMC Tomorrow")
+
+    def test_opex_countdown(self):
+        with _frozen_utc(2026, 11, 20, 1, 30):   # Nov 19, 8:30 PM ET; OpEx is Nov 20
+            self.assertEqual(data.opex_proximity()["days_until"], 1)
+
+    def test_seasonality_month(self):
+        with _frozen_utc(2026, 11, 1, 1, 0):     # Oct 31, 9 PM ET
+            self.assertEqual(data.seasonality()["month"], 10)
+
+    def test_earnings_season_start(self):
+        ms, ds, _, _, _ = data._EARNINGS_WINDOWS[1]
+        with _frozen_utc(2026, ms, ds, 1, 30):   # 8:30 or 9:30 PM ET the evening before
+            self.assertFalse(data.earnings_season()["in_season"])
+        with _frozen_utc(2026, ms, ds, 16, 0):   # noon on the first day
+            self.assertTrue(data.earnings_season()["in_season"])
+
+    def test_morning_reading_is_unchanged(self):
+        with _frozen_utc(2026, 11, 9, 14, 0):    # Nov 9, 9 AM ET
+            cpi = next(e for e in data.econ_proximity() if e["type"] == "CPI")
+        self.assertEqual(cpi["days_until"], 1)
+
+
 class TestEtNow(unittest.TestCase):
     """et_now() returns DST-aware US/Eastern wall-clock time."""
 
