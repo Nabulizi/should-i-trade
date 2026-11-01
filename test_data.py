@@ -416,6 +416,35 @@ class TestExtendedEconCalendar(unittest.TestCase):
         self.assertFalse(names & {n for n, _ in data._TIER2_RULES.values()})
 
 
+class TestTier1InflationDates(unittest.TestCase):
+    """Pin the BLS-published CPI/PPI dates.
+
+    The briefing routine treats tier 1 as ground truth, so a wrong date here
+    is published as fact. These were inverted for September 2026 (CPI and PPI
+    swapped) and drifted for Oct/Nov/Dec, because the list was filled in on the
+    assumption that PPI always lands the day after CPI. It does not.
+    Source: bls.gov/schedule/news_release/{cpi,ppi}.htm and the monthly pages.
+    """
+
+    BLS_2026_H2 = {
+        "CPI": ["2026-09-11", "2026-10-14", "2026-11-10", "2026-12-10"],
+        "PPI": ["2026-09-10", "2026-10-15", "2026-11-13", "2026-12-15"],
+    }
+
+    def test_matches_bls_schedule(self):
+        for etype, expected in self.BLS_2026_H2.items():
+            actual = [d for d, t, _ in data._ECON_CALENDAR
+                      if t == etype and "2026-09-01" <= d <= "2026-12-31"]
+            self.assertEqual(actual, expected, f"{etype} dates disagree with BLS")
+
+    def test_september_ppi_precedes_cpi(self):
+        # The specific inversion that shipped: guards against a "tidy up the
+        # ordering" edit silently restoring CPI-then-PPI.
+        sep = {t: d for d, t, _ in data._ECON_CALENDAR if d.startswith("2026-09")
+               and t in ("CPI", "PPI")}
+        self.assertLess(sep["PPI"], sep["CPI"])
+
+
 class TestEtNow(unittest.TestCase):
     """et_now() returns DST-aware US/Eastern wall-clock time."""
 
