@@ -330,7 +330,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-022 | done | Remove AI size/entry/stop directives | Output bounded to evidence, disagreement, missing data, falsification |
 | P1-023 | done | Validate AI values and lengths | Stances, point counts, text lengths, fields constrained |
 | P1-024 | done | Make AI provenance visible | Model, time, shared-input limitation, fallback explicit |
-| P1-034 | in_progress | Make HYG 50-day labels descriptive | Label and reason state price vs 50d without claiming credit stress; points unchanged |
+| P1-034 | done | Make HYG 50-day labels descriptive | Label and reason state price vs 50d without claiming credit stress; points unchanged |
 
 ### P1-E — Calendar overlays become context-only
 
@@ -357,8 +357,8 @@ Treat this as a small model-version change.
 
 | ID | Status | Task | Acceptance criteria |
 |---|---|---|---|
-| P1-033 | in_progress | Add FRED liquidity context panel | Direction vs 4 weeks shown with as-of dates; failed/stale series visible as no data; no score input (D-006); no sizing or entry language (D-001) |
-| P1-035 | in_progress | Add a simple forward-looking Fed read | 2Y vs Fed funds shown with term-premium caveat; never votes in the liquidity headline |
+| P1-033 | done | Add FRED liquidity context panel | Direction vs 4 weeks shown with as-of dates; failed/stale series visible as no data; no score input (D-006); no sizing or entry language (D-001) |
+| P1-035 | done | Add a simple forward-looking Fed read | 2Y vs Fed funds shown with term-premium caveat; never votes in the liquidity headline |
 
 ### P1 acceptance scenario
 
@@ -421,7 +421,7 @@ prediction is optional and must be explicitly selected.
 | P2-010 | pending | Audit RSP/sector duplication | Shared exposure measured and reduced/disclosed |
 | P2-011 | pending | Audit volatility collinearity | VIX features tested jointly and individually |
 | P2-012 | pending | Compare five pillars with three factors | Trend, participation, stress/liquidity candidate evaluated |
-| P2-021 | in_progress | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed. Audit found no case for a change: see `docs/backtest-methodology.md` |
+| P2-021 | done | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed. Audit found no case for a change: see `docs/backtest-methodology.md` |
 
 ### P2-D — Normalize without hiding uncertainty
 
@@ -491,7 +491,7 @@ Outcomes are appended or joined later without mutating the forecast.
 | P3-002 | pending | Add 09:25 premarket track | Evaluated separately with time-available inputs |
 | P3-003 | pending | Add 10:00 early-session track | Partial-day features/time-normalized volume versioned separately |
 | P3-004 | pending | Add 12:00 midday track | Not pooled with EOD without stratification |
-| P3-018 | in_progress | Log liquidity readings with each forecast | 4-week and 13-week readings stored and hash-covered; evaluation declared before live data |
+| P3-018 | done | Log liquidity readings with each forecast | 4-week and 13-week readings stored and hash-covered; evaluation declared before live data |
 
 ### P3-B — Predeclare outcomes
 
@@ -635,3 +635,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-07-12 | 1.5 | PR-8 merged (#59) — P1-025..P1-028 done. PR-9: band hysteresis (3 pts), SCORE_NOISE_DELTA_1D=14 derived from replay (median daily move), band-change-only push default | Claude |
 | 2026-07-12 | 1.6 | PR-9 merged (#60) — P1-029..P1-032 done. PR-10: prospective forecast log MVP (P3-001, P3-005..P3-013) — EOD track, predeclared outcomes (docs/prospective-log.md), idempotent JSONL + hash audit, /health visibility; Q-006 resolved local-first. CI gap closed: notify/watchlist/claims/ai-lens suites now enumerated | Claude |
 | 2026-07-12 | 1.7 | #61/#62/#63 merged (forecast log, eod_job.py standalone runner, RENDER-only production detection). Local launchd agents live (server + EOD backup). P1-C shipped: P1-012..P1-018 done — monochrome+amber palette, radar→evidence bars with missing states, prominent no-timing-edge disclaimer, monochrome data bars, watchlist labels neutralized, collapsible lens cards | Claude |
+| 2026-10-31 | 1.8 | PR #70 merged: FRED liquidity card (P1-033), descriptive HYG labels (P1-034), 2Y vs Fed funds read (P1-035), liquidity readings in the forecast log (P3-018), HYG rule audit with no model change (P2-021). Confirmed FRED works from Render. The forecast log has no scheduled job on the maintainer machine, so readings are not accumulating | Claude |
