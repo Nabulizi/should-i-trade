@@ -340,7 +340,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-026 | done | Remove OpEx point adjustment | Event remains visible context |
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
-| P1-036 | in_progress | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |
+| P1-036 | done | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |
 
 The replay already neutralizes these overlays, but removing them live changes totals.
 Treat this as a small model-version change.
@@ -637,3 +637,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-07-12 | 1.6 | PR-9 merged (#60) — P1-029..P1-032 done. PR-10: prospective forecast log MVP (P3-001, P3-005..P3-013) — EOD track, predeclared outcomes (docs/prospective-log.md), idempotent JSONL + hash audit, /health visibility; Q-006 resolved local-first. CI gap closed: notify/watchlist/claims/ai-lens suites now enumerated | Claude |
 | 2026-07-12 | 1.7 | #61/#62/#63 merged (forecast log, eod_job.py standalone runner, RENDER-only production detection). Local launchd agents live (server + EOD backup). P1-C shipped: P1-012..P1-018 done — monochrome+amber palette, radar→evidence bars with missing states, prominent no-timing-edge disclaimer, monochrome data bars, watchlist labels neutralized, collapsible lens cards | Claude |
 | 2026-10-31 | 1.8 | PR #70 merged: FRED liquidity card (P1-033), descriptive HYG labels (P1-034), 2Y vs Fed funds read (P1-035), liquidity readings in the forecast log (P3-018), HYG rule audit with no model change (P2-021). Confirmed FRED works from Render. The forecast log has no scheduled job on the maintainer machine, so readings are not accumulating | Claude |
+| 2026-10-31 | 1.9 | #69 and #72 merged (P1-036): calendar rows checked against BLS and BEA through June 2027, three missing GDP second estimates added, and calendar countdowns moved to the ET date | Claude |
