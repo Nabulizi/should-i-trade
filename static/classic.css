@@ -386,7 +386,8 @@
     .pillar-mini .pm-score { font-size: 18px; }
     .score-num .val { font-size: 22px; }
     .card { padding: 10px; }
-    .pillars-row { gap: 8px; }
+    .pillars-row { gap: 8px; grid-template-columns: minmax(0, 1fr); }
+    .metric-val { flex-wrap: wrap; justify-content: flex-end; }
     .bottom-row { gap: 8px; }
   }
   /* ── ICON LABEL HELPER ── */
@@ -416,7 +417,9 @@
     .ai-toast { transition: none; }
   }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .header { flex-wrap: wrap; gap: 8px; }
   .header-left, .header-right { flex-wrap: wrap; }
+  /* The score panel already shows when the data is from. */
+  .ts, .countdown { display: none; }
 }
