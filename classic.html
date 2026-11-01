@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Should I Trade? — Market Quality Terminal v6</title>
+<title>Before You Trade — Classic view</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,8 +22,7 @@
 <!-- HEADER -->
 <div class="header">
   <div class="header-left">
-    <span class="logo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>SHOULD I TRADE?</span>
-    <span class="subtitle">Quality Terminal v6</span>
+    <span class="logo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>BEFORE YOU TRADE</span>
     <span class="mkt-badge" id="mkt-badge"><span class="dot"></span><span id="mkt-label">—</span></span>
     <span class="fomc-badge" id="fomc-badge">FOMC <span class="date" id="fomc-text">—</span></span>
   </div>
@@ -70,7 +69,7 @@
       <div class="decision-card">
         <div class="decision-label">Risk Posture</div>
         <div class="decision-badge" id="decision-badge">—</div>
-        <div class="decision-sub" id="decision-sub">Swing Trading</div>
+        <div class="decision-sub" id="decision-sub">Conditions only</div>
         <div class="decision-context" id="decision-context" style="display:none"></div>
       </div>
 
@@ -100,7 +99,7 @@
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
         <div class="pos-text" id="pos-text">—</div>
-        <div class="pos-sub">Drawdown-timed</div>
+        <div class="pos-sub">Not a timing signal</div>
       </div>
     </div>
 
@@ -157,11 +156,11 @@
           What-if only. The hero decision, alerts, conflicts, history, and roundtable use backend weights.
         </div>
         <div style="margin-top:8px;font-size:9px;color:var(--muted);line-height:1.7;">
-          <span style="color:var(--green);">●</span> 85+: RISK-ON (full exposure)<br>
-          <span style="color:var(--green);">●</span> 70–84: CONSTRUCTIVE (standard exposure)<br>
-          <span style="color:var(--yellow);">●</span> 55–69: SELECTIVE (moderate exposure)<br>
-          <span style="color:var(--orange);">●</span> 40–54: DE-RISK (reduced exposure)<br>
-          <span style="color:var(--red);">●</span> &lt;40: RISK-OFF (defensive / flat)
+          <span style="color:var(--green);">●</span> 85+: RISK-ON (strongest conditions)<br>
+          <span style="color:var(--green);">●</span> 70–84: CONSTRUCTIVE (constructive conditions)<br>
+          <span style="color:var(--yellow);">●</span> 55–69: SELECTIVE (mixed conditions)<br>
+          <span style="color:var(--orange);">●</span> 40–54: DE-RISK (weak conditions)<br>
+          <span style="color:var(--red);">●</span> &lt;40: RISK-OFF (stressed conditions)
         </div>
 
         <div class="sparkline-wrap">

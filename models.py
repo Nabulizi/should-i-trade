@@ -1,5 +1,5 @@
 """
-models.py — Shared TypedDict schemas for Should I Trade?
+models.py — Shared TypedDict schemas for Before You Trade
 
 TypedDicts give IDE autocomplete and let static analysers (mypy / pyright)
 catch key typos at analysis time with zero runtime overhead.
@@ -140,6 +140,7 @@ class Liquidity(TypedDict, total=False):
     tightening_votes: float
     longer: dict[str, Any]
     fed_path: dict[str, Any] | None
+    summary: str | None
     high_vol_tightening: bool
     high_vol_note: str | None
     read: str
@@ -147,6 +148,15 @@ class Liquidity(TypedDict, total=False):
     source: str
     lookback_days: int
     context_only: bool
+
+
+class RiskRead(TypedDict):
+    """Plain risk read from three flags (scoring.risk_level). Display only."""
+
+    level: str | None           # Normal | Elevated | High | None (missing input)
+    color: str
+    flags: list[str]
+    checks: list[dict[str, Any]]
 
 
 class FearGreed(TypedDict, total=False):
@@ -284,6 +294,7 @@ class _DashboardResultRequired(TypedDict):
     fear_greed_crypto: FearGreed
     spy_streak: SpyStreak
     vol_target: VolTargetInfo | None
+    risk_read: RiskRead
     timestamp: str
     as_of: AsOf
     reliability: Reliability

@@ -107,12 +107,12 @@ VIX_MODERATE    = 19    # VIX below this → moderate vol
 VIX_ELEVATED    = 25    # VIX below this → elevated vol
 VIX_HIGH        = 30    # VIX below this → high vol; above → extreme
 
-# VIX override floor thresholds — graduated position-size caps (see _apply_overrides)
-# Historically, VIX 40–80 contains generational entries (Mar 2020, Oct 2022, Oct 2008).
-# We cap score (reduce size) but never issue a flat "never trade" below VIX 50.
-VIX_FLOOR_MODERATE = 35   # reduce size, caution (score capped at 57)
-VIX_FLOOR_HIGH     = 40   # defined-risk entries only (score capped at 47)
-VIX_FLOOR_CRISIS   = 50   # extreme crisis; very small size, defined risk (score capped at 39)
+# VIX override floor thresholds — graduated score caps (see _apply_overrides)
+# Historically, VIX 40–80 includes major market lows (Mar 2020, Oct 2022, Oct 2008),
+# so the caps describe stress and don't claim a floor or a top.
+VIX_FLOOR_MODERATE = 35   # high fear (score capped at 57)
+VIX_FLOOR_HIGH     = 40   # very high stress (score capped at 47)
+VIX_FLOOR_CRISIS   = 50   # crisis-level stress (score capped at 39)
 VIX_TREND_BIG   = 3     # % change threshold for "falling fast" / "spiking" labels
 VIX_PCTILE_LOW  = 25    # 1Y percentile below this → calm zone bonus
 VIX_PCTILE_HIGH = 75    # 1Y percentile above this → fear zone penalty
@@ -680,16 +680,16 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
     if rsi is not None:
         if rsi >= RSI_SEVERELY_OVERBOUGHT:
             score -= 15
-            reasons.append(f"-15 RSI {rsi} — severely overbought, high mean-reversion risk, don't chase")
+            reasons.append(f"-15 RSI {rsi} — severely overbought, high mean-reversion risk")
         elif rsi >= RSI_OVERBOUGHT:
             score -= 8
-            reasons.append(f"-8 RSI {rsi} — overbought, wait for pullback to 20d before entry")
+            reasons.append(f"-8 RSI {rsi} — overbought, mean-reversion risk rising")
         elif rsi <= RSI_OVERSOLD:
             score += 5
             reasons.append(f"+5 RSI {rsi} — oversold, bounce candidate")
         elif RSI_SWEET_SPOT_LOW <= rsi <= RSI_SWEET_SPOT_HIGH:
             score += 5
-            reasons.append(f"+5 RSI {rsi} — sweet spot, ideal swing entry zone after pullback")
+            reasons.append(f"+5 RSI {rsi} — mid-range after a pullback")
 
     spy_1y_hi = max(spy_closes[-252:]) if len(spy_closes) >= 252 else (max(spy_closes) if spy_closes else spy_px or 1)
     ath_dist = round((spy_px / spy_1y_hi - 1) * 100, 1) if spy_px and spy_1y_hi else 0
@@ -1299,27 +1299,25 @@ PILLAR_DIVERGENCES = [
     ("trend", 85, "momentum", 45,
      "Strong Trend + Weak Participation",
      "SPY price structure intact but only a handful of sectors participating — "
-     "narrow rallies are fragile. Index strength is not market strength. "
-     "Don't add new longs; let winners run but don't chase.",
+     "narrow rallies are fragile. Index strength is not market strength.",
      "warning"),
 
     ("trend", 85, "breadth", 40,
      "Strong Trend + Breadth Breakdown",
      "Price trend holding while sector breadth deteriorates — classic distribution phase. "
-     "The average stock is already rolling over while the index is held up by mega-caps. "
-     "Shorten hold times, tighten stops.",
+     "The average stock is already rolling over while the index is held up by mega-caps.",
      "warning"),
 
     ("trend", 80, "macro", 35,
      "Bull Trend + Macro Headwind",
      "Price structure bullish but macro conditions (yields, credit, dollar) are deteriorating. "
-     "Works until it doesn't — trade shorter timeframes and reduce overnight exposure.",
+     "The trend can persist, but the backdrop is getting worse.",
      "caution"),
 
     ("trend", 80, "volatility", 35,
      "Bull Trend + Elevated Volatility",
      "Price trend bullish but volatility elevated — moves will be sharp in both directions. "
-     "Size down even when direction is right. Wide stops eat your edge.",
+     "Large swings can happen even when the trend holds.",
      "caution"),
 
     ("volatility", 75, "breadth", 40,
@@ -1356,7 +1354,7 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
     # Overbought market character + bullish MACD
     if char == "Extended" and macd_l.startswith("Bullish"):
         conflicts.append({"title": "Overbought + Bullish Trend MACD",
-            "detail": "RSI>72 (Extended character) but MACD still bullish — late-stage momentum, mean-reversion risk is elevated. Consider tighter stops.",
+            "detail": "RSI>72 (Extended character) but MACD still bullish — late-stage momentum, mean-reversion risk is elevated.",
             "severity": "warning"})
 
     # Near-term fear spike in an uptrend
@@ -1374,7 +1372,7 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
     # High-volume selloff in an uptrend
     if vol_l == "High-Vol Selloff" and regime in ("Uptrend", "Recovering"):
         conflicts.append({"title": "High-Volume Selloff in Uptrend",
-            "detail": "Conviction selling while trend is technically intact — possible distribution or key support test. Don't add longs on this bar.",
+            "detail": "Conviction selling while trend is technically intact — possible distribution or key support test.",
             "severity": "warning"})
 
     # Elevated tail-risk hedging + bullish MACD
@@ -1386,7 +1384,7 @@ def detect_conflicts(pillars: dict, total_score: int) -> list[dict]:
     # Inverted yield curve at a positive score
     if curve_l in ("Inverted", "Deeply Inverted") and total_score >= 55:
         conflicts.append({"title": "Inverted Yield Curve",
-            "detail": "3M-10Y spread is negative — historically precedes recessions by 6–18 months. Near-term trading may still work but reduce position timeframe and size.",
+            "detail": "3M-10Y spread is negative — historically precedes recessions by 6–18 months, so it says little about the near term.",
             "severity": "caution"})
 
     # Seasonal headwind + intact uptrend
@@ -1458,6 +1456,35 @@ def _fetch_instruments() -> dict:
         "liquidity":         _safe_result(liquidity_f, {"valid": False}),
         "spy_last_bar_date": _safe_result(spy_last_bar_f, None),
     }
+
+
+def risk_level(realized_vol_pct: float | None, spy_below_50: bool | None,
+               hyg_below_50: bool | None) -> dict:
+    """Plain risk read counted from three inputs with evidence behind them. Rule
+    and pass criteria frozen before replay (backtest_risk_line.py). Display only;
+    never an input to the score. Missing input means no level, not a guess."""
+    if realized_vol_pct is None or spy_below_50 is None or hyg_below_50 is None:
+        return {"level": None, "color": "gray", "flags": [], "checks": []}
+    high_vol = realized_vol_pct >= LIQUIDITY_HIGH_VOL_PCT
+    checks = [
+        {"label": "SPY volatility", "on": high_vol,
+         "detail": (f"{realized_vol_pct}%, {'at or above' if high_vol else 'below'} "
+                    f"the {LIQUIDITY_HIGH_VOL_PCT}% median")},
+        {"label": "SPY trend", "on": spy_below_50,
+         "detail": "Below its 50-day average" if spy_below_50 else "At or above its 50-day average"},
+        {"label": "Credit", "on": hyg_below_50,
+         "detail": "HYG below its 50-day average" if hyg_below_50 else "HYG at or above its 50-day average"},
+    ]
+    flags = []
+    if realized_vol_pct >= LIQUIDITY_HIGH_VOL_PCT:
+        flags.append("SPY volatility is above its long-run median")
+    if spy_below_50:
+        flags.append("SPY is below its 50-day average")
+    if hyg_below_50:
+        flags.append("HYG is below its 50-day average")
+    level, color = (("Normal", "gray") if not flags else
+                    ("High", "red") if len(flags) == 3 else ("Elevated", "orange"))
+    return {"level": level, "color": color, "flags": flags, "checks": checks}
 
 
 def liquidity_with_vol_flag(liquidity: dict, vol_target: VolTargetInfo | None) -> dict:
@@ -1621,7 +1648,7 @@ def _apply_overrides(total: int, pillars: dict, data_quality: dict) -> tuple[int
                 total = 39
             override_reasons.append(
                 f"VIX {vix_level:.0f} ≥ 50 — extreme crisis vol; "
-                "if trading, defined-risk only (very small size)"
+                "stress is at crisis levels"
             )
         elif vix_level >= VIX_FLOOR_HIGH:  # 40–49: serious fear, not a hard NO
             # Historically contains generational entries (Mar 2020, Oct 2022, Oct 2008)
@@ -1630,14 +1657,14 @@ def _apply_overrides(total: int, pillars: dict, data_quality: dict) -> tuple[int
                 total = 47
             override_reasons.append(
                 f"VIX {vix_level:.0f} ≥ 40 — elevated fear; "
-                "trade small with defined risk only on highest-conviction setups"
+                "stress is very high"
             )
-        elif vix_level >= VIX_FLOOR_MODERATE:  # 35–39: high fear, reduce size
+        elif vix_level >= VIX_FLOOR_MODERATE:  # 35–39: high fear
             safety_max_score = 57 if safety_max_score is None else min(safety_max_score, 57)
             if total > 57:
                 total = 57
             override_reasons.append(
-                f"VIX {vix_level:.0f} ≥ 35 — high fear; reduce position size"
+                f"VIX {vix_level:.0f} ≥ 35 — high fear"
             )
 
         if not spy_above_200:
@@ -1745,7 +1772,7 @@ def compute_dashboard(prev_decision: str | None = None) -> DashboardResult:
         "safety_max_score": safety_max,
         "decision": decision, "decision_color": dc, "position_size": pos,
         "action_hint": (action_for_score(total) if data_quality["valid"]
-                        else "Exposure off — live market data is unavailable"),
+                        else "No reading — live market data is unavailable"),
         "market_state": mstate,
         "fomc":         fomc,
         "opex":         instruments["opex"],
@@ -1770,6 +1797,12 @@ def compute_dashboard(prev_decision: str | None = None) -> DashboardResult:
         "fear_greed_crypto": instruments["fng_crypto"],
         "spy_streak":        spy_streak,
         "vol_target":        vol_target,
+        "risk_read":         risk_level(
+            vol_target["realized_annual_vol_pct"] if vol_target else None,
+            None if pillars["trend"]["details"].get("above_50") is None
+            else not pillars["trend"]["details"]["above_50"],
+            {"Below 50d": True, "Near 50d": False, "Neutral": False, "Above 50d": False}.get(
+                pillars["macro"]["details"].get("hyg_label"))),
         "timestamp":         mstate["et_time"],
         # P1-003/P1-005: computation time and market-observation time are
         # different facts — a Saturday-night calculation shows Friday's close.

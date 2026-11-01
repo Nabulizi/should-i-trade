@@ -1,4 +1,4 @@
-# Should I Trade? — Shared Improvement Plan
+# Before You Trade — Shared Improvement Plan
 
 **Status:** Active shared source of truth  
 **Plan version:** 1.0  
@@ -141,6 +141,14 @@ evidence and uncertainty; it may not invent credentials or authoritative sizing.
 
 After correctness and product-alignment work, the largest investment is a
 versioned prospective log graded against predeclared outcomes.
+
+### D-010 — The risk line leads the page and the score is secondary
+
+The score moves about 14 points on a typical day, which is about one band, and its
+raw bands changed about 165 times a year in the replay. The first viewport leads
+with `scoring.risk_level` instead. This updates P1-012 for the first viewport only.
+The score is unchanged and stays visible. If live evidence doesn't support the
+risk line, it stops leading (see `docs/prospective-log.md`).
 
 ---
 
@@ -340,6 +348,10 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-026 | done | Remove OpEx point adjustment | Event remains visible context |
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
+| P1-039 | in_progress | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
+| P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
+| P1-038 | in_progress | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |
+| P1-037 | in_progress | Lead with a risk line, three questions and one read | Rule and criteria frozen before replay; pillars, personas and series one click down; score calculation unchanged |
 | P1-036 | done | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |
 
 The replay already neutralizes these overlays, but removing them live changes totals.
@@ -621,7 +633,7 @@ A task or phase is complete only when applicable conditions hold:
 | Q-004 | Keep five descriptive pillars or target three factors in v7? | P2-012 |
 | Q-005 | Which outcome is primary for each horizon? | P2-001 |
 | Q-006 | ~~Where should public-demo forecast records persist?~~ Resolved: local-first JSONL; the Render demo is explicitly non-persistent (`/health` flags it) | P3-010 |
-| Q-007 | Keep classic UI supported or archive it? | Major P1 UI work |
+| Q-007 | Keep classic UI supported or archive it? The two views are the maintainer's own comparison, not a user A/B test, so this is decided by which one gets used. Classic stays frozen apart from fixes until then | Major P1 UI work |
 
 ---
 

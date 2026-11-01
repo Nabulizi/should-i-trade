@@ -319,6 +319,14 @@ class TestPersonaRisk(unittest.TestCase):
         r = persona_risk(d)
         self.assertIn("24", r["read"])
 
+    def test_read_uses_the_same_vix_label_as_the_dashboard(self):
+        # The first screen shows this label, so the lens must not contradict it.
+        d = _make_dashboard(vix_level=19.4)
+        d["pillars"]["volatility"]["details"]["vix_label"] = "Elevated"
+        read = persona_risk(d)["read"]
+        self.assertIn("Elevated", read)
+        self.assertNotIn("normal", read.lower())
+
     def test_panic_vix_read(self):
         d = _make_dashboard(vix_level=32.0)
         r = persona_risk(d)

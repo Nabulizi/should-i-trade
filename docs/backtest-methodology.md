@@ -54,6 +54,16 @@ The README summarizes the composite score conservatively:
   HY spread 3.19 on Below days vs 2.96 on Above days since Oct 2023) and not a
   return signal (2016-2026 SPY averaged +4.8% over 3 months after Below days).
 
+- The "Risk today" line is `scoring.risk_level`, replayed in `backtest_risk_line.py`
+  with its rule and pass criteria committed before the first run. It counts three
+  flags: SPY 20-day realized vol at or above 13.2%, SPY below its 50-day average,
+  and HYG more than 0.2% below its 50-day average. Over 2007-2026, 10%+ SPY drops
+  within 3 months followed 10% of Normal days, 22% of Elevated and 41% of High, and
+  the order held in 2007-2015 and 2016-2026. It changed label about 23 times a year
+  against about 165 for the score's raw bands. This is not out of sample, since the
+  13.2% cutoff came from this history, and daily samples overlap. It describes
+  risk; it has shown no return-timing edge.
+
 Keep this claim attached to the exact implementation in `backtest.py` and the
 current scoring engine. If scoring rules or thresholds change, rerun and update
 this document before strengthening any public claim.

@@ -1,6 +1,8 @@
-<p align="center"><img src="assets/logo.svg" alt="Should I Trade? — Market Quality Terminal" width="520"></p>
+<p align="center"><img src="assets/logo.svg" alt="Before You Trade — a daily market risk check" width="520"></p>
 
-# Should I Trade? — Market Quality Terminal v6
+# Before You Trade — a daily market risk check
+
+*Formerly "Should I Trade?". The repository and demo addresses still use the old name.*
 
 A single-page, self-hosted **market-conditions gauge** for the session: it reads the market regime and turns current conditions into a suggested exposure posture.
 
@@ -45,6 +47,7 @@ The dashboard shows a composite **Market Quality Score (0–100)**, five scoring
 | **Health & Metrics** | `/health` and `/metrics` endpoints for monitoring |
 | **Rate Limiting** | 30 req/min per IP — protects against runaway polling |
 | **Responsive UI** | Works on mobile (≥320px) — simplified layout at ≤480px |
+| **Risk today** | One plain level from three flags, with its replay history. Display only, never scored |
 | **Liquidity context** | Six FRED series, each read as loosening/tightening vs 4 weeks ago. Context only, never scored |
 | **Zero API keys** | Yahoo Finance → Stooq → CoinGecko → Binance, plus FRED (all free) |
 

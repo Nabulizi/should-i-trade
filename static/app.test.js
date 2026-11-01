@@ -20,10 +20,332 @@ import {
   liquidityLongerLine,
   liquidityNoteHtml,
   fedPathLine,
+  riskLineHtml,
+  threeQuestionsHtml,
+  todaysReadHtml,
+  hygHintHtml,
+  onHintClick,
+  onHintKey,
+  moversHtml,
 } from './app.js';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+describe('riskLineHtml', () => {
+  const checks = [
+    { label: 'SPY volatility', on: false, detail: '11.6%, below the 13.2% median' },
+    { label: 'SPY trend', on: true, detail: 'Below its 50-day average' },
+    { label: 'Credit', on: true, detail: 'HYG below its 50-day average' },
+  ];
+  const read = (level, list = checks, extra = {}) => ({
+    data_quality: { valid: true }, risk_read: { level, color: 'orange', flags: [], checks: list }, ...extra,
+  });
+
+  it('leads with the level and shows every check, on or off, in words', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect(html).toContain('Elevated');
+    expect(html).toContain('Below its 50-day average');
+    expect(html).toContain('11.6%, below the 13.2% median');
+    expect((html.match(/risk-check-state">OK/g) || []).length).toBe(1);
+    expect((html.match(/risk-check-state">Warning/g) || []).length).toBe(2);
+    expect(html).not.toMatch(/>(On|Off)</);
+  });
+
+  it('counts the warnings and says how the count sets the level', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect(html).toContain('2 of 3 warning');
+    expect(html).toContain('0 warnings: Normal');
+    expect(html).toContain('1–2: Elevated');
+    expect(html).toContain('3: High');
+  });
+
+  it('explains HYG on the credit check only', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect((html.match(/hint-btn/g) || []).length).toBe(1);
+    expect(html.indexOf('hint-btn')).toBeGreaterThan(html.indexOf('>Credit<'));
+  });
+
+  it('says plainly when no check is on', () => {
+    const off = checks.map(c => ({ ...c, on: false }));
+    const html = riskLineHtml(read('Normal', off));
+    expect(html).toContain('0 of 3 warning');
+    expect(html).not.toContain('risk-check-state">Warning');
+  });
+
+  it('marks the current step on the scale in a way a screen reader gets', () => {
+    const html = riskLineHtml(read('Elevated'));
+    expect(html).toContain('aria-label="Risk level Elevated, second of three"');
+    expect((html.match(/risk-step current/g) || []).length).toBe(1);
+  });
+
+  it('labels the history as exploratory, not a forecast', () => {
+    const html = riskLineHtml(read('High'));
+    for (const text of ['10%', '22%', '41%', 'not a forecast']) expect(html).toContain(text);
+  });
+
+  it('shows the score with its pillars beside the level', () => {
+    const html = riskLineHtml(read('Elevated', checks, {
+      total_score: 32, decision: 'RISK-OFF',
+      pillars: { trend: { score: 12, details: { x: 1 }, reasons: [] } },
+    }));
+    for (const text of ['>32<', 'RISK-OFF', 'Trend']) expect(html).toContain(text);
+  });
+
+  it('keeps coverage, basis and the disclaimer visible as one line of fine print', () => {
+    const html = riskLineHtml(read('Elevated', checks, {
+      timestamp: '20:32 ET', reliability: { coverage_pct: 100 },
+      as_of: { session: 'weekend', market_data_as_of: '2026-10-30' },
+    }));
+    const foot = html.slice(html.indexOf('risk-foot'));
+    for (const text of ['100%', '20:32 ET', '2026-10-30', 'return-timing edge']) expect(foot).toContain(text);
+  });
+
+  it('never shows a level or score when data is invalid or missing', () => {
+    const invalid = riskLineHtml({ data_quality: { valid: false }, total_score: 32, risk_read: { level: 'Normal', checks } });
+    expect(invalid).toContain('Data unavailable');
+    expect(invalid).not.toContain('Normal');
+    expect(invalid).not.toContain('>32<');
+    expect(riskLineHtml({ data_quality: { valid: true }, risk_read: { level: null, checks: [] } })).toContain('Not enough data');
+    expect(riskLineHtml({ data_quality: { valid: true } })).toContain('Not enough data');
+  });
+
+  it('escapes backend strings', () => {
+    const html = riskLineHtml(read('Elevated', [{ label: '<img>', on: true, detail: '<b>' }]));
+    expect(html).not.toContain('<img>');
+    expect(html).not.toContain('<b>');
+  });
+});
+
+describe('hygHintHtml', () => {
+  it('states the inverse relationship both ways, with a text alternative to the arrows', () => {
+    const html = hygHintHtml();
+    expect(html).toContain('HYG price up ↑ = junk bond yields down ↓');
+    expect(html).toContain('HYG price down ↓ = junk bond yields up ↑');
+    expect(html).toContain('high-yield');
+    expect(html).toContain('aria-label="What HYG means"');
+  });
+
+  it('does not present HYG as a pure credit measure', () => {
+    expect(hygHintHtml()).toContain('Treasury yields');
+  });
+});
+
+describe('hint open and close', () => {
+  const mount = () => {
+    document.body.innerHTML = `<div id="outside"></div><div id="a">${hygHintHtml()}</div><div id="b">${hygHintHtml()}</div>`;
+    return [...document.querySelectorAll('.hint-btn')];
+  };
+  const click = el => onHintClick({ target: el });
+
+  it('opens on tap and reflects that for screen readers', () => {
+    const [btn] = mount();
+    click(btn);
+    expect(btn.closest('.hint').classList.contains('open')).toBe(true);
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('closes on a second tap', () => {
+    const [btn] = mount();
+    click(btn);
+    click(btn);
+    expect(btn.closest('.hint').classList.contains('open')).toBe(false);
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('only keeps one open at a time', () => {
+    const [first, second] = mount();
+    click(first);
+    click(second);
+    expect(first.closest('.hint').classList.contains('open')).toBe(false);
+    expect(second.closest('.hint').classList.contains('open')).toBe(true);
+  });
+
+  it('closes on an outside tap', () => {
+    const [btn] = mount();
+    click(btn);
+    click(document.getElementById('outside'));
+    expect(btn.closest('.hint').classList.contains('open')).toBe(false);
+  });
+
+  it('stays open when tapping inside the explanation', () => {
+    const [btn] = mount();
+    click(btn);
+    click(btn.closest('.hint').querySelector('.hint-panel'));
+    expect(btn.closest('.hint').classList.contains('open')).toBe(true);
+  });
+
+  it('closes on Escape, and ignores other keys', () => {
+    const [btn] = mount();
+    click(btn);
+    onHintKey({ key: 'a' });
+    expect(btn.closest('.hint').classList.contains('open')).toBe(true);
+    onHintKey({ key: 'Escape' });
+    expect(btn.closest('.hint').classList.contains('open')).toBe(false);
+  });
+});
+
+describe('moversHtml', () => {
+  const details = {
+    sector_data: {
+      XLE: { name: 'Energy', change_pct: 1.91 },
+      XLK: { name: 'Technology', change_pct: -4.89 },
+      XLU: { name: 'Utilities', change_pct: 0.67 },
+    },
+    industry_data: {
+      SMH: { name: 'Semis', change_pct: -6.98 },
+      XHB: { name: 'Homebuilders', change_pct: 0.69 },
+    },
+  };
+  const dash = (d = details, extra = {}) => ({ data_quality: { valid: true }, pillars: { breadth: { details: d } }, ...extra });
+  const widthOf = (html, name) => {
+    const row = html.slice(html.indexOf(`>${name}<`));
+    return Number(row.match(/width:(\d+)%/)[1]);
+  };
+
+  it('shows both groups with signed changes', () => {
+    const html = moversHtml(dash());
+    for (const text of ['Sectors', 'Industry &amp; style', 'Energy', '+1.91%', 'Semis', '-6.98%']) expect(html).toContain(text);
+  });
+
+  it('sorts each group from best to worst', () => {
+    const html = moversHtml(dash());
+    expect(html.indexOf('Energy')).toBeLessThan(html.indexOf('Utilities'));
+    expect(html.indexOf('Utilities')).toBeLessThan(html.indexOf('Technology'));
+    expect(html.indexOf('Homebuilders')).toBeLessThan(html.indexOf('Semis'));
+  });
+
+  it('uses one scale across both groups, so bar lengths compare', () => {
+    const html = moversHtml(dash());
+    expect(widthOf(html, 'Semis')).toBe(100);
+    expect(widthOf(html, 'Technology')).toBe(70);    // 4.89 / 6.98
+    expect(widthOf(html, 'Energy')).toBe(27);        // 1.91 / 6.98
+  });
+
+  it('marks direction in the class as well as the signed text', () => {
+    const html = moversHtml(dash());
+    expect(html.slice(html.indexOf('>Energy<')).indexOf('mover-fill up')).toBeGreaterThan(-1);
+    expect(html.slice(html.indexOf('>Semis<')).indexOf('mover-fill dn')).toBeGreaterThan(-1);
+  });
+
+  it('does not exaggerate a quiet day into full-length bars', () => {
+    const html = moversHtml(dash({ sector_data: { A: { name: 'Quiet', change_pct: 0.1 } }, industry_data: {} }));
+    expect(widthOf(html, 'Quiet')).toBe(20);         // 0.1 / the 0.5 minimum scale
+  });
+
+  it('skips entries without a number and escapes names', () => {
+    const html = moversHtml(dash({ sector_data: { A: { name: '<img>', change_pct: 1 }, B: { name: 'Gap', change_pct: null } }, industry_data: {} }));
+    expect(html).not.toContain('<img>');
+    expect(html).not.toContain('Gap');
+    expect(html).not.toContain('NaN');
+  });
+
+  it('shows no figures beside a data-unavailable headline, or when nothing is there', () => {
+    expect(moversHtml(dash(details, { data_quality: { valid: false } }))).not.toContain('Semis');
+    expect(moversHtml(dash(details, { data_quality: { valid: false } }))).toContain('No data');
+    expect(moversHtml({ pillars: {} })).toContain('No data');
+  });
+});
+
+describe('todaysReadHtml', () => {
+  const event = { name: 'Jobs Report', date_pretty: 'Nov 06', urgency: '6d' };
+
+  it('is never empty when there is no history and nothing disagrees', () => {
+    const html = todaysReadHtml({ conflicts: [], econ_events: [event] });
+    expect(html).toContain('No previous close saved yet');
+    expect(html).toContain('No signal conflicts flagged');
+    expect(html).toContain('Jobs Report');
+    expect(html).toContain('Nov 06');
+  });
+
+  it('leaves those lines out when the strip and conflict cards are showing them', () => {
+    const html = todaysReadHtml({
+      yesterday: { pillars: {} }, conflicts: [{ title: 'x' }], econ_events: [],
+    });
+    expect(html).not.toContain('No previous close');
+    expect(html).not.toContain('No signal conflicts');
+  });
+
+  it('says so when the calendar has nothing upcoming', () => {
+    expect(todaysReadHtml({ conflicts: [], econ_events: [] })).toContain('No release dates listed');
+  });
+
+  it('escapes backend strings', () => {
+    expect(todaysReadHtml({ conflicts: [], econ_events: [{ name: '<img>', date_pretty: 'x' }] })).not.toContain('<img>');
+  });
+});
+
+describe('threeQuestionsHtml', () => {
+  const dash = {
+    vol_target: { exposure_pct: 67, realized_annual_vol_pct: 11.6, target_annual_vol_pct: 7.8 },
+    futures_tape: { items: [
+      { symbol: 'ES', change_pct: -1.81, available: true },
+      { symbol: 'NQ', change_pct: -3.48, available: true },
+      { symbol: 'RTY', change_pct: -1.6, available: true },
+    ] },
+    pillars: {
+      volatility: { details: { vix_level: 19.42, vix_label: 'Elevated', vix_trend: 'Spiking' } },
+      trend: { details: { above_50: false, above_200: true } },
+      breadth: { details: { sectors_positive: 6, sectors_total: 11 } },
+      momentum: { details: { rs_rotation_label: 'Defensive Rotation' } },
+      macro: { details: { hyg_label: 'Below 50d' } },
+    },
+    liquidity: {
+      tone: 'Neutral', longer: { tone: 'Tightening' },
+      items: [{ key: 'hy_spread', value: 3.26, level: 'Calm' }],
+      fed_path: { spread: 0.73, lean: 'leans hikes' },
+    },
+  };
+
+  it('asks the three questions and answers from the payload', () => {
+    const html = threeQuestionsHtml(dash);
+    for (const text of ['How rough?', 'How healthy?', "What's the backdrop?", '19.42', 'Spiking', '11.6%',
+      'Below 50-day', 'above 200-day', '6 of 11', 'Defensive Rotation', '3.26', 'Calm',
+      'Below 50d', 'Leans hikes', 'Flat 4w, tighter 13w', '67%, illustrative', 'ES -1.81%, NQ -3.48%']) {
+      expect(html).toContain(text);
+    }
+  });
+
+  it('gives every question the same number of rows when data is complete', () => {
+    const cards = threeQuestionsHtml(dash).split('question-card').slice(1);
+    expect(cards.map(card => (card.match(/question-row/g) || []).length)).toEqual([4, 4, 4]);
+  });
+
+  it('shows no figures beside a data-unavailable headline', () => {
+    const html = threeQuestionsHtml({ ...dash, data_quality: { valid: false } });
+    expect(html).not.toContain('19.42');
+    expect(html).not.toContain('3.26');
+    expect((html.match(/No data/g) || []).length).toBe(3);
+  });
+
+  it('explains HYG beside its row', () => {
+    const html = threeQuestionsHtml(dash);
+    expect((html.match(/hint-btn/g) || []).length).toBe(1);
+    expect(html).toContain('HYG price up');
+  });
+
+  it('leaves out futures it has no reading for', () => {
+    const html = threeQuestionsHtml({ ...dash, futures_tape: { items: [{ symbol: 'ES', change_pct: null, available: false }] } });
+    expect(html).not.toContain('Futures');
+  });
+
+  it('shows no data rather than undefined when inputs are missing', () => {
+    const html = threeQuestionsHtml({ pillars: {} });
+    expect(html).not.toContain('undefined');
+    expect(html).not.toContain('NaN');
+    expect(html).toContain('No data');
+  });
+
+  it('does not claim a trend side it does not know', () => {
+    const html = threeQuestionsHtml({ pillars: { trend: { details: {} } } });
+    expect(html).not.toContain('50-day');
+  });
+
+  it('shows the Tightening with high volatility flag when it applies', () => {
+    const html = threeQuestionsHtml({ ...dash, liquidity: { ...dash.liquidity, high_vol_tightening: true, high_vol_note: 'Both are on' } });
+    expect(html).toContain('Both are on');
+  });
 });
 
 describe('buildLiquidityChips', () => {
@@ -99,7 +421,7 @@ describe('buildPillarBars (P1-014/P1-015)', () => {
 
   it('renders one accessible bar per pillar with its score', () => {
     const html = buildPillarBars(pillars);
-    expect(html).toContain('VOL');
+    expect(html).toContain('Volatility');
     expect(html).toContain('pillar 95 of 100');
     expect(html).toContain('width:100%');
     expect((html.match(/hero-pillar-row/g) || []).length).toBe(5);
@@ -347,7 +669,7 @@ describe('volTargetLine (P1-007..009)', () => {
   it('shows a plain SPY/cash split on screen with the full method in the tooltip', () => {
     const html = volTargetLine(vt);
     // 72.4 rounds to 72% SPY, complement is 28% cash — always sums to 100.
-    expect(html).toContain('Suggested split: 72% SPY / 28% cash');
+    expect(html).toContain('Illustrative split: 72% SPY / 28% cash');
     expect(html).toContain('to hold steady risk');
     // Full disclosure (realized vol, horizon, not-personalized) lives in title=
     expect(html).toContain('10.8% annualized');

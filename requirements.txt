@@ -1,4 +1,4 @@
-# Should I Trade? — Market Quality Terminal v5
+# Before You Trade — a daily market risk check
 # Python 3.10+ required (union type hints: dict | None, match statements).
 #
 # Run:   python3 server.py

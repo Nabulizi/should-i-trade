@@ -44,7 +44,7 @@ def build_report(data: dict, yesterday: dict | None) -> str:
     """Pure Markdown report: score+delta, posture, pillars, quality, events."""
     prev_total = yesterday["total"] if yesterday else None
     date = (data.get("market_state") or {}).get("et_date", "")
-    lines = [f"*Should I Trade? — {date}*"]
+    lines = [f"*Before You Trade — {date}*"]
 
     delta = _fmt_delta(data["total_score"], prev_total)
     delta_part = f" ({delta} vs prev close)" if delta else ""

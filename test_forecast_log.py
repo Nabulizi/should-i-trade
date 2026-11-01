@@ -112,6 +112,14 @@ class TestOutcomeMath(_TmpFiles):
         self.assertNotIn("read", logged)
         self.assertEqual(fl.audit()["tampered"], [])
 
+    def test_record_keeps_the_risk_read_for_later_grading(self):
+        dash = _dashboard()
+        dash["risk_read"] = {"level": "Elevated", "color": "orange",
+                             "flags": ["SPY is below its 50-day average"]}
+        fl.record_forecast(dash, "2026-07-10")
+        logged = fl._read_jsonl(fl.FORECAST_FILE)[0]["risk_read"]
+        self.assertEqual(logged, {"level": "Elevated", "flags": ["SPY is below its 50-day average"]})
+
     def test_liquidity_failure_does_not_block_the_forecast(self):
         dash = _dashboard()
         dash["liquidity"] = {"valid": False}

@@ -131,6 +131,7 @@ def build_forecast_record(dashboard: dict, date_str: str) -> dict:
         "volatility_budget":  dashboard.get("vol_target"),
         "data_sources":       dashboard.get("data_sources"),
         "liquidity":          _liquidity_snapshot(dashboard),
+        "risk_read":          {k: (dashboard.get("risk_read") or {}).get(k) for k in ("level", "flags")},
     }
     record["input_manifest_hash"] = _manifest_hash(record)
     return record

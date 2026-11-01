@@ -74,7 +74,7 @@ function renderFuturesTape(tape) {
   }).join('') : '<div style="color:var(--muted);font-size:10px;">Futures unavailable</div>';
 
   const source = tape?.source || 'Futures';
-  readEl.innerHTML = `${esc(tape?.read || 'Futures tape unavailable. Use the cash session for confirmation.')}
+  readEl.innerHTML = `${esc(tape?.read || 'Futures tape unavailable.')}
     <span class="futures-meta"><span>${esc(source)}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
@@ -201,7 +201,7 @@ function renderHero(d) {
   // Fallback copy mirrors scoring.py DECISION_BANDS (D-001: descriptive
   // conditions language only — no trade instructions).
   const posture = d.action_hint
-                || (invalidData ? 'Exposure off — live market data is unavailable'
+                || (invalidData ? 'No reading — live market data is unavailable'
                 : s >= 85 ? 'Calm, broad, established uptrend conditions'
                 : s >= 70 ? 'Positive trend with generally supportive participation'
                 : s >= 55 ? 'Mixed conditions — internal signals disagree'
@@ -679,7 +679,7 @@ function volTargetLine(volTarget) {
   const spyPct = Math.round(volTarget.exposure_pct);
   const cashPct = 100 - spyPct;   // complement of the rounded SPY% — always sums to 100
   return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
-    `<span>Suggested: ${spyPct}% SPY / ${cashPct}% cash</span></div>`;
+    `<span>Illustrative: ${spyPct}% SPY / ${cashPct}% cash</span></div>`;
 }
 
 // P1-001/D-004: the old "confidence" bar was the score re-banded — score
@@ -796,7 +796,7 @@ function copySnapshot() {
   const p = d.pillars;
   const now = new Date().toLocaleString();
   const lines = [
-    `=== Should I Trade? — ${now} ===`,
+    `=== Before You Trade — ${now} ===`,
     `Decision: ${d.decision}  |  Score: ${d.total_score}/100  |  Size: ${d.position_size}`,
     ...(scenario._customWeights ? [
       `Custom-weight what-if: ${scenario.decision}  |  Score: ${scenario.total_score}/100  |  Size: ${scenario.position_size}`,
@@ -1170,7 +1170,7 @@ function _maybeAlert(score, decision) {
   const iconSvg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">${emoji}</text></svg>`
   );
-  new Notification(`Should I Trade? → ${zone}`, {
+  new Notification(`Before You Trade → ${zone}`, {
     body: `Score ${score} • ${decision || zone}\nWas: ${prev}`,
     icon: `data:image/svg+xml,${iconSvg}`,
     tag:  'sit-score-alert',  // collapses duplicate rapid flips

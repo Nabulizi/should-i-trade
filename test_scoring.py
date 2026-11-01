@@ -561,8 +561,8 @@ def test_vix_floor_graduated() -> None:
         80, _make_pillars(vix_level=45.0), _DATA_QUALITY_OK)
     ok("VIX 45 → score capped at 47 (not 39)", total == 47)
     ok("VIX 45 → decision is DE-RISK (not RISK-OFF)", decision == "DE-RISK")
-    ok("VIX 45 → override reason mentions 'defined risk'",
-       any("defined" in r.lower() for r in reasons))
+    ok("VIX 45 → override reason states the stress level",
+       any("stress is very high" in r.lower() for r in reasons))
 
     # VIX 52: extreme crisis, cap at 39 (RISK-OFF)
     total, _, _, reasons, decision, _, _ = scoring._apply_overrides(

@@ -63,8 +63,205 @@ function renderFuturesTape(tape) {
   }).join('') : '<div style="color:var(--muted);font-size:10px;">Futures unavailable</div>';
 
   const source = tape?.source || 'Futures';
-  readEl.innerHTML = `${esc(tape?.read || 'Futures tape unavailable. Use the cash session for confirmation.')}
+  readEl.innerHTML = `${esc(tape?.read || 'Futures tape unavailable.')}
     <span class="futures-meta"><span>${esc(source)}</span><span>Context only</span><span>Not scored</span></span>`;
+}
+
+/* ── RISK LINE AND THREE QUESTIONS ─────────────────────── */
+// Figures from backtest_risk_line.py (exploratory replay, docs/backtest-methodology.md).
+const RISK_STEPS = [
+  { level: 'Normal', history: '10%', ordinal: 'first' },
+  { level: 'Elevated', history: '22%', ordinal: 'second' },
+  { level: 'High', history: '41%', ordinal: 'third' },
+];
+
+function hygHintHtml() {
+  return `<span class="hint"><button type="button" class="hint-btn" aria-label="What HYG means" aria-expanded="false">i</button><span class="hint-panel">
+    <strong>HYG is an ETF of US high-yield ("junk") bonds.</strong>
+    <span>Bond prices and yields move in opposite directions, so a rising HYG price means junk bond yields are falling.</span>
+    <span class="hint-rule">HYG price up ↑ = junk bond yields down ↓</span>
+    <span class="hint-rule">HYG price down ↓ = junk bond yields up ↑</span>
+    <span class="hint-note">HYG also moves with Treasury yields, so the HY spread is the cleaner read of credit stress.</span>
+  </span></span>`;
+}
+
+function setHintOpen(hint, open) {
+  hint.classList.toggle('open', open);
+  hint.querySelector('.hint-btn')?.setAttribute('aria-expanded', String(open));
+}
+
+function closeHints(except = null) {
+  document.querySelectorAll('.hint.open').forEach(hint => {
+    if (hint !== except) setHintOpen(hint, false);
+  });
+}
+
+function onHintClick(event) {
+  const hint = event.target.closest?.('.hint') || null;
+  closeHints(hint);
+  if (hint && event.target.closest('.hint-btn')) setHintOpen(hint, !hint.classList.contains('open'));
+}
+
+function onHintKey(event) {
+  if (event.key === 'Escape') closeHints();
+}
+
+function riskLineHtml(d) {
+  const invalid = d?.data_quality?.valid === false;
+  const read = d?.risk_read;
+  const known = !invalid && read?.level;
+  if (!known) {
+    return `<div class="risk-kicker">Risk today</div>
+      <div class="risk-level">${invalid ? 'Data unavailable' : 'Not enough data'}</div>
+      <p class="risk-note">Some inputs are missing, so no risk level is shown.</p>`;
+  }
+  const checks = read.checks || [];
+  const current = RISK_STEPS.find(step => step.level === read.level);
+  const steps = RISK_STEPS.map(step => `<div class="risk-step${step === current ? ` current ${tagColor(read.color)}` : ''}">
+      <span class="risk-step-bar"></span>
+      <span class="risk-step-name">${step.level} <span class="risk-step-history">${step.history}</span></span>
+    </div>`).join('');
+  const rows = checks.map(c => `<li class="risk-check${c.on ? ' on' : ''}">
+      <span class="risk-check-mark" aria-hidden="true"></span>
+      <span class="risk-check-text"><span class="risk-check-label">${esc(c.label)}</span>${c.label === 'Credit' ? hygHintHtml() : ''} <span class="risk-check-detail">${esc(c.detail)}</span></span>
+      <span class="risk-check-state">${c.on ? 'Warning' : 'OK'}</span>
+    </li>`).join('');
+  const warnings = checks.filter(c => c.on).length;
+  const score = d.total_score != null ? `<div class="risk-zone risk-score">
+      <div class="risk-kicker">Score</div>
+      <div class="risk-score-line"><span class="risk-score-value">${esc(d.total_score)}</span><span class="risk-score-band">${esc(d.decision)} band</span></div>
+      ${buildPillarBars(d.pillars)}
+    </div>` : '';
+  const coverage = d.reliability?.coverage_pct;
+  return `<div class="risk-top">
+      <div class="risk-zone risk-summary">
+        <div class="risk-kicker">Risk today</div>
+        <div class="risk-level">${esc(read.level)}</div>
+        <div class="risk-scale" role="img" aria-label="Risk level ${esc(read.level)}, ${current?.ordinal || 'unknown'} of three">${steps}</div>
+        <p class="risk-history">% of past days followed by a 10%+ SPY drop within 3 months, 2007–2026 replay. Exploratory, not a forecast.</p>
+      </div>
+      <div class="risk-zone risk-checks-wrap">
+        <div class="risk-kicker risk-checks-head"><span>What sets the level</span><span class="risk-count">${warnings} of ${checks.length} warning</span></div>
+        <ul class="risk-checks">${rows}</ul>
+        <p class="risk-key">0 warnings: Normal · 1–2: Elevated · 3: High</p>
+      </div>
+      ${score}
+    </div>
+    <div class="risk-foot">
+      ${asOfLine(d.as_of)}
+      ${coverage != null ? `<div>Data ${Math.round(coverage)}%${d.timestamp ? `, as of ${esc(d.timestamp)}` : ''}</div>` : ''}
+      <div>Conditions report. No demonstrated return-timing edge (<a href="https://github.com/Nabulizi/should-i-trade/blob/main/docs/backtest-report.md" target="_blank" rel="noopener">2005–2026 replay</a>).</div>
+    </div>`;
+}
+
+function questionRow(label, value) {
+  return `<div class="question-row"><dt>${label}</dt><dd>${value}</dd></div>`;
+}
+
+function questionCard(title, rows, note = '') {
+  const present = rows.filter(Boolean);
+  return `<div class="question-card">
+    <h2>${title}</h2>
+    ${present.length ? `<dl>${present.join('')}</dl>` : '<p class="question-empty">No data</p>'}
+    ${note}
+  </div>`;
+}
+
+function maSide(above, days) {
+  if (above == null) return null;
+  return `${above ? 'above' : 'below'} ${days}-day`;
+}
+
+function sentenceCase(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function threeQuestionsHtml(d) {
+  if (d?.data_quality?.valid === false) {
+    return ['How rough?', 'How healthy?', "What's the backdrop?"].map(title => questionCard(title, [])).join('');
+  }
+  const vol = d?.pillars?.volatility?.details || {};
+  const trend = d?.pillars?.trend?.details || {};
+  const breadth = d?.pillars?.breadth?.details || {};
+  const momentum = d?.pillars?.momentum?.details || {};
+  const macro = d?.pillars?.macro?.details || {};
+  const liq = d?.liquidity || {};
+  const realized = d?.vol_target?.realized_annual_vol_pct;
+  const hy = (liq.items || []).find(i => i.key === 'hy_spread');
+  const sides = [maSide(trend.above_50, 50), maSide(trend.above_200, 200)].filter(Boolean);
+  const hyg = macro.hyg_label && macro.hyg_label !== 'N/A' ? macro.hyg_label : null;
+  const budget = volBudget(d?.vol_target, loadVolTarget());
+  const futures = (d?.futures_tape?.items || [])
+    .filter(i => i.available && ['ES', 'NQ'].includes(i.symbol))
+    .map(i => `${esc(i.symbol)} ${chgStr(i.change_pct)}`);
+  const liquidityWord = { Tightening: 'tighter', Loosening: 'easing', Neutral: 'flat' };
+  const short = liquidityWord[liq.tone];
+  const long = liquidityWord[liq.longer?.tone];
+  const liquidity = short && long && `${sentenceCase(short)} 4w, ${long} 13w`;
+  return [
+    questionCard('How rough?', [
+      vol.vix_level != null && questionRow('VIX', `${esc(vol.vix_level)}${vol.vix_label ? `, ${esc(vol.vix_label)}` : ''}`),
+      vol.vix_trend && questionRow('VIX trend', esc(vol.vix_trend)),
+      realized != null && questionRow('SPY 20-day volatility', `${esc(realized)}%`),
+      budget && questionRow('SPY volatility budget', `${budget.spyPct}%, illustrative`),
+    ]),
+    questionCard('How healthy?', [
+      sides.length && questionRow('SPY', sentenceCase(sides.join(', '))),
+      breadth.sectors_total && questionRow('Sectors up', `${esc(breadth.sectors_positive)} of ${esc(breadth.sectors_total)}`),
+      momentum.rs_rotation_label && questionRow('Leadership', esc(momentum.rs_rotation_label)),
+      futures.length && questionRow('Futures', futures.join(', ')),
+    ]),
+    questionCard("What's the backdrop?", [
+      hy?.value != null && questionRow('HY spread', `${esc(hy.value)}${hy.level ? `, ${esc(hy.level)}` : ''}`),
+      hyg && questionRow(`HYG${hygHintHtml()}`, esc(hyg)),
+      liq.fed_path && questionRow('2Y vs Fed funds', sentenceCase(esc(liq.fed_path.lean))),
+      liquidity && questionRow('Liquidity', liquidity),
+    ], liquidityNoteHtml(liq)),
+  ].join('');
+}
+
+function moverEntries(group) {
+  return Object.values(group || {})
+    .filter(v => Number.isFinite(v?.change_pct))
+    .sort((a, b) => b.change_pct - a.change_pct);
+}
+
+function moverGroup(title, entries, scale, columns) {
+  const rows = entries.map(v => `<li class="mover">
+      <span class="mover-name" title="${esc(v.name)}">${esc(v.name)}</span>
+      <span class="mover-track" aria-hidden="true"><span class="mover-fill ${v.change_pct >= 0 ? 'up' : 'dn'}" style="width:${Math.round(Math.abs(v.change_pct) / scale * 100)}%"></span></span>
+      <span class="mover-pct">${chgStr(v.change_pct)}</span>
+    </li>`).join('');
+  return `<div class="mover-group" style="--mover-rows:${Math.ceil(entries.length / columns)}">
+    <h3>${title}</h3>
+    <ul class="mover-list">${rows}</ul>
+  </div>`;
+}
+
+function moversHtml(d) {
+  const breadth = d?.pillars?.breadth?.details;
+  const sectors = d?.data_quality?.valid === false ? [] : moverEntries(breadth?.sector_data);
+  const industries = d?.data_quality?.valid === false ? [] : moverEntries(breadth?.industry_data);
+  if (!sectors.length && !industries.length) {
+    return `<div class="movers-head"><h2>What's moving</h2></div><p class="question-empty">No data</p>`;
+  }
+  // One scale across both groups, so bar lengths compare. The floor keeps a quiet day looking quiet.
+  const scale = Math.max(...[...sectors, ...industries].map(v => Math.abs(v.change_pct)), 0.5);
+  return `<div class="movers-head"><h2>What's moving</h2><span>1-day change, best to worst</span></div>
+    <div class="movers-groups">
+      ${sectors.length ? moverGroup('Sectors', sectors, scale, 3) : ''}
+      ${industries.length ? moverGroup('Industry &amp; style', industries, scale, 2) : ''}
+    </div>`;
+}
+
+function todaysReadHtml(d) {
+  const next = (d?.econ_events || [])[0];
+  const lines = [
+    !d?.yesterday && 'No previous close saved yet, so there is no day-over-day change to show.',
+    !(d?.conflicts || []).length && 'No signal conflicts flagged.',
+    next ? `Next release: ${esc(next.name)}, ${esc(next.date_pretty)}.` : 'No release dates listed.',
+  ];
+  return lines.filter(Boolean).map(line => `<p>${line}</p>`).join('');
 }
 
 /* ── LIQUIDITY CONTEXT ────────────────────────────────── */
@@ -145,7 +342,7 @@ function renderLiquidity(liq) {
     fedEl.title = 'Above Fed funds suggests markets lean toward higher rates; below, toward cuts. The 2Y also carries term premium, so this is a lean, not an expected path.';
   }
   itemsEl.innerHTML = buildLiquidityChips(liq?.items);
-  readEl.innerHTML = `${liquidityNoteHtml(liq)}${esc(liq?.read || 'Liquidity data unavailable.')}
+  readEl.innerHTML = `${liquidityNoteHtml(liq)}${liq?.summary ? `<strong class="liquidity-summary">${esc(liq.summary)}</strong> ` : ''}${esc(liq?.read || 'Liquidity data unavailable.')}
     <span class="futures-meta"><span>${esc(liq?.source || 'FRED')}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
@@ -173,7 +370,7 @@ function renderHeader(d) {
   const visible = events.filter(e => e.days_until <= 14);
   const earn = d.earnings || {};
   const earnBadge = (earn.in_season || earn.days_until <= 14)
-    ? `<span class="econ-badge ${esc(earn.color)}">🏦 ${esc(earn.label)} <span class="econ-badge-sub">${esc(earn.detail || '')}</span></span>`
+    ? `<span class="econ-badge ${esc(earn.color)}">${esc(earn.label)} <span class="econ-badge-sub">${esc(earn.detail || '')}</span></span>`
     : '';
   const staleBadge = d.econ_calendar_stale
     ? `<span class="econ-badge orange">⚠ ECON CALENDAR outdated — update _ECON_CALENDAR in data.py</span>`
@@ -181,7 +378,7 @@ function renderHeader(d) {
   if (visible.length || earnBadge || staleBadge) {
     $('econ-row').style.display = 'flex';
     $('econ-badges').innerHTML = staleBadge + earnBadge + visible.map(e =>
-      `<span class="econ-badge ${esc(e.color)}">${esc(e.type)} · ${esc(e.name)} <span class="econ-badge-sub">${esc(e.urgency)}</span></span>`
+      `<span class="econ-badge ${esc(e.color)}">${esc(e.name)} <span class="econ-badge-sub">${esc(e.urgency)}</span></span>`
     ).join(' ');
   } else {
     $('econ-row').style.display = 'none';
@@ -214,7 +411,7 @@ function renderHeader(d) {
 // a pillar fell back to neutral because its inputs were unavailable.
 function buildPillarBars(pillars) {
   const keys = ['volatility', 'trend', 'breadth', 'momentum', 'macro'];
-  const labels = ['VOL', 'TRND', 'BRDT', 'MOM', 'MACR'];
+  const labels = ['Volatility', 'Trend', 'Breadth', 'Momentum', 'Macro'];
   const rows = keys.map((key, i) => {
     const pillar = pillars?.[key] || {};
     const score = Math.max(0, Math.min(100, Number(pillar.score) || 0));
@@ -253,7 +450,7 @@ function renderHero(d) {
     $('pos-text').textContent = '—';
     $('pos-text').style.color = 'var(--muted)';
   } else {
-    $('decision-badge').textContent = d.decision;
+    $('decision-badge').textContent = `Score ${s} · ${d.decision}`;
     const badgeCls = col === 'green' ? 'c-green' : col === 'yellow' ? 'c-yellow' : col === 'orange' ? 'c-orange' : 'c-red';
     $('decision-badge').className = 'decision-badge ' + badgeCls;
     $('pos-text').textContent = d.position_size;
@@ -265,7 +462,7 @@ function renderHero(d) {
   // Fallback copy mirrors scoring.py DECISION_BANDS (D-001: descriptive
   // conditions language only — no trade instructions).
   const posture = d.action_hint
-                || (invalidData ? 'Exposure off — live market data is unavailable'
+                || (invalidData ? 'No reading — live market data is unavailable'
                 : s >= 85 ? 'Calm, broad, established uptrend conditions'
                 : s >= 70 ? 'Positive trend with generally supportive participation'
                 : s >= 55 ? 'Mixed conditions — internal signals disagree'
@@ -289,8 +486,6 @@ function renderHero(d) {
   arc.style.stroke = scoreColor(s);
   $('score-val').textContent = s;
   $('score-val').style.color = scoreColor(s);
-  const radar = $('hero-radar');
-  if (radar) radar.innerHTML = buildPillarBars(d.pillars);
 
   // Score delta badge
   const delta = d.score_delta;
@@ -313,10 +508,9 @@ function renderHero(d) {
   const streakContainer = document.querySelector('.streak-badge-wrap');
   if (streakContainer) {
     if (streak && streak.days >= 2) {
-      const emoji = streak.direction === 'up' ? '🟢' : '🔴';
       const label = streak.direction === 'up' ? 'win streak' : 'losing streak';
       streakContainer.innerHTML =
-        `<span class="streak-badge streak-${streak.direction}">${emoji} SPY ${streak.days}-day ${label}</span>`;
+        `<span class="streak-badge streak-${streak.direction}">SPY ${streak.days}-day ${label}</span>`;
       streakContainer.style.display = '';
     } else {
       streakContainer.style.display = 'none';
@@ -324,13 +518,6 @@ function renderHero(d) {
   }
 
   // Update header score badge
-  const headerScore = $('header-score');
-  if (headerScore) {
-    const invalidData = d.data_quality?.valid === false;
-    headerScore.textContent = invalidData ? '— · DATA UNAVAILABLE' : `${s} · ${d.decision}`;
-    headerScore.className = 'header-score loaded';
-    headerScore.style.color = invalidData ? 'var(--muted)' : scoreColor(s);
-  }
 }
 
 /* ── PILLARS ────────────────────────────────────────────── */
@@ -346,11 +533,11 @@ function srcLabel(src) {
   if (src.history && src.history !== src.quote) return `${src.quote} · hist ${src.history}`;
   return src.quote || '';
 }
-function mrow(key, val, tagLabel, tagCol, src) {
+function mrow(key, val, tagLabel, tagCol, src, hint = '') {
   const label = srcLabel(src);
   const srcHtml = label ? ` <span class="src-badge">${esc(label)}</span>` : '';
   return `<div class="metric-row">
-    <span class="metric-key">${esc(key)}</span>
+    <span class="metric-key">${esc(key)}${hint}</span>
     <span class="metric-val">${esc(val ?? '')} ${tag(tagLabel, tagCol)}${srcHtml}</span>
   </div>`;
 }
@@ -455,7 +642,7 @@ function renderPillars(d) {
         const v = p.details;
         const chips = (v.sector_rs && v.sector_rs.length)
           ? `<div class="rs-chips">${v.sector_rs.slice(0, 3).map(r => {
-              const bg = r.rs_score >= 0 ? 'rgba(0,230,118,0.15)' : 'rgba(255,23,68,0.15)';
+              const bg = r.rs_score >= 0 ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)';
               const col = r.rs_score >= 0 ? 'var(--green)' : 'var(--red)';
               return `<span class="rs-chip" style="background:${bg};color:${col}">${esc(r.name)}</span>`;
             }).join('')}</div>` : '';
@@ -497,7 +684,7 @@ function renderPillars(d) {
           mrow('10Y Yield',    v.tnx_value ? `${v.tnx_value}%` : '—', v.yield_direction, v.yield_color, ds.tnx),
           mrow('Yield Curve', v.curve_spread != null ? `${v.curve_spread > 0 ? '+' : ''}${v.curve_spread}%` : '—', v.curve_label, v.curve_color),
           mrow('DXY',         v.dxy_value ?? '—', v.dxy_label, v.dxy_color),
-          mrow('HYG Credit',  v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color),
+          mrow('HYG Credit',  v.hyg_price ? `$${v.hyg_price}` : '—', v.hyg_label, v.hyg_color, undefined, hygHintHtml()),
           `<div class="pillar-sep"></div>`,
           sf.available ? mrow('Stocks F&G', Math.round(sf.score), sf.rating, fngColor(sf.score)) : mrow('Stocks F&G', '—', null, null),
           cf.available ? mrow('Crypto F&G', Math.round(cf.score), cf.rating, fngColor(cf.score)) : mrow('Crypto F&G', '—', null, null),
@@ -556,25 +743,6 @@ function toggleDetail(el) {
 }
 
 /* ── SECTOR + INDUSTRY BARS ────────────────────────────── */
-function renderBars(elId, data) {
-  const entries = Object.entries(data || {}).sort((a, b) => b[1].change_pct - a[1].change_pct);
-  if (!entries.length) { $(elId).innerHTML = '<div style="color:var(--muted);font-size:10px;">No data</div>'; return; }
-  const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(v.change_pct)), 0.5);
-  $(elId).innerHTML = entries.map(([, v]) => {
-    const w = Math.round(Math.abs(v.change_pct) / maxAbs * 100);
-    const bg = v.change_pct >= 0 ? 'rgba(0,230,118,0.25)' : 'rgba(255,23,68,0.25)';
-    const c  = 'var(--text)';
-    return `<div class="sector-row">
-      <span class="sector-name">${esc(v.name)}</span>
-      <div class="sector-bar-wrap">
-        <div class="sector-bar" style="width:${w}%;background:${bg}">
-          <span class="sector-pct" style="color:${c}">${chgStr(v.change_pct)}</span>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
 /* ── WATCHLIST HEALTH ─────────────────────────────────── */
 let _watchlistData = null;
 let _watchlistView = 'a_plus';
@@ -739,8 +907,8 @@ function loadVolTarget() {
   return VOL_TARGET_PRESETS.includes(v) ? v : null;   // null → backend default
 }
 
-function volTargetLine(volTarget, userTarget = null) {
-  if (!volTarget || typeof volTarget.exposure_pct !== 'number') return '';
+function volBudget(volTarget, userTarget = null) {
+  if (!volTarget || typeof volTarget.exposure_pct !== 'number') return null;
   const realized = volTarget.realized_annual_vol_pct;
   let target = volTarget.target_annual_vol_pct;
   let exposure = volTarget.exposure_pct;
@@ -750,6 +918,13 @@ function volTargetLine(volTarget, userTarget = null) {
     exposure = Math.min(100, Math.max(0, (userTarget / realized) * 100));
     suffix = ' — your setting';
   }
+  return { target, exposure, suffix, realized, spyPct: Math.round(exposure) };
+}
+
+function volTargetLine(volTarget, userTarget = null) {
+  const budget = volBudget(volTarget, userTarget);
+  if (!budget) return '';
+  const { target, exposure, suffix, realized } = budget;
   const windowDays = volTarget.window_days ?? 20;
   // Short on screen as a plain SPY/cash split; the full method and
   // limitations live in the tooltip and README — a first-time user
@@ -761,7 +936,7 @@ function volTargetLine(volTarget, userTarget = null) {
   const spyPct = Math.round(exposure);
   const cashPct = 100 - spyPct;   // complement of the rounded SPY% — always sums to 100
   return `<div class="dc-row" id="vol-target-line" title="${esc(full)}"><span class="dc-label">Vol budget</span>` +
-    `<span>Suggested split: ${spyPct}% SPY / ${cashPct}% cash (to hold steady risk)${suffix}</span></div>`;
+    `<span>Illustrative split: ${spyPct}% SPY / ${cashPct}% cash (to hold steady risk)${suffix}</span></div>`;
 }
 
 function onVolTargetChange() {
@@ -912,7 +1087,7 @@ function copySnapshot() {
   const p = d.pillars;
   const now = new Date().toLocaleString();
   const lines = [
-    `=== Should I Trade? — ${now} ===`,
+    `=== Before You Trade — ${now} ===`,
     `Decision: ${d.decision}  |  Score: ${d.total_score}/100  |  Band: ${d.position_size}`,
     ...(scenario._customWeights ? [
       `Custom-weight what-if: ${scenario.decision}  |  Score: ${scenario.total_score}/100  |  Band: ${scenario.position_size}`,
@@ -974,7 +1149,7 @@ function renderWeights(d) {
 
 /* ── SCORE SPARKLINE ───────────────────────────────────── */
 const SPARK_LINES = { total: true, v: false, tr: false, br: false, mo: false, ma: false };
-const SPARK_COLORS = { total: '#e0e8f0', v: '#00b0ff', tr: '#00e676', br: '#ffd740', mo: '#ff9100', ma: '#7c4dff' };
+const SPARK_COLORS = { total: '#e0e8f0', v: '#60a5fa', tr: '#34d399', br: '#fbbf24', mo: '#fb923c', ma: '#7c4dff' };
 let _sparkHistory = [];
 
 function toggleSparkLine(key, el) {
@@ -1166,11 +1341,11 @@ function roundtableProvenance(meta) {
 
 /* ── FEAR & GREED (inline color helper, used in macro rows) ── */
 function fngColor(score) {
-  if (score <= 25) return '#ff1744';
-  if (score <= 45) return '#ff9100';
-  if (score <= 55) return '#ffd740';
+  if (score <= 25) return '#f87171';
+  if (score <= 45) return '#fb923c';
+  if (score <= 55) return '#fbbf24';
   if (score <= 75) return '#69f0ae';
-  return '#00e676';
+  return '#34d399';
 }
 
 
@@ -1191,12 +1366,10 @@ function renderConflicts(d) {
   const cr = $('conflicts-row');
   if (!conflicts.length) { cr.style.display = 'none'; return; }
   cr.style.display = 'flex';
-  const icons = { warning: '⚠️', caution: '🔶', info: 'ℹ️' };
   cr.innerHTML = `
-    <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">⚡ SIGNAL CONFLICTS</div>
+    <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Signal conflicts</div>
     ${conflicts.map(c => `
       <div class="conflict-card ${esc(c.severity)}">
-        <div class="conflict-icon">${icons[c.severity] || '⚠️'}</div>
         <div class="conflict-body">
           <div class="conflict-title">${esc(c.title)}</div>
           <div class="conflict-detail">${esc(c.detail)}</div>
@@ -1228,6 +1401,10 @@ async function load(isManual = false) {
     requestAnimationFrame(() => {
       renderHeader(raw);
       renderHero(raw);
+      $('risk-line').innerHTML = riskLineHtml(raw);
+      $('three-questions').innerHTML = threeQuestionsHtml(raw);
+      $('movers').innerHTML = moversHtml(raw);
+      $('todays-read').innerHTML = todaysReadHtml(raw);
       const ystrip = $('yesterday-strip');
       if (ystrip) {
         const yhtml = renderYesterdayStrip(raw);
@@ -1238,8 +1415,6 @@ async function load(isManual = false) {
       renderPillars(raw);
       renderConflicts(raw);
       renderLiquidity(raw.liquidity);
-      renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
-      renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
       renderWeights(weightScenario);
       // Show/hide sparkline paused indicator based on data quality
       const paused = $('spark-paused');
@@ -1353,7 +1528,7 @@ function _maybeAlert(score, decision) {
   const iconSvg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="26" font-size="28">${emoji}</text></svg>`
   );
-  new Notification(`Should I Trade? → ${zone}`, {
+  new Notification(`Before You Trade → ${zone}`, {
     body: `Score ${score} • ${decision || zone}\nWas: ${prev}`,
     icon: `data:image/svg+xml,${iconSvg}`,
     tag:  'sit-score-alert',  // collapses duplicate rapid flips
@@ -1414,6 +1589,8 @@ function _showToast(msg, type='ok') {
 
 /* ── KICKOFF ───────────────────────────────────────────── */
 if (!globalThis.__TESTING__) {
+  document.addEventListener('click', onHintClick);
+  document.addEventListener('keydown', onHintKey);
   // Expose functions used by HTML inline event handlers (onclick=, oninput=, etc.)
   // Required because ES modules don't leak to global scope.
   window.copySnapshot           = copySnapshot;
@@ -1489,4 +1666,11 @@ export {
   liquidityLongerLine,
   liquidityNoteHtml,
   fedPathLine,
+  riskLineHtml,
+  threeQuestionsHtml,
+  todaysReadHtml,
+  moversHtml,
+  hygHintHtml,
+  onHintClick,
+  onHintKey,
 };

@@ -32,8 +32,7 @@
   .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
   .header-left  { display: flex; align-items: center; gap: 16px; }
   .header-right { display: flex; align-items: center; gap: 14px; }
-  .logo { font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
-  .subtitle { color: var(--muted); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+  .logo { font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: 1px; white-space: nowrap; }
   .mkt-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--border2); }
   .mkt-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
   .mkt-badge.open      { color: var(--green);  border-color: rgba(0,230,118,0.4); }
@@ -379,7 +378,7 @@
   }
   @media (max-width: 480px) {
     /* Hide non-essential header chrome — keep logo, mkt badge, action buttons */
-    .subtitle, .fomc-badge, .countdown, #refresh-dot, .ts { display: none; }
+    .fomc-badge, .countdown, #refresh-dot, .ts { display: none; }
     .ticker-wrap { display: none; }
     .header { padding: 8px 12px; gap: 6px; }
     .header-left { gap: 10px; }

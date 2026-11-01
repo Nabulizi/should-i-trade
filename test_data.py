@@ -726,6 +726,27 @@ class TestLiquidity(unittest.TestCase):
         self.assertEqual(neutral["tone"], "Neutral")
         self.assertNotIn("%", neutral["read"].split("share one vote.")[1].split("USD")[0])
 
+    def test_summary_says_both_windows_in_one_sentence(self):
+        for short, long, want in (
+            ("Neutral", "Tightening", "Little net change over 4 weeks, but conditions are tighter than 3 months ago."),
+            ("Tightening", "Tightening", "Tightening over 4 weeks, and conditions are tighter than 3 months ago."),
+            ("Loosening", "Tightening", "Easing over 4 weeks, but conditions are tighter than 3 months ago."),
+            ("Tightening", "Loosening", "Tightening over 4 weeks, but conditions are easier than 3 months ago."),
+            ("Neutral", "Neutral", "Little net change over 4 weeks, and conditions are about the same as 3 months ago."),
+            ("Loosening", "Unavailable", "Easing over 4 weeks."),
+            ("Unavailable", "Tightening", None),
+        ):
+            self.assertEqual(data._liquidity_summary(short, long), want, (short, long))
+
+    def test_payload_carries_the_summary(self):
+        result = self._run()
+        self.assertEqual(result["summary"],
+                         "Little net change over 4 weeks, and conditions are about the same as 3 months ago.")
+
+    def test_no_summary_without_enough_series(self):
+        down = self._run(DFII10=None, DGS2=None, DTWEXBGS=None)
+        self.assertIsNone(down["summary"])
+
     def test_fed_path_compares_2y_with_fed_funds(self):
         for two_year, want_spread, want_lean in (("4.60", 0.6, "leans hikes"),
                                                  ("4.25", 0.25, "leans hikes"),
