@@ -13,7 +13,7 @@ via unittest.mock so no network calls are made.
 """
 from __future__ import annotations
 import sys, time, unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 # ── isolate config imports so tests work regardless of CWD ────────────────
@@ -432,6 +432,341 @@ class TestEtNow(unittest.TestCase):
             mock_dt.side_effect = lambda *a, **k: datetime(*a, **k)
             et = data.et_now()
         self.assertEqual(et.hour, 7)   # January = EST = UTC-5
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Liquidity context (FRED) — fetch_url is the only thing faked; parsing is real
+# ═══════════════════════════════════════════════════════════════════════════
+FRED_IDS = ["WALCL", "WTREGEN", "RRPONTSYD", "DFII10", "DGS2",
+            "DTWEXBGS", "BAMLH0A0HYM2", "NFCI", "DFF"]
+
+
+def _fred_csv(series_id: str, rows: list[tuple[int, str]]) -> str:
+    """CSV in FRED's real shape; rows are (days_ago, value)."""
+    today = date.today()
+    lines = [f"observation_date,{series_id}"]
+    lines += [f"{today - timedelta(days=ago)},{v}" for ago, v in rows]
+    return "\n".join(lines) + "\n"
+
+
+def _flat_fred() -> dict:
+    """Every series unchanged over the 4-week lookback (7 vs 35 days ago)."""
+    return {
+        "WALCL": [(98, "6800000"), (35, "6800000"), (7, "6800000")],  # $ millions
+        "WTREGEN": [(98, "800000"), (35, "800000"), (7, "800000")],   # $ millions
+        "RRPONTSYD": [(98, "100"), (35, "100"), (7, "100")],          # $ billions
+        "DFII10": [(98, "2.00"), (35, "2.00"), (7, "2.00")],
+        "DGS2": [(98, "4.00"), (35, "4.00"), (7, "4.00")],
+        "DTWEXBGS": [(98, "120.00"), (35, "120.00"), (7, "120.00")],
+        "BAMLH0A0HYM2": [(98, "3.00"), (35, "3.00"), (7, "3.00")],
+        "NFCI": [(98, "-0.50"), (35, "-0.50"), (7, "-0.50")],
+        "DFF": [(35, "4.00"), (7, "4.00")],
+    }
+
+
+class TestLiquidity(unittest.TestCase):
+
+    def setUp(self):
+        data._FRED_LAST_GOOD.clear()
+        data._FRED_RETRY_AT.clear()
+        data._CACHE.clear()
+
+    def _run(self, **overrides):
+        """overrides: series_id=rows, or series_id=None for a failed fetch."""
+        fred = {**_flat_fred(), **overrides}
+
+        def fake_fetch(url, **kw):
+            sid = url.split("id=")[1].split("&")[0]
+            rows = fred[sid]
+            if rows is None:
+                raise OSError("FRED down")
+            return rows if isinstance(rows, str) else _fred_csv(sid, rows)
+
+        with patch("data.fetch_url", side_effect=fake_fetch):
+            return data.fetch_liquidity()
+
+    def _item(self, result, key):
+        return next(i for i in result["items"] if i["key"] == key)
+
+    def test_net_liquidity_converts_rrp_billions_to_trillions(self):
+        # 6.8T - 0.8T - 0.1T = 5.9T (RRP is published in billions, others millions)
+        item = self._item(self._run(), "net_liquidity")
+        self.assertEqual(item["value"], 5.9)
+        self.assertEqual(item["direction"], "flat")
+
+    def test_net_liquidity_rise_reads_as_loosening(self):
+        # now 5.9T vs 6.7 - 0.9 - 0.2 = 5.6T four weeks ago
+        item = self._item(self._run(
+            WALCL=[(35, "6700000"), (7, "6800000")],
+            WTREGEN=[(35, "900000"), (7, "800000")],
+            RRPONTSYD=[(35, "200"), (7, "100")],
+        ), "net_liquidity")
+        self.assertEqual(item["change"], 0.3)
+        self.assertEqual(item["direction"], "loosening")
+
+    def test_net_liquidity_uses_rrp_as_of_the_balance_sheet_date(self):
+        # A 500B RRP print newer than the last WALCL must not be subtracted.
+        item = self._item(self._run(
+            RRPONTSYD=[(35, "100"), (7, "100"), (2, "500")],
+        ), "net_liquidity")
+        self.assertEqual(item["value"], 5.9)
+
+    def test_rising_rates_dollar_and_spreads_read_as_tightening(self):
+        result = self._run(
+            DFII10=[(35, "2.00"), (7, "2.30")],
+            DGS2=[(35, "4.00"), (7, "4.30")],
+            DTWEXBGS=[(35, "120.00"), (7, "123.00")],
+            BAMLH0A0HYM2=[(35, "3.00"), (7, "3.50")],
+            NFCI=[(35, "-0.50"), (7, "-0.30")],
+        )
+        for key in ("real_yield", "two_year", "dollar", "hy_spread", "nfci"):
+            self.assertEqual(self._item(result, key)["direction"], "tightening", key)
+        self.assertEqual(result["tone"], "Tightening")
+        self.assertEqual(result["tightening"], 5)
+
+    def test_yields_falling_together_are_not_enough_for_a_headline(self):
+        # Real and 2Y move together, so a bond rally alone is 1 vote, not 2.
+        result = self._run(
+            DFII10=[(35, "2.30"), (7, "2.00")],
+            DGS2=[(35, "4.30"), (7, "4.00")],
+        )
+        self.assertEqual(self._item(result, "two_year")["direction"], "loosening")
+        self.assertEqual(result["loosening"], 2)
+        self.assertEqual(result["loosening_votes"], 1)
+        self.assertEqual(result["tone"], "Neutral")
+
+    def test_yields_plus_one_other_series_make_a_headline(self):
+        # 0.5 + 0.5 + 1 = 2 votes
+        result = self._run(
+            DFII10=[(35, "2.30"), (7, "2.00")],
+            DGS2=[(35, "4.30"), (7, "4.00")],
+            BAMLH0A0HYM2=[(35, "3.50"), (7, "3.00")],
+        )
+        self.assertEqual(result["loosening_votes"], 2)
+        self.assertEqual(result["tone"], "Loosening")
+
+    def test_hy_spread_level_tag_boundaries(self):
+        for level, want in (("3.99", "Calm"), ("4.00", "Elevated"),
+                            ("5.99", "Elevated"), ("6.00", "Stress")):
+            item = self._item(self._run(BAMLH0A0HYM2=[(35, level), (7, level)]), "hy_spread")
+            self.assertEqual(item["level"], want, level)
+
+    def test_hy_spread_without_data_has_no_level_tag(self):
+        item = self._item(self._run(BAMLH0A0HYM2=None), "hy_spread")
+        self.assertIsNone(item["level"])
+
+    def test_longer_reading_catches_a_trend_the_4_week_window_misses(self):
+        # The jump happened 5+ weeks ago: flat over 4 weeks, tightening over 13.
+        result = self._run(
+            DFII10=[(98, "2.00"), (35, "2.40"), (7, "2.40")],
+            DGS2=[(98, "4.00"), (35, "4.40"), (7, "4.40")],
+            DTWEXBGS=[(98, "118.00"), (35, "122.00"), (7, "122.00")],
+            BAMLH0A0HYM2=[(98, "2.60"), (35, "3.20"), (7, "3.20")],
+        )
+        self.assertEqual(result["tone"], "Neutral")
+        self.assertEqual(result["longer"]["tone"], "Tightening")
+        self.assertEqual(result["longer"]["tightening_votes"], 3)   # 0.5 + 0.5 + 1 + 1
+        self.assertEqual(result["longer"]["lookback_weeks"], 13)
+
+    def test_longer_reading_needs_enough_history(self):
+        result = self._run(
+            DFII10=[(35, "2.00"), (7, "2.00")], DGS2=[(35, "4.00"), (7, "4.00")],
+            DTWEXBGS=[(35, "120.00"), (7, "120.00")],
+        )
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["longer"]["tone"], "Unavailable")
+
+    def test_request_window_covers_the_longer_lookback(self):
+        # 91-day lookback from a print up to 21 days old needs 112+ days.
+        urls = []
+
+        def fake(url, **kw):
+            urls.append(url)
+            return _fred_csv("DGS2", [(7, "4.00")])
+
+        with patch("data.fetch_url", side_effect=fake):
+            data.fred_series("DGS2")
+        start = date.fromisoformat(urls[0].split("cosd=")[1])
+        self.assertGreaterEqual((date.today() - start).days, 112)
+
+    def test_loosening_is_not_shown_as_a_positive_signal(self):
+        # The evidence is on the risk side: no green "go" for the headline.
+        result = self._run(
+            DGS2=[(98, "4.30"), (35, "4.30"), (7, "4.00")],
+            DFII10=[(98, "2.30"), (35, "2.30"), (7, "2.00")],
+            BAMLH0A0HYM2=[(98, "3.50"), (35, "3.50"), (7, "3.00")],
+        )
+        self.assertEqual(result["tone"], "Loosening")
+        self.assertNotEqual(result["tone_color"], "green")
+
+    def test_read_line_gives_the_history_for_the_current_reading(self):
+        tight = self._run(
+            DFII10=[(35, "2.00"), (7, "2.30")], DGS2=[(35, "4.00"), (7, "4.30")],
+            DTWEXBGS=[(35, "120.00"), (7, "123.00")], NFCI=[(35, "-0.50"), (7, "-0.30")],
+        )
+        self.assertEqual(tight["tone"], "Tightening")
+        self.assertIn("32%", tight["read"])
+        self.assertIn("19%", tight["read"])
+        loose = self._run(
+            DFII10=[(35, "2.30"), (7, "2.00")], DGS2=[(35, "4.30"), (7, "4.00")],
+            BAMLH0A0HYM2=[(35, "3.50"), (7, "3.00")],
+        )
+        self.assertIn("14%", loose["read"])
+        neutral = self._run()
+        self.assertEqual(neutral["tone"], "Neutral")
+        self.assertNotIn("%", neutral["read"].split("share one vote.")[1].split("USD")[0])
+
+    def test_fed_path_compares_2y_with_fed_funds(self):
+        for two_year, want_spread, want_lean in (("4.60", 0.6, "leans hikes"),
+                                                 ("4.25", 0.25, "leans hikes"),
+                                                 ("4.20", 0.2, "about flat"),
+                                                 ("3.80", -0.2, "about flat"),
+                                                 ("3.75", -0.25, "leans cuts"),
+                                                 ("3.40", -0.6, "leans cuts")):
+            path = self._run(DGS2=[(35, two_year), (7, two_year)])["fed_path"]
+            self.assertEqual(path["spread"], want_spread, two_year)
+            self.assertEqual(path["lean"], want_lean, two_year)
+
+    def test_fed_path_does_not_vote(self):
+        # A 2Y far above funds is a level, not a change: the headline stays Neutral.
+        result = self._run(DGS2=[(98, "6.00"), (35, "6.00"), (7, "6.00")])
+        self.assertEqual(result["fed_path"]["lean"], "leans hikes")
+        self.assertEqual(result["tone"], "Neutral")
+        self.assertEqual(result["tightening_votes"], 0)
+
+    def test_fed_path_is_absent_when_either_rate_is_missing_or_stale(self):
+        self.assertIsNone(self._run(DFF=None)["fed_path"])
+        self.assertIsNone(self._run(DFF=[(60, "4.00"), (40, "4.00")])["fed_path"])
+        self.assertIsNone(self._run(DGS2=None)["fed_path"])
+
+    def test_small_move_is_flat_not_a_signal(self):
+        result = self._run(DGS2=[(35, "4.00"), (7, "4.05")])
+        self.assertEqual(self._item(result, "two_year")["direction"], "flat")
+
+    def test_disagreement_is_neutral(self):
+        result = self._run(
+            DGS2=[(35, "4.30"), (7, "4.00")],           # loosening
+            DTWEXBGS=[(35, "120.00"), (7, "123.00")],   # tightening
+        )
+        self.assertEqual(result["tone"], "Neutral")
+
+    def test_one_failed_series_leaves_the_rest(self):
+        result = self._run(NFCI=None)
+        nfci = self._item(result, "nfci")
+        self.assertFalse(nfci["available"])
+        self.assertIsNone(nfci["direction"])
+        self.assertTrue(result["valid"])
+        self.assertTrue(self._item(result, "two_year")["available"])
+
+    def test_any_net_liquidity_leg_missing_disables_that_item(self):
+        result = self._run(RRPONTSYD=None)
+        self.assertFalse(self._item(result, "net_liquidity")["available"])
+
+    def test_too_few_series_gives_no_regime(self):
+        result = self._run(DFII10=None, DGS2=None, DTWEXBGS=None)
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["tone"], "Unavailable")
+        self.assertEqual(result["tone_color"], "gray")
+
+    def test_stale_series_is_not_read_as_current(self):
+        # 40 days without a print (e.g. a release halted): show nothing as a signal.
+        item = self._item(self._run(DGS2=[(70, "4.60"), (40, "4.00")]), "two_year")
+        self.assertFalse(item["available"])
+        self.assertIsNone(item["direction"])
+
+    def test_missing_value_rows_are_skipped(self):
+        # FRED leaves market holidays blank; the latest real print still counts.
+        item = self._item(self._run(DGS2=[(35, "4.00"), (7, "4.30"), (6, ""), (5, ".")]),
+                          "two_year")
+        self.assertEqual(item["value"], 4.3)
+        self.assertEqual(item["as_of"], (date.today() - timedelta(days=7)).isoformat())
+
+    def test_html_error_page_counts_as_a_failed_fetch(self):
+        result = self._run(DGS2="<html><body>Blocked</body></html>")
+        self.assertFalse(self._item(result, "two_year")["available"])
+
+    def test_request_avoids_the_browser_style_user_agent_fred_hangs_on(self):
+        # Observed live: FRED hangs on Mozilla-style agents, accepts Python's default.
+        sent = []
+
+        def fake_urlopen(req, timeout=None):
+            sent.append(req)
+            resp = MagicMock()
+            resp.__enter__.return_value.read.return_value = (
+                _fred_csv("DGS2", [(35, "4.00"), (7, "4.30")]).encode())
+            return resp
+
+        with patch("data.urlopen", side_effect=fake_urlopen):
+            self.assertEqual(data.fred_series("DGS2")[-1][1], 4.3)
+        self.assertNotIn("Mozilla", sent[0].get_header("User-agent"))
+
+    def test_failure_serves_last_good_and_pauses_retries(self):
+        calls = []
+        good = _fred_csv("DGS2", [(35, "4.00"), (7, "4.30")])
+
+        def up(url, **kw):
+            return good
+
+        def down(url, **kw):
+            calls.append(url)
+            raise OSError("FRED down")
+
+        with patch("data.fetch_url", side_effect=up):
+            fresh = data.fred_series("DGS2")
+        with patch("data.fetch_url", side_effect=down):
+            for _ in range(5):
+                self.assertEqual(data.fred_series("DGS2"), fresh)
+        self.assertEqual(len(calls), 1)   # the outage costs one attempt, not five
+
+    def test_retry_resumes_after_the_pause(self):
+        calls = []
+
+        def down(url, **kw):
+            calls.append(url)
+            raise OSError("FRED down")
+
+        now = time.time()
+        with patch("data.fetch_url", side_effect=down):
+            with patch("time.time", return_value=now):
+                data.fred_series("DGS2")
+            with patch("time.time", return_value=now + 14 * 60):
+                data.fred_series("DGS2")
+            self.assertEqual(len(calls), 1)
+            with patch("time.time", return_value=now + 16 * 60):
+                data.fred_series("DGS2")
+        self.assertEqual(len(calls), 2)
+
+    def test_long_outage_stops_showing_the_old_direction(self):
+        # The failure this panel must not have: last good data outliving the 21-day limit.
+        rising = self._run(DGS2=[(35, "4.00"), (7, "4.30")])
+        self.assertEqual(self._item(rising, "two_year")["direction"], "tightening")
+
+        class Later(date):
+            @classmethod
+            def today(cls):
+                return date.today() + timedelta(days=30)
+
+        def down(url, **kw):
+            raise OSError("FRED down")
+
+        with patch("data.fetch_url", side_effect=down), patch("data.date", Later):
+            result = data.fetch_liquidity()
+        item = self._item(result, "two_year")
+        self.assertFalse(item["available"])
+        self.assertIsNone(item["direction"])
+        self.assertFalse(result["valid"])
+        self.assertEqual(result["tone"], "Unavailable")
+
+    def test_short_outage_keeps_the_last_good_reading(self):
+        self._run(DGS2=[(35, "4.00"), (7, "4.30")])
+
+        def down(url, **kw):
+            raise OSError("FRED down")
+
+        with patch("data.fetch_url", side_effect=down):
+            item = self._item(data.fetch_liquidity(), "two_year")
+        self.assertTrue(item["available"])
+        self.assertEqual(item["direction"], "tightening")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

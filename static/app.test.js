@@ -15,10 +15,77 @@ import {
   roundtableProvenance,
   reliabilityLine,
   asOfLine,
+  buildLiquidityChips,
+  liquidityVotesLine,
+  liquidityLongerLine,
+  liquidityNoteHtml,
+  fedPathLine,
 } from './app.js';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+describe('buildLiquidityChips', () => {
+  const item = {
+    key: 'hy_spread', label: 'HY spread (%)', value: 3.26, change: -0.2,
+    direction: 'loosening', as_of: '2026-10-29', available: true,
+    hint: 'Below ~4 calm', source: 'FRED BAMLH0A0HYM2',
+  };
+
+  it('states the direction in words with the level and signed change', () => {
+    const html = buildLiquidityChips([item]);
+    expect(html).toContain('Loosening');
+    expect(html).toContain('3.26');
+    expect(html).toContain('-0.20');
+    expect(html).toContain('Oct 29');
+  });
+
+  it('shows a failed series as no data, never as a direction', () => {
+    const html = buildLiquidityChips([{ ...item, available: false, value: null, change: null, direction: null, as_of: null }]);
+    expect(html).toContain('No data');
+    expect(html).not.toContain('Loosening');
+    expect(html).not.toContain('null');
+  });
+
+  it('escapes backend strings', () => {
+    expect(buildLiquidityChips([{ ...item, label: '<img>' }])).not.toContain('<img>');
+  });
+
+  it('puts the spread level tag on screen, not just in a tooltip', () => {
+    const html = buildLiquidityChips([{ ...item, level: 'Elevated', hint: '' }]);
+    expect(html).toContain('>Elevated<');
+  });
+
+  it('counts votes so a Neutral headline does not sit beside a lopsided count', () => {
+    expect(liquidityVotesLine({ valid: true, loosening_votes: 1, tightening_votes: 0 })).toBe('Votes: 1 looser · 0 tighter');
+    expect(liquidityVotesLine({ valid: false })).toBe('No read');
+  });
+
+  it('does not paint a loosening series as a positive signal', () => {
+    expect(buildLiquidityChips([item])).not.toContain('future-chg up');
+  });
+
+  it('shows the longer reading beside the 4-week one', () => {
+    expect(liquidityLongerLine({ longer: { lookback_weeks: 13, tone: 'Tightening' } })).toBe('13 weeks: Tightening');
+    expect(liquidityLongerLine({ longer: { lookback_weeks: 13, tone: 'Unavailable' } })).toBe('13 weeks: no read');
+    expect(liquidityLongerLine({})).toBe('');
+  });
+
+  it('shows the Tightening plus high volatility flag only when it applies', () => {
+    expect(liquidityNoteHtml({ high_vol_tightening: true, high_vol_note: '<b>39%</b>' })).toContain('&lt;b&gt;39%');
+    expect(liquidityNoteHtml({ high_vol_tightening: false, high_vol_note: 'x' })).toBe('');
+  });
+
+  it('shows the 2Y vs Fed funds gap with a sign, or nothing without data', () => {
+    expect(fedPathLine({ fed_path: { spread: 0.98, lean: 'leans hikes' } })).toBe('2Y vs Fed funds: +0.98, leans hikes');
+    expect(fedPathLine({ fed_path: { spread: -0.3, lean: 'leans cuts' } })).toBe('2Y vs Fed funds: -0.30, leans cuts');
+    expect(fedPathLine({ fed_path: null })).toBe('');
+  });
+
+  it('reports when there are no items at all', () => {
+    expect(buildLiquidityChips([])).toContain('unavailable');
+  });
 });
 
 describe('buildPillarBars (P1-014/P1-015)', () => {

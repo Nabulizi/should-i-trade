@@ -91,7 +91,7 @@
   .section-kicker { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
   .section-heading h2 { font-size: 14px; font-weight: 700; color: var(--text); margin: 0; }
 
-  .pillars-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .pillars-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
   .pillar-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px; display: flex; flex-direction: column; }
   .pillar-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
   .pillar-name { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
@@ -100,7 +100,7 @@
   .pillar-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
   .metric-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; min-height: 18px; }
   .metric-key { color: var(--muted); font-size: 11px; }
-  .metric-val { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 5px; font-family: 'Fira Code', monospace; }
+  .metric-val { font-size: 11px; font-weight: 600; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 5px; font-family: 'Fira Code', monospace; }
   .src-badge { font-size: 10px; font-weight: 400; color: var(--muted2); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; letter-spacing: 0.2px; white-space: nowrap; }
   .tag { font-size: 10px; padding: 1px 6px; border-radius: 2px; font-weight: 700; letter-spacing: 0.5px; }
   .tag.green  { background: rgba(0,230,118,0.15);  color: var(--green); }
@@ -134,6 +134,8 @@
   .futures-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
   .futures-avg { color: var(--muted2); border: 1px solid var(--border2); border-radius: 3px; padding: 2px 6px; font-size: 10px; font-weight: 700; white-space: nowrap; }
   .futures-grid { display: grid; grid-template-columns: repeat(4, minmax(78px,1fr)); gap: 8px; }
+  .liquidity-grid { grid-template-columns: repeat(3, minmax(120px,1fr)); }
+  .liquidity-flag { display: block; color: var(--orange); font-weight: 700; margin-bottom: 5px; }
   .future-chip { min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; background: transparent; }
   .future-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 3px; }
   .future-sym { font-size: 10px; font-weight: 800; }

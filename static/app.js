@@ -67,6 +67,88 @@ function renderFuturesTape(tape) {
     <span class="futures-meta"><span>${esc(source)}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
+/* ── LIQUIDITY CONTEXT ────────────────────────────────── */
+const LIQUIDITY_DIRECTIONS = {
+  loosening:  { text: 'Loosening',  cls: 'flat' },
+  tightening: { text: 'Tightening', cls: 'dn' },
+  flat:       { text: 'Flat',       cls: 'flat' },
+};
+
+function buildLiquidityChips(items) {
+  if (!items?.length) return '<div style="color:var(--muted);font-size:10px;">Liquidity data unavailable</div>';
+  return items.map(item => {
+    const dir = LIQUIDITY_DIRECTIONS[item.direction];
+    // Dates are plain YYYY-MM-DD; parsing at UTC noon keeps the day stable in any browser timezone.
+    const asOf = item.as_of
+      ? new Date(`${item.as_of}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+      : 'no date';
+    const title = `${item.hint || ''} ${item.source || ''} · as of ${asOf}`;
+    if (!item.available || !dir) {
+      return `<div class="future-chip" title="${esc(title)}">
+        <div class="future-top"><span class="future-sym">${esc(item.label)}</span></div>
+        <div class="future-top"><span class="future-name">${esc(asOf)}</span><span class="future-chg flat">No data</span></div>
+      </div>`;
+    }
+    const change = (item.change >= 0 ? '+' : '') + Number(item.change).toFixed(2);
+    return `<div class="future-chip" title="${esc(title)}">
+      <div class="future-top">
+        <span class="future-sym">${esc(item.label)}</span>
+        <span class="future-px">${Number(item.value).toFixed(2)} (${change})</span>
+      </div>
+      <div class="future-top">
+        <span class="future-name">${esc(asOf)}</span>
+        <span class="future-chg ${dir.cls}">${dir.text}</span>
+      </div>${item.level ? `
+      <div class="future-top"><span class="future-name">${esc(item.level)}</span></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function liquidityVotesLine(liq) {
+  return liq?.valid ? `Votes: ${liq.loosening_votes} looser · ${liq.tightening_votes} tighter` : 'No read';
+}
+
+function liquidityLongerLine(liq) {
+  const longer = liq?.longer;
+  if (!longer) return '';
+  const tone = longer.tone === 'Unavailable' ? 'no read' : longer.tone;
+  return `${longer.lookback_weeks} weeks: ${tone}`;
+}
+
+function fedPathLine(liq) {
+  const path = liq?.fed_path;
+  if (!path) return '';
+  const spread = (path.spread >= 0 ? '+' : '') + Number(path.spread).toFixed(2);
+  return `2Y vs Fed funds: ${spread}, ${path.lean}`;
+}
+
+function liquidityNoteHtml(liq) {
+  return liq?.high_vol_tightening ? `<span class="liquidity-flag">${esc(liq.high_vol_note)}</span>` : '';
+}
+
+function renderLiquidity(liq) {
+  const toneEl = $('liquidity-tone');
+  const countEl = $('liquidity-count');
+  const itemsEl = $('liquidity-items');
+  const readEl = $('liquidity-read');
+  if (!toneEl || !countEl || !itemsEl || !readEl) return;
+
+  toneEl.className = `futures-tone ${tagColor(liq?.tone_color || 'gray')}`;
+  toneEl.innerHTML = `<span class="futures-dot"></span><span>${esc(liq?.tone || 'Unavailable')}</span>`;
+  countEl.textContent = liquidityVotesLine(liq);
+  const longerEl = $('liquidity-longer');
+  if (longerEl) longerEl.textContent = liquidityLongerLine(liq);
+  const fedEl = $('liquidity-fed');
+  if (fedEl) {
+    fedEl.textContent = fedPathLine(liq);
+    fedEl.style.display = liq?.fed_path ? '' : 'none';
+    fedEl.title = 'Above Fed funds suggests markets lean toward higher rates; below, toward cuts. The 2Y also carries term premium, so this is a lean, not an expected path.';
+  }
+  itemsEl.innerHTML = buildLiquidityChips(liq?.items);
+  readEl.innerHTML = `${liquidityNoteHtml(liq)}${esc(liq?.read || 'Liquidity data unavailable.')}
+    <span class="futures-meta"><span>${esc(liq?.source || 'FRED')}</span><span>Context only</span><span>Not scored</span></span>`;
+}
+
 /* ── HEADER BADGES ──────────────────────────────────────── */
 function renderHeader(d) {
   const mkt = d.market_state || {};
@@ -1155,6 +1237,7 @@ async function load(isManual = false) {
       renderFuturesTape(raw.futures_tape);
       renderPillars(raw);
       renderConflicts(raw);
+      renderLiquidity(raw.liquidity);
       renderBars('sector-bars',   raw.pillars.breadth.details.sector_data);
       renderBars('industry-bars', raw.pillars.breadth.details.industry_data);
       renderWeights(weightScenario);
@@ -1401,4 +1484,9 @@ export {
   reliabilityLine,
   asOfLine,
   renderYesterdayStrip,
+  buildLiquidityChips,
+  liquidityVotesLine,
+  liquidityLongerLine,
+  liquidityNoteHtml,
+  fedPathLine,
 };

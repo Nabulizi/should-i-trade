@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # which ALIGNS the live model with the replayed one — the backtest had always
 # neutralized them, so the published report validates v6.1 exactly.
 MODEL_VERSION = "v6.1"
+LIQUIDITY_HIGH_VOL_PCT = 13.2   # replay's median trailing 20-day SPY realized vol
 from concurrent.futures import ThreadPoolExecutor as _TPE
 from typing import Any
 
@@ -25,7 +26,7 @@ from data import (
     get_quote, get_history, get_ohlcv, history_source, et_now,
     btc_quote, btc_history, market_state, fomc_proximity, econ_proximity,
     fetch_fear_greed_stock, fetch_fear_greed_crypto,
-    opex_proximity, seasonality, earnings_season, fetch_futures_tape,
+    opex_proximity, seasonality, earnings_season, fetch_futures_tape, fetch_liquidity,
     yf_last_bar_date,
 )
 from config import PILLAR_WEIGHTS, VOL_TARGET_K, VOL_TARGET_WINDOW, BAND_HYSTERESIS_PTS
@@ -1094,13 +1095,13 @@ def score_macro(quotes: dict, tnx_closes: list[float], dxy_closes: list[float],
         hyg_ma50 = simple_ma(hyg_closes, 50)
         if hyg_px and hyg_ma50:
             if hyg_px > hyg_ma50 * 1.002:
-                hyg_label, hyg_color = "Healthy", "green"
+                hyg_label, hyg_color = "Above 50d", "green"
                 score += 8
-                reasons.append("+8 HYG above 50d — credit conditions healthy")
+                reasons.append("+8 HYG above 50d")
             elif hyg_px < hyg_ma50 * 0.998:
-                hyg_label, hyg_color = "Stressed", "red"
+                hyg_label, hyg_color = "Below 50d", "red"
                 score -= 10
-                reasons.append("-10 HYG below 50d — credit stress, risk-off signal")
+                reasons.append("-10 HYG below 50d")
             else:
                 hyg_label, hyg_color = "Neutral", "yellow"
 
@@ -1434,6 +1435,7 @@ def _fetch_instruments() -> dict:
         fng_s_f          = ex.submit(fetch_fear_greed_stock)
         fng_c_f          = ex.submit(fetch_fear_greed_crypto)
         fut_tape_f       = ex.submit(fetch_futures_tape)
+        liquidity_f      = ex.submit(fetch_liquidity)
         spy_last_bar_f   = ex.submit(yf_last_bar_date, "SPY", 220)
 
     def _safe_result(fut, default):
@@ -1453,8 +1455,21 @@ def _fetch_instruments() -> dict:
         "fng_stock":     _safe_result(fng_s_f, {"available": False}),
         "fng_crypto":    _safe_result(fng_c_f, {"available": False}),
         "futures_tape":      _safe_result(fut_tape_f, {"valid": False}),
+        "liquidity":         _safe_result(liquidity_f, {"valid": False}),
         "spy_last_bar_date": _safe_result(spy_last_bar_f, None),
     }
+
+
+def liquidity_with_vol_flag(liquidity: dict, vol_target: VolTargetInfo | None) -> dict:
+    """Flag Tightening alongside above-median realized vol, the replay's riskiest
+    state (backtest_liquidity.py). Display only; never an input to the score."""
+    vol = vol_target["realized_annual_vol_pct"] if vol_target else None
+    flagged = (liquidity.get("tone") == "Tightening" and vol is not None
+               and vol >= LIQUIDITY_HIGH_VOL_PCT)
+    return {**liquidity, "high_vol_tightening": flagged,
+            "high_vol_note": (f"Tightening with 20-day SPY volatility at {vol}%: past weeks with both "
+                              "saw 10%+ drops within 3 months 39% of the time. Exploratory replay, not a forecast.")
+                             if flagged else None}
 
 
 def vol_target_exposure(closes: list[float]) -> VolTargetInfo | None:
@@ -1719,6 +1734,7 @@ def compute_dashboard(prev_decision: str | None = None) -> DashboardResult:
         last_bar_date=instruments.get("spy_last_bar_date"),
     )
     spy_streak = _day_streak(spy_closes_spliced)
+    vol_target = vol_target_exposure(spy_closes_spliced)
 
     # 4. Assemble result
     mstate = instruments["mstate"]
@@ -1749,10 +1765,11 @@ def compute_dashboard(prev_decision: str | None = None) -> DashboardResult:
         },
         "ticker":            _build_ticker(quotes, instruments["btc_q"]),
         "futures_tape":      instruments["futures_tape"],
+        "liquidity":         liquidity_with_vol_flag(instruments["liquidity"], vol_target),
         "fear_greed_stock":  instruments["fng_stock"],
         "fear_greed_crypto": instruments["fng_crypto"],
         "spy_streak":        spy_streak,
-        "vol_target":        vol_target_exposure(spy_closes_spliced),
+        "vol_target":        vol_target,
         "timestamp":         mstate["et_time"],
         # P1-003/P1-005: computation time and market-observation time are
         # different facts — a Saturday-night calculation shows Friday's close.

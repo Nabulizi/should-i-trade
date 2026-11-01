@@ -330,6 +330,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-022 | done | Remove AI size/entry/stop directives | Output bounded to evidence, disagreement, missing data, falsification |
 | P1-023 | done | Validate AI values and lengths | Stances, point counts, text lengths, fields constrained |
 | P1-024 | done | Make AI provenance visible | Model, time, shared-input limitation, fallback explicit |
+| P1-034 | in_progress | Make HYG 50-day labels descriptive | Label and reason state price vs 50d without claiming credit stress; points unchanged |
 
 ### P1-E — Calendar overlays become context-only
 
@@ -351,6 +352,13 @@ Treat this as a small model-version change.
 | P1-030 | done | Add configurable hysteresis/persistence | One-point boundary oscillation prevented and tested |
 | P1-031 | done | Estimate meaningful change threshold | Derived from historical score variability |
 | P1-032 | done | Separate informational alerts from action | Alerts state observation and uncertainty only |
+
+### P1-G — Liquidity context
+
+| ID | Status | Task | Acceptance criteria |
+|---|---|---|---|
+| P1-033 | in_progress | Add FRED liquidity context panel | Direction vs 4 weeks shown with as-of dates; failed/stale series visible as no data; no score input (D-006); no sizing or entry language (D-001) |
+| P1-035 | in_progress | Add a simple forward-looking Fed read | 2Y vs Fed funds shown with term-premium caveat; never votes in the liquidity headline |
 
 ### P1 acceptance scenario
 
@@ -413,6 +421,7 @@ prediction is optional and must be explicitly selected.
 | P2-010 | pending | Audit RSP/sector duplication | Shared exposure measured and reduced/disclosed |
 | P2-011 | pending | Audit volatility collinearity | VIX features tested jointly and individually |
 | P2-012 | pending | Compare five pillars with three factors | Trend, participation, stress/liquidity candidate evaluated |
+| P2-021 | in_progress | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed. Audit found no case for a change: see `docs/backtest-methodology.md` |
 
 ### P2-D — Normalize without hiding uncertainty
 
@@ -482,6 +491,7 @@ Outcomes are appended or joined later without mutating the forecast.
 | P3-002 | pending | Add 09:25 premarket track | Evaluated separately with time-available inputs |
 | P3-003 | pending | Add 10:00 early-session track | Partial-day features/time-normalized volume versioned separately |
 | P3-004 | pending | Add 12:00 midday track | Not pooled with EOD without stratification |
+| P3-018 | in_progress | Log liquidity readings with each forecast | 4-week and 13-week readings stored and hash-covered; evaluation declared before live data |
 
 ### P3-B — Predeclare outcomes
 

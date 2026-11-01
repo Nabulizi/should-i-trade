@@ -44,6 +44,17 @@ the following EOD job and via `python3 forecast_log.py --grade`.
 **Grading delay:** outcomes are computed no earlier than one session after
 the forecast; vendor bar revisions after grading are not re-applied.
 
+## Liquidity readings (P3-018)
+
+Each record also stores the liquidity card's 4-week and 13-week readings. They
+are context and never feed the score. Declared before any live data existed:
+
+**Question:** does either reading separate 10%+ SPY peak-to-trough drops within
+the next 63 trading days better than the base rate, and is 13 weeks better than
+4 weeks? **Sample:** one reading every 63 trading days, so outcomes don't
+overlap. No conclusion before **8 non-overlapping Tightening readings** on that
+lookback. Until then the 13-week reading stays secondary on the card.
+
 ## Sample-size minimum (P3-009)
 
 No rolling metric is displayed for a track with fewer than

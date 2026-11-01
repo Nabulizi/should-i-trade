@@ -2,9 +2,9 @@
 globalThis.__TESTING__ = true;
 
 // Node >= 25 ships an experimental global localStorage that shadows jsdom's,
-// but it is undefined without --localstorage-file. Provide an in-memory stub
+// but it is unusable without --localstorage-file. Provide an in-memory stub
 // so `npm test` behaves the same on Node 20 (CI) and newer local runtimes.
-if (!globalThis.localStorage) {
+if (typeof globalThis.localStorage?.clear !== 'function') {
   const store = new Map();
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,

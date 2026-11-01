@@ -93,6 +93,31 @@ class TestOutcomeMath(_TmpFiles):
         self.assertAlmostEqual(out["adverse_excursion_pct"], 0.0)
         self.assertTrue(out["large_move"])                      # 3.0 >= 1.5
 
+    def test_record_keeps_liquidity_readings_for_later_grading(self):
+        dash = _dashboard()
+        dash["liquidity"] = {
+            "tone": "Neutral", "loosening_votes": 1.0, "tightening_votes": 0,
+            "longer": {"tone": "Tightening"}, "high_vol_tightening": False,
+            "read": "copy that should not be logged",
+            "items": [{"key": "two_year", "value": 4.61, "change": -0.17, "direction": "loosening",
+                       "as_of": "2026-10-29", "label": "2Y yield %", "hint": "x", "source": "y",
+                       "available": True, "level": None}],
+        }
+        fl.record_forecast(dash, "2026-07-10")
+        logged = fl._read_jsonl(fl.FORECAST_FILE)[0]["liquidity"]
+        self.assertEqual(logged["tone"], "Neutral")
+        self.assertEqual(logged["longer_tone"], "Tightening")
+        self.assertEqual(logged["series"]["two_year"],
+                         {"value": 4.61, "change": -0.17, "direction": "loosening", "as_of": "2026-10-29"})
+        self.assertNotIn("read", logged)
+        self.assertEqual(fl.audit()["tampered"], [])
+
+    def test_liquidity_failure_does_not_block_the_forecast(self):
+        dash = _dashboard()
+        dash["liquidity"] = {"valid": False}
+        self.assertTrue(fl.record_forecast(dash, "2026-07-10"))
+        self.assertIsNone(fl._read_jsonl(fl.FORECAST_FILE)[0]["liquidity"]["tone"])
+
     def test_flat_bar_efficiency_is_none(self):
         bars = _BARS[:2] + [{"date": "2026-07-13", "open": 100.0, "high": 100.0,
                              "low": 100.0, "close": 100.0}]
