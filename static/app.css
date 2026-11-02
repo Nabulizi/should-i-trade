@@ -93,7 +93,7 @@
   .risk-check-state { color: var(--muted); font-size: 13px; }
   .risk-check.on .risk-check-state { color: var(--text); font-weight: 600; }
   .risk-note { color: var(--muted2); font-size: 13px; margin-top: 4px; }
-  .risk-checks-head { display: flex; justify-content: space-between; gap: 12px; }
+  .risk-checks-head { display: flex; justify-content: space-between; gap: 12px; position: relative; }
   .risk-count { color: var(--text); font-weight: 600; letter-spacing: 0; text-transform: none; white-space: nowrap; }
   .risk-key { color: var(--muted); font-size: 12px; padding-top: 6px; border-top: 1px solid var(--border); }
   .risk-score-line { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
@@ -107,8 +107,8 @@
   .question-card + .question-card { border-left: 1px solid var(--border); }
   .question-card h2 { font-family: var(--serif); font-size: 16px; font-weight: 500; color: var(--text); margin: 0 0 4px; }
   .question-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; border-top: 1px solid var(--border); }
-  .question-row dt { color: var(--muted2); font-size: 13px; }
-  .question-row dd { color: var(--text); font-size: 14px; font-weight: 500; text-align: right; }
+  .question-row dt { color: var(--muted2); font-size: 13px; white-space: nowrap; }
+  .question-row dd { color: var(--text); font-size: 14px; font-weight: 500; text-align: right; text-wrap: balance; }
   .question-empty { color: var(--muted); font-size: 13px; padding: 5px 0; }
   .question-card .liquidity-flag { font-size: 12px; margin: 6px 0 4px; }
   .movers { padding: 10px 20px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
@@ -118,7 +118,7 @@
   .movers-groups { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 28px; }
   .mover-group h3 { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; padding-bottom: 3px; border-bottom: 1px solid var(--border); margin: 0 0 2px; }
   .mover-list { list-style: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-rows: repeat(var(--mover-rows, 4), auto); column-gap: 20px; }
-  .mover { display: grid; grid-template-columns: 90px minmax(24px, 1fr) 50px; align-items: center; gap: 8px; height: 22px; font-size: 13px; }
+  .mover { display: grid; grid-template-columns: 110px minmax(24px, 1fr) 50px; align-items: center; gap: 8px; height: 22px; font-size: 13px; }
   .mover-name { color: var(--muted2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mover-track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
   .mover-fill { display: block; height: 100%; border-radius: 3px; }
@@ -168,6 +168,7 @@
   .pillar-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
   .metric-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; min-height: 18px; }
   .metric-key { color: var(--muted); font-size: 11px; }
+  .metric-key:has(.hint) { white-space: nowrap; }
   .metric-val { font-size: 11px; font-weight: 600; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 5px; font-family: var(--sans); }
   .src-badge { font-size: 10px; font-weight: 400; color: var(--muted2); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; letter-spacing: 0.2px; white-space: nowrap; }
   .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
@@ -599,9 +600,10 @@
   .movers-groups { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .risk-top { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); row-gap: 10px; }
   .risk-zone.risk-score { grid-column: 1 / -1; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--border); display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 24px; align-items: center; }
-  .risk-score .risk-kicker { grid-column: 1; }
+  .risk-score .risk-kicker { grid-column: 1 / -1; }
+  .risk-score .hint-panel { left: 0; right: auto; }
   .risk-score-line { grid-column: 1; margin: 0; }
-  .risk-score .hero-pillars { grid-column: 2; grid-row: 1 / span 2; }
+  .risk-score .hero-pillars { grid-column: 2; grid-row: 2; }
 }
 @media (max-width: 760px) {
   .warn-banner { width: calc(100% - 24px); }
@@ -626,7 +628,9 @@
 .hint-btn::after { content: ""; position: absolute; inset: -14px; }
 .hint-btn:hover, .hint.open .hint-btn { border-color: var(--text); color: var(--text); }
 .hint-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.hint-panel { display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; width: min(340px, calc(100vw - 48px)); padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); color: var(--muted2); font-size: 13px; font-weight: 400; line-height: 1.45; text-align: left; white-space: normal; }
+.hint-panel { display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; width: min(340px, calc(100vw - 48px)); padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); color: var(--muted2); font-size: 13px; font-weight: 400; letter-spacing: 0; line-height: 1.45; text-align: left; text-transform: none; white-space: normal; }
+#liquidity-fed { white-space: normal; }
+.pillar-card:first-child .hint-panel, .question-card:first-child .hint-panel { left: 0; right: auto; }
 .hint-panel::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 6px; }
 .hint-panel > * { display: block; }
 .hint-panel > * + * { margin-top: 6px; }

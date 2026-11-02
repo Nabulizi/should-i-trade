@@ -442,7 +442,7 @@ def persona_rotator(d: dict) -> dict:
     elif participation == "Narrow":
         verdict = "Narrow participation, with few sectors leading."
     else:
-        verdict = f"RS leader is {top_leader_name}."
+        verdict = f"The strongest sector is {top_leader_name}."
 
     return {
         "persona": "The Sector Rotator",

@@ -17,6 +17,9 @@ import {
   asOfLine,
   buildLiquidityChips,
   liquidityVotesLine,
+  mrow,
+  vixYearText,
+  econName,
   liquidityLongerLine,
   liquidityNoteHtml,
   fedPathLine,
@@ -35,7 +38,7 @@ beforeEach(() => {
 
 describe('riskLineHtml', () => {
   const checks = [
-    { label: 'SPY volatility', on: false, detail: '11.6%, below the 13.2% median' },
+    { label: 'SPY volatility', on: false, detail: '11.6%, below the usual 13.2%' },
     { label: 'SPY trend', on: true, detail: 'Below its 50-day average' },
     { label: 'Credit', on: true, detail: 'HYG below its 50-day average' },
   ];
@@ -47,7 +50,7 @@ describe('riskLineHtml', () => {
     const html = riskLineHtml(read('Elevated'));
     expect(html).toContain('Elevated');
     expect(html).toContain('Below its 50-day average');
-    expect(html).toContain('11.6%, below the 13.2% median');
+    expect(html).toContain('11.6%, below the usual 13.2%');
     expect((html.match(/risk-check-state">OK/g) || []).length).toBe(1);
     expect((html.match(/risk-check-state">Warning/g) || []).length).toBe(2);
     expect(html).not.toMatch(/>(On|Off)</);
@@ -55,7 +58,7 @@ describe('riskLineHtml', () => {
 
   it('counts the warnings and says how the count sets the level', () => {
     const html = riskLineHtml(read('Elevated'));
-    expect(html).toContain('2 of 3 warning');
+    expect(html).toContain('2 of 3 warnings');
     expect(html).toContain('0 warnings: Normal');
     expect(html).toContain('1–2: Elevated');
     expect(html).toContain('3: High');
@@ -70,7 +73,7 @@ describe('riskLineHtml', () => {
   it('says plainly when no check is on', () => {
     const off = checks.map(c => ({ ...c, on: false }));
     const html = riskLineHtml(read('Normal', off));
-    expect(html).toContain('0 of 3 warning');
+    expect(html).toContain('0 of 3 warnings');
     expect(html).not.toContain('risk-check-state">Warning');
   });
 
@@ -99,7 +102,7 @@ describe('riskLineHtml', () => {
       as_of: { session: 'weekend', market_data_as_of: '2026-10-30' },
     }));
     const foot = html.slice(html.indexOf('risk-foot'));
-    for (const text of ['100%', '20:32 ET', '2026-10-30', 'return-timing edge']) expect(foot).toContain(text);
+    for (const text of ['All data loaded', '20:32 ET', '2026-10-30', 'no edge in timing returns']) expect(foot).toContain(text);
   });
 
   it('never shows a level or score when data is invalid or missing', () => {
@@ -206,19 +209,19 @@ describe('moversHtml', () => {
 
   it('shows both groups with signed changes', () => {
     const html = moversHtml(dash());
-    for (const text of ['Sectors', 'Industry &amp; style', 'Energy', '+1.91%', 'Semis', '-6.98%']) expect(html).toContain(text);
+    for (const text of ['Sectors', 'Industry &amp; style', 'Energy', '+1.91%', 'Semiconductors', '-6.98%']) expect(html).toContain(text);
   });
 
   it('sorts each group from best to worst', () => {
     const html = moversHtml(dash());
     expect(html.indexOf('Energy')).toBeLessThan(html.indexOf('Utilities'));
     expect(html.indexOf('Utilities')).toBeLessThan(html.indexOf('Technology'));
-    expect(html.indexOf('Homebuilders')).toBeLessThan(html.indexOf('Semis'));
+    expect(html.indexOf('Homebuilders')).toBeLessThan(html.indexOf('Semiconductors'));
   });
 
   it('uses one scale across both groups, so bar lengths compare', () => {
     const html = moversHtml(dash());
-    expect(widthOf(html, 'Semis')).toBe(100);
+    expect(widthOf(html, 'Semiconductors')).toBe(100);
     expect(widthOf(html, 'Technology')).toBe(70);    // 4.89 / 6.98
     expect(widthOf(html, 'Energy')).toBe(27);        // 1.91 / 6.98
   });
@@ -226,7 +229,7 @@ describe('moversHtml', () => {
   it('marks direction in the class as well as the signed text', () => {
     const html = moversHtml(dash());
     expect(html.slice(html.indexOf('>Energy<')).indexOf('mover-fill up')).toBeGreaterThan(-1);
-    expect(html.slice(html.indexOf('>Semis<')).indexOf('mover-fill dn')).toBeGreaterThan(-1);
+    expect(html.slice(html.indexOf('>Semiconductors<')).indexOf('mover-fill dn')).toBeGreaterThan(-1);
   });
 
   it('does not exaggerate a quiet day into full-length bars', () => {
@@ -242,7 +245,7 @@ describe('moversHtml', () => {
   });
 
   it('shows no figures beside a data-unavailable headline, or when nothing is there', () => {
-    expect(moversHtml(dash(details, { data_quality: { valid: false } }))).not.toContain('Semis');
+    expect(moversHtml(dash(details, { data_quality: { valid: false } }))).not.toContain('Semiconductors');
     expect(moversHtml(dash(details, { data_quality: { valid: false } }))).toContain('No data');
     expect(moversHtml({ pillars: {} })).toContain('No data');
   });
@@ -276,9 +279,41 @@ describe('todaysReadHtml', () => {
   });
 });
 
+describe('plain labels', () => {
+  it('says which way the score runs', () => {
+    const html = riskLineHtml({ data_quality: { valid: true }, total_score: 32, decision: 'RISK-OFF', risk_read: { level: 'Elevated', color: 'orange', flags: [], checks: [] } });
+    expect(html).toContain('0–100, higher is healthier');
+    expect(html).toContain('A low Volatility bar means volatility is a problem');
+  });
+
+  it('gives known jargon an explainer and leaves plain labels alone', () => {
+    expect(mrow('SKEW', 140, null)).toContain('What SKEW means');
+    expect(mrow('Stocks F&G', 26, null)).toContain('What Stocks F&amp;G means');
+    expect(mrow('BTC', 1, null)).not.toContain('hint-btn');
+  });
+
+  it('states where the VIX sits against the past year', () => {
+    expect(vixYearText(81)).toBe('Above 81% of days');
+    expect(vixYearText(null)).toBe('—');
+  });
+
+  it('spells out economic releases', () => {
+    expect(econName('CPI')).toBe('CPI inflation');
+    expect(econName('GDP (Adv)')).toBe('GDP');
+    expect(econName('Jobs Report')).toBe('Jobs Report');
+  });
+
+  it('spells out sector and industry names', () => {
+    const html = moversHtml({ pillars: { breadth: { details: { sector_data: { XLY: { name: 'Cons Disc', change_pct: 1 } } } } } });
+    expect(html).toContain('Consumer Disc.');
+    expect(html).not.toContain('Cons Disc');
+  });
+});
+
 describe('threeQuestionsHtml', () => {
   const dash = {
     vol_target: { exposure_pct: 67, realized_annual_vol_pct: 11.6, target_annual_vol_pct: 7.8 },
+    risk_read: { level: 'Elevated', checks: [{ label: 'SPY volatility', on: false, detail: '11.6%, below the usual 13.2%' }] },
     futures_tape: { items: [
       { symbol: 'ES', change_pct: -1.81, available: true },
       { symbol: 'NQ', change_pct: -3.48, available: true },
@@ -293,16 +328,17 @@ describe('threeQuestionsHtml', () => {
     },
     liquidity: {
       tone: 'Neutral', longer: { tone: 'Tightening' },
+      summary: 'Little change over 4 weeks, but tighter than 3 months ago.',
       items: [{ key: 'hy_spread', value: 3.26, level: 'Calm' }],
-      fed_path: { spread: 0.73, lean: 'leans hikes' },
+      fed_path: { spread: 0.73, lean: 'leans toward hikes' },
     },
   };
 
   it('asks the three questions and answers from the payload', () => {
     const html = threeQuestionsHtml(dash);
     for (const text of ['How rough?', 'How healthy?', "What's the backdrop?", '19.42', 'Spiking', '11.6%',
-      'Below 50-day', 'above 200-day', '6 of 11', 'Defensive Rotation', '3.26', 'Calm',
-      'Below 50d', 'Leans hikes', 'Flat 4w, tighter 13w', '67%, illustrative', 'ES -1.81%, NQ -3.48%']) {
+      'Below 50-day', 'above 200-day', '6 of 11', 'Defensive sectors leading', '3.26%, Calm',
+      'Below 50-day average', 'Leans toward hikes', 'Little change over 4 weeks, but tighter than 3 months ago.', '67% SPY, illustrative', 'S&amp;P -1.81%, Nasdaq -3.48%']) {
       expect(html).toContain(text);
     }
   });
@@ -319,10 +355,40 @@ describe('threeQuestionsHtml', () => {
     expect((html.match(/No data/g) || []).length).toBe(3);
   });
 
-  it('explains HYG beside its row', () => {
+  it('says whether SPY volatility is high and what it means on a typical day', () => {
     const html = threeQuestionsHtml(dash);
-    expect((html.match(/hint-btn/g) || []).length).toBe(1);
+    expect(html).toContain('<dd>11.6%, below the usual 13.2%</dd>');
+    expect(html).toContain('roughly 0.7% up or down on a typical day');
+  });
+
+  it('still shows SPY volatility without a risk read', () => {
+    const html = threeQuestionsHtml({ ...dash, risk_read: { level: null, checks: [] } });
+    expect(html).toContain('<dd>11.6%</dd>');
+  });
+
+  it('uses no unexplained shorthand on the first screen', () => {
+    const html = threeQuestionsHtml(dash);
+    expect(html).not.toMatch(/\bES\b|\bNQ\b|HY spread|2Y vs Fed funds|\b50d\b|Rotation|\d+w\b|SPY volatility budget/);
+  });
+
+  it('says how long the VIX move covers', () => {
+    const html = threeQuestionsHtml({ ...dash, pillars: { ...dash.pillars, volatility: { details: { vix_trend: 'Spiking', vix_change_pct: 12.91 } } } });
+    expect(html).toContain('Spiking, +12.91% on the day');
+  });
+
+  it('explains every row a new reader would not know', () => {
+    const html = threeQuestionsHtml(dash);
+    expect((html.match(/hint-btn/g) || []).length).toBe(9);
+    expect(html).toContain('options prices');
+    expect(html).toContain('7.8% yearly target');
+    expect(html).toContain('0.73 points above');
     expect(html).toContain('HYG price up');
+    expect(html).toContain('What liquidity means');
+  });
+
+  it('leaves out the liquidity row when there is no reading', () => {
+    const html = threeQuestionsHtml({ ...dash, liquidity: { ...dash.liquidity, summary: null } });
+    expect(html).not.toContain('What liquidity means');
   });
 
   it('leaves out futures it has no reading for', () => {
@@ -400,7 +466,7 @@ describe('buildLiquidityChips', () => {
   });
 
   it('shows the 2Y vs Fed funds gap with a sign, or nothing without data', () => {
-    expect(fedPathLine({ fed_path: { spread: 0.98, lean: 'leans hikes' } })).toBe('2Y vs Fed funds: +0.98, leans hikes');
+    expect(fedPathLine({ fed_path: { spread: 0.98, lean: 'leans toward hikes' } })).toBe('2Y vs Fed funds: +0.98, leans toward hikes');
     expect(fedPathLine({ fed_path: { spread: -0.3, lean: 'leans cuts' } })).toBe('2Y vs Fed funds: -0.30, leans cuts');
     expect(fedPathLine({ fed_path: null })).toBe('');
   });
@@ -787,8 +853,8 @@ describe('reliabilityLine — data coverage only', () => {
 describe('asOfLine (P1-004/P1-005)', () => {
   it('frames weekend readings as based on the last close, planning only', () => {
     const html = asOfLine({ session: 'weekend', market_data_as_of: '2026-07-10', calculated_at: '2026-07-11T23:22:00-04:00' });
-    expect(html).toContain('Based on 2026-07-10 regular-session close');
-    expect(html).toContain('planning context only');
+    expect(html).toContain('Based on 2026-07-10 market close');
+    expect(html).toContain('markets closed, for planning only');
     // The header badge already names the session — no duplicate label here.
     expect(html).not.toContain('weekend');
   });
@@ -800,7 +866,7 @@ describe('asOfLine (P1-004/P1-005)', () => {
   it('premarket shows the reference close without the planning-only note', () => {
     const html = asOfLine({ session: 'premarket', market_data_as_of: '2026-07-09' });
     expect(html).toContain('Based on 2026-07-09');
-    expect(html).not.toContain('planning context only');
+    expect(html).not.toContain('for planning only');
   });
 
   it('falls back to the last history bar date and empty when no date is known', () => {
