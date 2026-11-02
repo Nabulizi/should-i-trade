@@ -75,14 +75,105 @@ const RISK_STEPS = [
   { level: 'High', history: '41%', ordinal: 'third' },
 ];
 
+function hintHtml(topic, body) {
+  return `<span class="hint"><button type="button" class="hint-btn" aria-label="What ${esc(topic)} means" aria-expanded="false">i</button><span class="hint-panel">${body}</span></span>`;
+}
+
+const VIX_HELP = `<strong>The swing in the S&amp;P 500 that options prices imply for the next 30 days.</strong>
+    <span class="hint-rule">Under 15 low · 15–19 moderate · 19–25 elevated · 25–30 high · 30+ extreme</span>
+    <span class="hint-note">It looks ahead, while SPY volatility looks back 20 days, so the two can disagree.</span>`;
+
+// Written once, shown beside any row with this label on the page.
+const LABEL_HELP = {
+  VIX: VIX_HELP,
+  'VIX Level': VIX_HELP,
+  'VIX Trend': "The VIX's change on the day. A jump means options traders expect bigger swings.",
+  'VIX3M': 'The same reading over 3 months. Contango means it sits above the VIX, which is normal. Backwardation is the reverse and points to near-term fear.',
+  'VIX9D/VIX': 'Expected swings over 9 days against 30 days. Above 1x means traders are more worried about the next few days.',
+  SKEW: 'A Cboe index of the price of protection against a sharp S&amp;P 500 drop. Higher means that protection costs more.',
+  'Flow Sentiment': 'A 0–100 proxy from the day\'s moves in leveraged Nasdaq and volatility funds. Not a put/call ratio.',
+  'SPY vs averages': 'SPY is the ETF that tracks the S&amp;P 500. The 50-day and 200-day are its average closing prices over those periods, common reads of medium and long-term trend.',
+  Regime: 'Where SPY sits against its 20, 50 and 200-day averages: Uptrend, Recovering, Mixed or Downtrend.',
+  'RSI(14)': 'How fast price has moved over 14 days, from 0 to 100. Above 70 is often called overbought, below 30 oversold.',
+  'ATH Dist': "How far SPY is from its all-time high.",
+  'Mkt Character': "How SPY has been trading. ATR is its average daily range as a share of price.",
+  'MACD(12,26,9)': 'A trend read from the gap between two moving averages, compared with a smoothed signal line.',
+  'Sectors +': 'How many of the 11 S&amp;P 500 sectors rose on the day.',
+  'Industries +': 'How many of 9 narrower industry and style funds rose on the day.',
+  RSP: 'An ETF holding S&amp;P 500 stocks in equal amounts, so the largest companies do not dominate it.',
+  'RSP vs SPY': 'Equal-weight against the normal S&amp;P 500 on the day. Positive means the average stock beat the largest ones.',
+  Participation: 'How widely the day\'s gains were shared across sectors: Broad, Selective or Narrow.',
+  'IWM vs SPY': 'Small companies (IWM) against the S&amp;P 500 on the day.',
+  'RS Rotation': 'Which sectors have been strongest against the market. Cyclical means technology, financials, energy, industrials and consumer discretionary. Defensive means utilities, staples and health care.',
+  Leadership: 'Which sectors have been strongest against the market. Defensive sectors (utilities, staples, health care) tend to hold up when investors are cautious. Cyclical sectors (technology, financials, energy, industrials, consumer discretionary) depend more on growth.',
+  'Growth 3': 'How many of three growth-heavy sectors rose on the day.',
+  'Yield Curve': 'The 10-year yield minus the 3-month yield. Negative has historically come before recessions, often by 6–18 months.',
+  DXY: 'The US dollar against six major currencies.',
+  'Junk bond spread': 'The extra yield junk bonds pay over Treasuries. Wider means lenders want more pay for the risk. Under 4 reads calm, 4–6 elevated and above 6 stress. These cutoffs are rules of thumb, not tested in a crisis.',
+  'Stocks F&G': "CNN's Fear &amp; Greed index for stocks, from 0 (fear) to 100 (greed).",
+  'Crypto F&G': 'The same idea for crypto, from 0 (fear) to 100 (greed).',
+  TLT: 'An ETF of long-term US Treasury bonds.',
+  FOMC: 'The Fed committee that sets US interest rates.',
+  OpEx: 'The monthly date when many stock options expire.',
+};
+
+function labelHelp(label) {
+  const help = LABEL_HELP[label];
+  return help ? hintHtml(label, help.startsWith('<') ? help : `<span>${help}</span>`) : '';
+}
+
+function vixYearText(pctile) {
+  return pctile == null ? '—' : `Above ${pctile}% of days`;
+}
+
+const ECON_NAMES = { CPI: 'CPI inflation', PPI: 'PPI inflation', 'GDP (Adv)': 'GDP', 'GDP (2nd)': 'GDP', 'GDP (Rev)': 'GDP' };
+
+function econName(name) {
+  return ECON_NAMES[name] ?? name;
+}
+
+function volatilityHintHtml(realized) {
+  return hintHtml('SPY volatility', `<strong>How much SPY has swung over the last 20 trading days, stated as a yearly rate.</strong>
+    <span>${esc(realized)}% works out to roughly ${(realized / Math.sqrt(252)).toFixed(1)}% up or down on a typical day.</span>
+    <span class="hint-rule">Since 2007, a quarter of days read under 10% and a quarter above 19%.</span>
+    <span class="hint-note">"Usual" is the median. At or above it, the risk level counts a warning.</span>`);
+}
+
+function steadyMixHintHtml(budget) {
+  return hintHtml('the steady-risk mix', `<strong>An illustrative volatility budget, not personalized advice.</strong>
+    <span>The share of SPY, with the rest in cash, that would keep a portfolio's swings near a ${esc(budget.target)}% yearly target, given SPY's ${esc(budget.realized)}% volatility over the last 20 days.</span>
+    <span class="hint-rule">SPY swings more = smaller SPY share</span>`);
+}
+
+function fedOutlookHintHtml(path) {
+  const spread = Number(path.spread);
+  return hintHtml('the Fed rate outlook', `<strong>The 2-year Treasury yield is ${Math.abs(spread).toFixed(2)} points ${spread >= 0 ? 'above' : 'below'} the Fed's rate.</strong>
+    <span class="hint-rule">Well above = markets lean toward hikes</span>
+    <span class="hint-rule">Well below = markets lean toward cuts</span>
+    <span class="hint-note">The 2-year also carries term premium, so this is a lean, not an expected path.</span>`);
+}
+
+function liquidityHintHtml() {
+  return hintHtml('liquidity', `<strong>Liquidity is how easy and cheap it is to borrow across the market.</strong>
+    <span class="hint-rule">Tighter = borrowing is harder or costs more</span>
+    <span class="hint-rule">Easier = borrowing is simpler or costs less</span>
+    <span>Past 4-week tightening readings saw 10%+ SPY drops within 3 months 32% of the time, vs 19% for all weeks.</span>
+    <span class="hint-note">Exploratory replay, not a forecast or timing signal.</span>`);
+}
+
 function hygHintHtml() {
-  return `<span class="hint"><button type="button" class="hint-btn" aria-label="What HYG means" aria-expanded="false">i</button><span class="hint-panel">
-    <strong>HYG is an ETF of US high-yield ("junk") bonds.</strong>
+  return hintHtml('HYG', `<strong>HYG is an ETF of US high-yield ("junk") bonds.</strong>
     <span>Bond prices and yields move in opposite directions, so a rising HYG price means junk bond yields are falling.</span>
     <span class="hint-rule">HYG price up ↑ = junk bond yields down ↓</span>
     <span class="hint-rule">HYG price down ↓ = junk bond yields up ↑</span>
-    <span class="hint-note">HYG also moves with Treasury yields, so the HY spread is the cleaner read of credit stress.</span>
-  </span></span>`;
+    <span class="hint-note">HYG also moves with Treasury yields, so the junk bond spread is the cleaner read of credit stress.</span>`);
+}
+
+function scoreHintHtml() {
+  return hintHtml('the score', `<strong>A 0–100 blend of five areas. Higher is healthier.</strong>
+    <span>A low bar means that area is hurting the score. A low Volatility bar means volatility is a problem, not that it is low.</span>
+    <span>Trend: SPY vs its averages. Breadth: how many sectors and stocks are rising. Momentum: which groups are leading. Macro: yields, the dollar and credit.</span>
+    <span class="hint-note">Bands run from RISK-ON (85+) to RISK-OFF (under 40). They describe conditions and showed no edge in timing returns, so the risk level leads this page.</span>`);
 }
 
 function setHintOpen(hint, open) {
@@ -128,7 +219,7 @@ function riskLineHtml(d) {
     </li>`).join('');
   const warnings = checks.filter(c => c.on).length;
   const score = d.total_score != null ? `<div class="risk-zone risk-score">
-      <div class="risk-kicker">Score</div>
+      <div class="risk-kicker risk-checks-head"><span>Score${scoreHintHtml()}</span><span class="risk-count">0–100, higher is healthier</span></div>
       <div class="risk-score-line"><span class="risk-score-value">${esc(d.total_score)}</span><span class="risk-score-band">${esc(d.decision)} band</span></div>
       ${buildPillarBars(d.pillars)}
     </div>` : '';
@@ -141,7 +232,7 @@ function riskLineHtml(d) {
         <p class="risk-history">% of past days followed by a 10%+ SPY drop within 3 months, 2007–2026 replay. Exploratory, not a forecast.</p>
       </div>
       <div class="risk-zone risk-checks-wrap">
-        <div class="risk-kicker risk-checks-head"><span>What sets the level</span><span class="risk-count">${warnings} of ${checks.length} warning</span></div>
+        <div class="risk-kicker risk-checks-head"><span>What sets the level</span><span class="risk-count">${warnings} of ${checks.length} warnings</span></div>
         <ul class="risk-checks">${rows}</ul>
         <p class="risk-key">0 warnings: Normal · 1–2: Elevated · 3: High</p>
       </div>
@@ -149,13 +240,13 @@ function riskLineHtml(d) {
     </div>
     <div class="risk-foot">
       ${asOfLine(d.as_of)}
-      ${coverage != null ? `<div>Data ${Math.round(coverage)}%${d.timestamp ? `, as of ${esc(d.timestamp)}` : ''}</div>` : ''}
-      <div>Conditions report. No demonstrated return-timing edge (<a href="https://github.com/Nabulizi/should-i-trade/blob/main/docs/backtest-report.md" target="_blank" rel="noopener">2005–2026 replay</a>).</div>
+      ${coverage != null ? `<div>${coverage >= 100 ? 'All data loaded' : `${Math.round(coverage)}% of data loaded`}${d.timestamp ? `, as of ${esc(d.timestamp)}` : ''}</div>` : ''}
+      <div>Describes conditions. Testing found no edge in timing returns (<a href="https://github.com/Nabulizi/should-i-trade/blob/main/docs/backtest-report.md" target="_blank" rel="noopener">2005–2026 replay</a>).</div>
     </div>`;
 }
 
 function questionRow(label, value) {
-  return `<div class="question-row"><dt>${label}</dt><dd>${value}</dd></div>`;
+  return `<div class="question-row"><dt>${label}${labelHelp(label)}</dt><dd>${value}</dd></div>`;
 }
 
 function questionCard(title, rows, note = '') {
@@ -176,6 +267,12 @@ function sentenceCase(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+const LEADERSHIP_WORDS = {
+  'Defensive Rotation': 'Defensive sectors leading',
+  'Cyclical Leadership': 'Cyclical sectors leading',
+  'Mixed Rotation': 'No clear leader',
+};
+
 function threeQuestionsHtml(d) {
   if (d?.data_quality?.valid === false) {
     return ['How rough?', 'How healthy?', "What's the backdrop?"].map(title => questionCard(title, [])).join('');
@@ -187,35 +284,32 @@ function threeQuestionsHtml(d) {
   const macro = d?.pillars?.macro?.details || {};
   const liq = d?.liquidity || {};
   const realized = d?.vol_target?.realized_annual_vol_pct;
+  const volCheck = (d?.risk_read?.checks || []).find(c => c.label === 'SPY volatility');
   const hy = (liq.items || []).find(i => i.key === 'hy_spread');
   const sides = [maSide(trend.above_50, 50), maSide(trend.above_200, 200)].filter(Boolean);
   const hyg = macro.hyg_label && macro.hyg_label !== 'N/A' ? macro.hyg_label : null;
   const budget = volBudget(d?.vol_target, loadVolTarget());
   const futures = (d?.futures_tape?.items || [])
     .filter(i => i.available && ['ES', 'NQ'].includes(i.symbol))
-    .map(i => `${esc(i.symbol)} ${chgStr(i.change_pct)}`);
-  const liquidityWord = { Tightening: 'tighter', Loosening: 'easing', Neutral: 'flat' };
-  const short = liquidityWord[liq.tone];
-  const long = liquidityWord[liq.longer?.tone];
-  const liquidity = short && long && `${sentenceCase(short)} 4w, ${long} 13w`;
+    .map(i => `${esc({ ES: 'S&P', NQ: 'Nasdaq' }[i.symbol])} ${chgStr(i.change_pct)}`);
   return [
     questionCard('How rough?', [
       vol.vix_level != null && questionRow('VIX', `${esc(vol.vix_level)}${vol.vix_label ? `, ${esc(vol.vix_label)}` : ''}`),
-      vol.vix_trend && questionRow('VIX trend', esc(vol.vix_trend)),
-      realized != null && questionRow('SPY 20-day volatility', `${esc(realized)}%`),
-      budget && questionRow('SPY volatility budget', `${budget.spyPct}%, illustrative`),
+      vol.vix_trend && questionRow('VIX trend', `${esc(vol.vix_trend)}${vol.vix_change_pct != null ? `, ${chgStr(vol.vix_change_pct)} on the day` : ''}`),
+      realized != null && questionRow(`SPY 20-day volatility${volatilityHintHtml(realized)}`, esc(volCheck?.detail || `${realized}%`)),
+      budget && questionRow(`Steady-risk mix${steadyMixHintHtml(budget)}`, `${budget.spyPct}% SPY, illustrative`),
     ]),
     questionCard('How healthy?', [
-      sides.length && questionRow('SPY', sentenceCase(sides.join(', '))),
+      sides.length && questionRow('SPY vs averages', sentenceCase(sides.join(', '))),
       breadth.sectors_total && questionRow('Sectors up', `${esc(breadth.sectors_positive)} of ${esc(breadth.sectors_total)}`),
-      momentum.rs_rotation_label && questionRow('Leadership', esc(momentum.rs_rotation_label)),
+      momentum.rs_rotation_label && questionRow('Leadership', esc(LEADERSHIP_WORDS[momentum.rs_rotation_label] ?? momentum.rs_rotation_label)),
       futures.length && questionRow('Futures', futures.join(', ')),
     ]),
     questionCard("What's the backdrop?", [
-      hy?.value != null && questionRow('HY spread', `${esc(hy.value)}${hy.level ? `, ${esc(hy.level)}` : ''}`),
-      hyg && questionRow(`HYG${hygHintHtml()}`, esc(hyg)),
-      liq.fed_path && questionRow('2Y vs Fed funds', sentenceCase(esc(liq.fed_path.lean))),
-      liquidity && questionRow('Liquidity', liquidity),
+      hy?.value != null && questionRow('Junk bond spread', `${esc(hy.value)}%${hy.level ? `, ${esc(hy.level)}` : ''}`),
+      hyg && questionRow(`HYG${hygHintHtml()}`, esc(hyg.replace('50d', '50-day average'))),
+      liq.fed_path && questionRow(`Fed rate outlook${fedOutlookHintHtml(liq.fed_path)}`, sentenceCase(esc(liq.fed_path.lean))),
+      liq.summary && questionRow(`Liquidity${liquidityHintHtml()}`, esc(liq.summary)),
     ], liquidityNoteHtml(liq)),
   ].join('');
 }
@@ -226,9 +320,14 @@ function moverEntries(group) {
     .sort((a, b) => b.change_pct - a.change_pct);
 }
 
+const MOVER_NAMES = {
+  'Cons Disc': 'Consumer Disc.', 'Cons Staples': 'Consumer Staples', 'Comm Svcs': 'Communications',
+  'Semis': 'Semiconductors', 'Reg Banks': 'Regional Banks', 'Spec Growth': 'Spec. Growth',
+};
+
 function moverGroup(title, entries, scale, columns) {
   const rows = entries.map(v => `<li class="mover">
-      <span class="mover-name" title="${esc(v.name)}">${esc(v.name)}</span>
+      <span class="mover-name" title="${esc(MOVER_NAMES[v.name] ?? v.name)}">${esc(MOVER_NAMES[v.name] ?? v.name)}</span>
       <span class="mover-track" aria-hidden="true"><span class="mover-fill ${v.change_pct >= 0 ? 'up' : 'dn'}" style="width:${Math.round(Math.abs(v.change_pct) / scale * 100)}%"></span></span>
       <span class="mover-pct">${chgStr(v.change_pct)}</span>
     </li>`).join('');
@@ -259,7 +358,7 @@ function todaysReadHtml(d) {
   const lines = [
     !d?.yesterday && 'No previous close saved yet, so there is no day-over-day change to show.',
     !(d?.conflicts || []).length && 'No signal conflicts flagged.',
-    next ? `Next release: ${esc(next.name)}, ${esc(next.date_pretty)}.` : 'No release dates listed.',
+    next ? `Next release: ${esc(econName(next.name))}, ${esc(next.date_pretty)}.` : 'No release dates listed.',
   ];
   return lines.filter(Boolean).map(line => `<p>${line}</p>`).join('');
 }
@@ -358,7 +457,7 @@ function renderHeader(d) {
   if (d.fomc_calendar_stale) {
     $('fomc-badge').innerHTML = `⚠ FOMC calendar outdated <span class="date">update _FOMC_2026_2027 in data.py</span>`;
   } else {
-    $('fomc-badge').innerHTML = `${esc(fomc.label || '—')} <span class="date">${esc(fomc.date_pretty || '')}</span>`;
+    $('fomc-badge').innerHTML = `${esc((fomc.label || '—').replace('FOMC', 'Fed meeting'))} <span class="date">${esc(fomc.date_pretty || '')}</span>`;
   }
 
   const dtsEl = $('data-ts'); if (dtsEl) dtsEl.textContent = d.timestamp ? `updated ${d.timestamp}` : '';
@@ -378,7 +477,7 @@ function renderHeader(d) {
   if (visible.length || earnBadge || staleBadge) {
     $('econ-row').style.display = 'flex';
     $('econ-badges').innerHTML = staleBadge + earnBadge + visible.map(e =>
-      `<span class="econ-badge ${esc(e.color)}">${esc(e.name)} <span class="econ-badge-sub">${esc(e.urgency)}</span></span>`
+      `<span class="econ-badge ${esc(e.color)}">${esc(econName(e.name))} <span class="econ-badge-sub">${esc(e.urgency)}</span></span>`
     ).join(' ');
   } else {
     $('econ-row').style.display = 'none';
@@ -537,7 +636,7 @@ function mrow(key, val, tagLabel, tagCol, src, hint = '') {
   const label = srcLabel(src);
   const srcHtml = label ? ` <span class="src-badge">${esc(label)}</span>` : '';
   return `<div class="metric-row">
-    <span class="metric-key">${esc(key)}${hint}</span>
+    <span class="metric-key">${esc(key)}${hint || labelHelp(key)}</span>
     <span class="metric-val">${esc(val ?? '')} ${tag(tagLabel, tagCol)}${srcHtml}</span>
   </div>`;
 }
@@ -573,7 +672,7 @@ function renderPillars(d) {
         return [
           mrow('VIX Level',     v.vix_level ?? '—', v.vix_label, v.vix_color, ds.vix),
           mrow('VIX Trend',     chgStr(v.vix_change_pct ?? 0), v.vix_trend, v.vix_trend_color),
-          mrow('VIX 1Y %ile',   (v.vix_pctile ?? 0) + 'th', null),
+          mrow('VIX vs 1 year', vixYearText(v.vix_pctile), null),
           mrow('VIX3M',         v.vix3m_value ? `${v.vix3m_value}` : '—', v.vix_term_label, v.vix_term_color),
         ].join('');
       },
@@ -978,8 +1077,8 @@ function asOfLine(asOf) {
   // repeating it here was noise. This line only says which close the
   // reading is based on.
   const note = (asOf.session === 'weekend' || asOf.session === 'closed')
-    ? ' · planning context only' : '';
-  return `<div class="dc-asof">Based on ${esc(dataDate)} regular-session close${note}</div>`;
+    ? ' · markets closed, for planning only' : '';
+  return `<div class="dc-asof">Based on ${esc(dataDate)} market close${note}</div>`;
 }
 
 function buildWeightScenario(data) {
@@ -1663,6 +1762,9 @@ export {
   renderYesterdayStrip,
   buildLiquidityChips,
   liquidityVotesLine,
+  mrow,
+  vixYearText,
+  econName,
   liquidityLongerLine,
   liquidityNoteHtml,
   fedPathLine,

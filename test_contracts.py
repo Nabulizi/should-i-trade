@@ -157,7 +157,7 @@ class TestDashboardContracts(unittest.TestCase):
         checks = scoring.risk_level(11.6, True, False)["checks"]
         self.assertEqual([(c["label"], c["on"]) for c in checks],
                          [("SPY volatility", False), ("SPY trend", True), ("Credit", False)])
-        self.assertEqual(checks[0]["detail"], "11.6%, below the 13.2% median")
+        self.assertEqual(checks[0]["detail"], "11.6%, below the usual 13.2%")
         self.assertEqual(checks[1]["detail"], "Below its 50-day average")
         self.assertEqual(checks[2]["detail"], "HYG at or above its 50-day average")
         self.assertEqual(scoring.risk_level(None, True, False)["checks"], [])

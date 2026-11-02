@@ -293,7 +293,7 @@ function renderPillars(d) {
         return [
           mrow('VIX Level',     v.vix_level ?? '—', v.vix_label, v.vix_color, ds.vix),
           mrow('VIX Trend',     chgStr(v.vix_change_pct ?? 0), v.vix_trend, v.vix_trend_color),
-          mrow('VIX 1Y %ile',   (v.vix_pctile ?? 0) + 'th', null),
+          mrow('VIX vs past year', v.vix_pctile == null ? '—' : `Above ${v.vix_pctile}% of days`, null),
           mrow('VIX3M',         v.vix3m_value ? `${v.vix3m_value}` : '—', v.vix_term_label, v.vix_term_color),
         ].join('');
       },

@@ -728,11 +728,11 @@ class TestLiquidity(unittest.TestCase):
 
     def test_summary_says_both_windows_in_one_sentence(self):
         for short, long, want in (
-            ("Neutral", "Tightening", "Little net change over 4 weeks, but conditions are tighter than 3 months ago."),
-            ("Tightening", "Tightening", "Tightening over 4 weeks, and conditions are tighter than 3 months ago."),
-            ("Loosening", "Tightening", "Easing over 4 weeks, but conditions are tighter than 3 months ago."),
-            ("Tightening", "Loosening", "Tightening over 4 weeks, but conditions are easier than 3 months ago."),
-            ("Neutral", "Neutral", "Little net change over 4 weeks, and conditions are about the same as 3 months ago."),
+            ("Neutral", "Tightening", "Little change over 4 weeks, but tighter than 3 months ago."),
+            ("Tightening", "Tightening", "Tightening over 4 weeks, and tighter than 3 months ago."),
+            ("Loosening", "Tightening", "Easing over 4 weeks, but tighter than 3 months ago."),
+            ("Tightening", "Loosening", "Tightening over 4 weeks, but easier than 3 months ago."),
+            ("Neutral", "Neutral", "Little change over 4 weeks, and about the same as 3 months ago."),
             ("Loosening", "Unavailable", "Easing over 4 weeks."),
             ("Unavailable", "Tightening", None),
         ):
@@ -741,19 +741,19 @@ class TestLiquidity(unittest.TestCase):
     def test_payload_carries_the_summary(self):
         result = self._run()
         self.assertEqual(result["summary"],
-                         "Little net change over 4 weeks, and conditions are about the same as 3 months ago.")
+                         "Little change over 4 weeks, and about the same as 3 months ago.")
 
     def test_no_summary_without_enough_series(self):
         down = self._run(DFII10=None, DGS2=None, DTWEXBGS=None)
         self.assertIsNone(down["summary"])
 
     def test_fed_path_compares_2y_with_fed_funds(self):
-        for two_year, want_spread, want_lean in (("4.60", 0.6, "leans hikes"),
-                                                 ("4.25", 0.25, "leans hikes"),
+        for two_year, want_spread, want_lean in (("4.60", 0.6, "leans toward hikes"),
+                                                 ("4.25", 0.25, "leans toward hikes"),
                                                  ("4.20", 0.2, "about flat"),
                                                  ("3.80", -0.2, "about flat"),
-                                                 ("3.75", -0.25, "leans cuts"),
-                                                 ("3.40", -0.6, "leans cuts")):
+                                                 ("3.75", -0.25, "leans toward cuts"),
+                                                 ("3.40", -0.6, "leans toward cuts")):
             path = self._run(DGS2=[(35, two_year), (7, two_year)])["fed_path"]
             self.assertEqual(path["spread"], want_spread, two_year)
             self.assertEqual(path["lean"], want_lean, two_year)
@@ -761,7 +761,7 @@ class TestLiquidity(unittest.TestCase):
     def test_fed_path_does_not_vote(self):
         # A 2Y far above funds is a level, not a change: the headline stays Neutral.
         result = self._run(DGS2=[(98, "6.00"), (35, "6.00"), (7, "6.00")])
-        self.assertEqual(result["fed_path"]["lean"], "leans hikes")
+        self.assertEqual(result["fed_path"]["lean"], "leans toward hikes")
         self.assertEqual(result["tone"], "Neutral")
         self.assertEqual(result["tightening_votes"], 0)
 

@@ -349,6 +349,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
 | P1-039 | done | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
+| P1-041 | in_progress | Put the page's labels in plain language | Every first-screen number says what it is and how to read it, with an explainer beside any term a new reader would not know; the score says which way it runs; details rows carry explainers; wording only, no score or rule change |
 | P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
 | P1-038 | done | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |
 | P1-037 | done | Lead with a risk line, three questions and one read | Rule and criteria frozen before replay; pillars, personas and series one click down; score calculation unchanged |
@@ -434,7 +435,7 @@ prediction is optional and must be explicitly selected.
 | P2-010 | pending | Audit RSP/sector duplication | Shared exposure measured and reduced/disclosed |
 | P2-011 | pending | Audit volatility collinearity | VIX features tested jointly and individually |
 | P2-012 | pending | Compare five pillars with three factors | Trend, participation, stress/liquidity candidate evaluated |
-| P2-022 | in_progress | Test Classic's Execution Window | Frozen test failed (0 of 5 rows); not added to the new page; removed from Classic |
+| P2-022 | done | Test Classic's Execution Window | Frozen test failed (0 of 5 rows); not added to the new page; removed from Classic |
 | P2-021 | done | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed. Audit found no case for a change: see `docs/backtest-methodology.md` |
 
 ### P2-D — Normalize without hiding uncertainty
@@ -653,3 +654,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-10-31 | 1.8 | PR #70 merged: FRED liquidity card (P1-033), descriptive HYG labels (P1-034), 2Y vs Fed funds read (P1-035), liquidity readings in the forecast log (P3-018), HYG rule audit with no model change (P2-021). Confirmed FRED works from Render. The forecast log has no scheduled job on the maintainer machine, so readings are not accumulating | Claude |
 | 2026-10-31 | 1.9 | #69 and #72 merged (P1-036): calendar rows checked against BLS and BEA through June 2027, three missing GDP second estimates added, and calendar countdowns moved to the ET date | Claude |
 | 2026-10-31 | 2.0 | #75 merged: risk line leads the page (P1-037, D-010), renamed to Before You Trade (P1-038), about 60 trade instructions removed (P1-039). Forecast job installed on the maintainer machine; P3-019 stays open until its first real record. P1-040 pending | Claude |
+| 2026-11-01 | 2.1 | #77 merged (P2-022): the Execution Window failed its frozen test (0 of 5 rows), was removed from Classic and not added to the new page; Classic small-phone overflow fixed | Claude |

@@ -400,15 +400,15 @@ def get_history(symbol: str, days: int = 220) -> list[float]:
 # ponytail: deadbands are judgment calls, not validated thresholds; revisit if
 # this panel ever feeds a model (D-006).
 _LIQUIDITY_SERIES = [
-    ("real_yield", "Real 10Y %", "DFII10", 0.10, False,
+    ("real_yield", "Real 10Y yield %", "DFII10", 0.10, False,
      "Rising real yields tighten conditions, especially for long-duration assets."),
     ("two_year", "2Y yield %", "DGS2", 0.10, False,
      "Tracks expected Fed policy. Falling means easier money is being priced."),
-    ("dollar", "USD broad", "DTWEXBGS", 1.0, False,
+    ("dollar", "US dollar index", "DTWEXBGS", 1.0, False,
      "A rising dollar tightens money worldwide."),
-    ("hy_spread", "HY spread %", "BAMLH0A0HYM2", 0.25, False,
+    ("hy_spread", "Junk bond spread %", "BAMLH0A0HYM2", 0.25, False,
      "Below about 4 is calm. A fast rise toward 5-6 or more signals stress."),
-    ("nfci", "NFCI", "NFCI", 0.05, False,
+    ("nfci", "Financial conditions", "NFCI", 0.05, False,
      "Chicago Fed index. Below 0 means conditions are looser than average; above 0, tighter."),
 ]
 _NET_LIQUIDITY_IDS = ("WALCL", "WTREGEN", "RRPONTSYD")
@@ -430,7 +430,7 @@ _LIQUIDITY_CONTEXT = {
                   "Exploratory replay, not a forecast."),
     "Neutral": "Most weeks read Neutral. This says little either way.",
 }
-_LIQUIDITY_READ_NOTE = ("USD is the Fed's broad index, not DXY. HY spread measures credit risk; "
+_LIQUIDITY_READ_NOTE = ("The dollar is the Fed's broad index, not DXY. The junk bond spread measures credit risk; "
                         "HYG's label is its price vs its 50-day average. "
                         "Inputs act with long lags. Direction context, not an entry or timing signal.")
 _FRED_RETRY_SECS = 900
@@ -536,7 +536,7 @@ def _fed_path(two_year: list, fed_funds: list) -> dict | None:
         if not series or (date.today() - series[-1][0]).days > _LIQUIDITY_STALE_DAYS:
             return None
     spread = round(two_year[-1][1] - fed_funds[-1][1], 2)
-    lean = "leans hikes" if spread >= _FED_PATH_BAND else "leans cuts" if spread <= -_FED_PATH_BAND else "about flat"
+    lean = "leans toward hikes" if spread >= _FED_PATH_BAND else "leans toward cuts" if spread <= -_FED_PATH_BAND else "about flat"
     return {"spread": spread, "lean": lean, "as_of": min(two_year[-1][0], fed_funds[-1][0]).isoformat(),
             "source": "FRED DGS2 - DFF"}
 
@@ -544,7 +544,7 @@ def _fed_path(two_year: list, fed_funds: list) -> dict | None:
 def _liquidity_summary(tone: str, longer_tone: str) -> str | None:
     """Both windows as one plain sentence, or None without a 4-week reading."""
     short = {"Tightening": "Tightening over 4 weeks", "Loosening": "Easing over 4 weeks",
-             "Neutral": "Little net change over 4 weeks"}.get(tone)
+             "Neutral": "Little change over 4 weeks"}.get(tone)
     longer = {"Tightening": "tighter than 3 months ago", "Loosening": "easier than 3 months ago",
               "Neutral": "about the same as 3 months ago"}.get(longer_tone)
     if short is None:
@@ -552,7 +552,7 @@ def _liquidity_summary(tone: str, longer_tone: str) -> str | None:
     if longer is None:
         return f"{short}."
     agree = tone == longer_tone or longer_tone == "Neutral"
-    return f"{short}, {'and' if agree else 'but'} conditions are {longer}."
+    return f"{short}, {'and' if agree else 'but'} {longer}."
 
 
 def _liquidity_tone(items: list[dict]) -> tuple[str, str, float, float]:
@@ -573,7 +573,7 @@ def fetch_liquidity() -> dict:
     with ThreadPoolExecutor(max_workers=len(ids)) as ex:
         series = dict(zip(ids, ex.map(fred_series, ids)))
 
-    specs = [("net_liquidity", "Net liq $T", "WALCL - WTREGEN - RRPONTSYD",
+    specs = [("net_liquidity", "Net liquidity $T", "WALCL - WTREGEN - RRPONTSYD",
               _NET_LIQUIDITY_DEADBAND, True,
               "Fed balance sheet minus Treasury cash and reverse repo. A popular proxy; its fit to stocks has broken down before.",
               _net_liquidity(*(series[i] for i in _NET_LIQUIDITY_IDS)))]

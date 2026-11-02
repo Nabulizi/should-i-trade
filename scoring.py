@@ -1469,7 +1469,7 @@ def risk_level(realized_vol_pct: float | None, spy_below_50: bool | None,
     checks = [
         {"label": "SPY volatility", "on": high_vol,
          "detail": (f"{realized_vol_pct}%, {'at or above' if high_vol else 'below'} "
-                    f"the {LIQUIDITY_HIGH_VOL_PCT}% median")},
+                    f"the usual {LIQUIDITY_HIGH_VOL_PCT}%")},
         {"label": "SPY trend", "on": spy_below_50,
          "detail": "Below its 50-day average" if spy_below_50 else "At or above its 50-day average"},
         {"label": "Credit", "on": hyg_below_50,
