@@ -8,7 +8,7 @@ and appended to forecast_outcomes.jsonl — forecasts are never mutated
 (P3-011). This is live out-of-sample evidence: the score gets graded by
 days it had not seen, not by retrospective tuning.
 
-MVP scope: the 16:05 ET end-of-day track only (P3-001) — the concept the
+MVP scope: the 16:30 ET end-of-day track only (P3-001) — the concept the
 2005-2026 replay actually tested. Intraday tracks (premarket/10:00/12:00)
 are separate, unstarted tracks per the plan.
 

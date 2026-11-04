@@ -4,7 +4,7 @@
 **Plan tasks:** P3-001, P3-005..P3-013 · **Decision:** D-009 (prospective
 evidence outranks retrospective tuning)
 
-Every trading day at the 16:05 ET snapshot, `forecast_log.py` appends one
+Every trading day at the 16:30 ET snapshot, `forecast_log.py` appends one
 immutable record of what the model said to `forecasts.jsonl`. Outcomes are
 computed later from the next session's OHLC and appended to
 `forecast_outcomes.jsonl`. Forecasts are never edited; `--audit` verifies
@@ -17,8 +17,17 @@ tuning can touch these numbers.
 
 | Track | Time (ET) | Status |
 |---|---|---|
-| `eod` | 16:05 close snapshot | **Active** — the concept the 2005–2026 replay tested |
+| `eod` | 16:30 close snapshot (16:05 until 2026-11-04, see below) | **Active** — the concept the 2005–2026 replay tested |
 | `premarket` / `1000` / `1200` | — | Not started; separate tracks, never pooled with EOD |
+
+## Observation time change (2026-11-04, P3-020)
+
+The `eod` snapshot moved from 16:05 to 16:30 ET. VIX settles at 16:15 ET, so
+an earlier run can read pre-final data: on 2026-11-02 the 16:10 run logged
+45 where the final-close reading was 42. The 2005–2026 replay used final
+closes, so 16:30 is closer to what was tested. Outcome formulas are
+unchanged. Records before 2026-11-04 stay as written; when comparing, note
+that they may have been taken before the settle.
 
 ## Predeclared outcome definitions (P3-005..P3-008)
 
