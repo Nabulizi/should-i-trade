@@ -115,8 +115,9 @@ VOL_TARGET_WINDOW = 20   # trading days of realized vol
 DAILY_HISTORY_MAXLEN: int = 90
 """Trading-day close snapshots kept in daily_history.json (~4.5 months)."""
 
-EOD_SNAPSHOT_TIME_ET: str = "16:05"
-"""ET wall-clock time the end-of-day snapshot job runs (trading days only)."""
+EOD_SNAPSHOT_TIME_ET: str = "16:30"
+"""ET wall-clock time the end-of-day snapshot job runs (trading days only).
+After VIX settles at 16:15 ET, so the record reads final closing data (P3-020)."""
 
 PUSH_TIME_ET: str = "09:00"
 """ET wall-clock time the morning push report is sent (trading days only)."""

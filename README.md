@@ -302,7 +302,7 @@ Every trading morning at **09:00 ET** the server can push a one-message
 conditions report — score with delta vs yesterday's close, posture band (and
 any band change), per-pillar deltas, data-quality state, and near-term
 econ/FOMC events — to Telegram and/or Discord. A close snapshot is recorded
-at **16:05 ET** each trading day (`daily_history.json`, git-ignored) and also
+at **16:30 ET** each trading day (`daily_history.json`, git-ignored) and also
 powers the "Since yesterday" strip on the dashboard.
 
 **Disabled by default** — with no channel configured, nothing is sent and

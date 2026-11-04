@@ -1,11 +1,14 @@
 """test_eod_job.py — Offline tests for the standalone EOD runner."""
 from __future__ import annotations
 import os, sys, unittest
+from datetime import datetime
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import eod_job
+
+SETTLED = datetime(2026, 11, 2, 16, 30)
 
 
 class TestEodJob(unittest.TestCase):
@@ -27,8 +30,18 @@ class TestEodJob(unittest.TestCase):
                 mock_dash.assert_not_called()
                 mock_fc.assert_not_called()
 
+    def test_after_hours_before_settle_time_records_nothing(self):
+        # VIX settles at 16:15 ET; a 16:10 run read pre-final data on 2026-11-02.
+        early = datetime(2026, 11, 2, 16, 10)
+        with patch("data.market_state", return_value={"state": "afterhours"}), \
+             patch("data.et_now", return_value=early), \
+             patch("scoring.compute_dashboard") as mock_dash:
+            self.assertEqual(eod_job.run(), 0)
+            mock_dash.assert_not_called()
+
     def test_invalid_data_records_nothing_and_exits_1(self):
         with patch("data.market_state", return_value={"state": "afterhours"}), \
+             patch("data.et_now", return_value=SETTLED), \
              patch("scoring.compute_dashboard",
                    return_value={"data_quality": {"valid": False}}), \
              patch("daily_history.record_daily_snapshot") as mock_snap, \
@@ -43,6 +56,7 @@ class TestEodJob(unittest.TestCase):
                    "pillars": {p: {"score": 50} for p in
                                ("volatility", "trend", "breadth", "momentum", "macro")}}
         with patch("data.market_state", return_value={"state": "afterhours"}), \
+             patch("data.et_now", return_value=SETTLED), \
              patch("scoring.compute_dashboard", return_value=payload), \
              patch("daily_history.record_daily_snapshot",
                    return_value={"date": "x"}) as mock_snap, \
