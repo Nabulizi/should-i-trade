@@ -83,9 +83,10 @@ describe('riskLineHtml', () => {
     expect((html.match(/risk-step current/g) || []).length).toBe(1);
   });
 
-  it('labels the history as exploratory, not a forecast', () => {
+  it('labels the history in plain words, not a forecast', () => {
     const html = riskLineHtml(read('High'));
-    for (const text of ['10%', '22%', '41%', 'not a forecast']) expect(html).toContain(text);
+    for (const text of ['10%', '22%', '41%', 'How often SPY fell 10% or more', 'not a forecast']) expect(html).toContain(text);
+    expect(html).not.toMatch(/Exploratory|% of past days/);
   });
 
   it('shows the score with its pillars beside the level', () => {
@@ -368,7 +369,7 @@ describe('threeQuestionsHtml', () => {
 
   it('uses no unexplained shorthand on the first screen', () => {
     const html = threeQuestionsHtml(dash);
-    expect(html).not.toMatch(/\bES\b|\bNQ\b|HY spread|2Y vs Fed funds|\b50d\b|Rotation|\d+w\b|SPY volatility budget/);
+    expect(html).not.toMatch(/\bES\b|\bNQ\b|HY spread|2Y vs Fed funds|\b50d\b|Rotation|\d+w\b|SPY volatility budget|Exploratory|readings saw/);
   });
 
   it('says how long the VIX move covers', () => {
@@ -446,7 +447,7 @@ describe('buildLiquidityChips', () => {
   });
 
   it('counts votes so a Neutral headline does not sit beside a lopsided count', () => {
-    expect(liquidityVotesLine({ valid: true, loosening_votes: 1, tightening_votes: 0 })).toBe('Votes: 1 looser · 0 tighter');
+    expect(liquidityVotesLine({ valid: true, loosening_votes: 1, tightening_votes: 0 })).toBe('Votes: 1 easier · 0 harder');
     expect(liquidityVotesLine({ valid: false })).toBe('No read');
   });
 
