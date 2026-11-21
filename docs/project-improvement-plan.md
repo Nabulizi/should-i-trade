@@ -349,6 +349,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
 | P1-039 | done | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
+| P1-043 | in_progress | Show credit spreads by rating | Investment grade, BBB, all junk, BB, B, CCC, the CCC-BB gap and a private-credit fund (BIZD) each say where they sit vs the last ~3 years FRED serves and how they moved over 4 weeks; the first-screen junk spread compares with those years instead of only "Calm"; display only, never scored (D-006) |
 | P1-042 | in_progress | Put the risk and liquidity warnings in plain words | Each warning says what is happening and gives its past rate beside the normal rate (39% vs 19%); no "Exploratory replay" or tightening jargon on the first screen; wording only, no rule change |
 | P1-041 | done | Put the page's labels in plain language | Every first-screen number says what it is and how to read it, with an explainer beside any term a new reader would not know; the score says which way it runs; details rows carry explainers; wording only, no score or rule change |
 | P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
@@ -436,6 +437,7 @@ prediction is optional and must be explicitly selected.
 | P2-010 | pending | Audit RSP/sector duplication | Shared exposure measured and reduced/disclosed |
 | P2-011 | pending | Audit volatility collinearity | VIX features tested jointly and individually |
 | P2-012 | pending | Compare five pillars with three factors | Trend, participation, stress/liquidity candidate evaluated |
+| P2-023 | pending | Test a credit-widening risk check | Rule and pass criteria frozen before replay on long-history proxies (HYG vs IEF since 2007, Baa spread since 1990), including the 2015-16 energy credit bust; becomes a fourth risk-line check only if it passes, versioned per D-006. Log the credit ladder with each forecast so its own history builds past FRED's 3-year window |
 | P2-022 | done | Test Classic's Execution Window | Frozen test failed (0 of 5 rows); not added to the new page; removed from Classic |
 | P2-021 | done | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed. Audit found no case for a change: see `docs/backtest-methodology.md` |
 
