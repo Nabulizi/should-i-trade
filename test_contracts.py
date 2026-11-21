@@ -92,6 +92,7 @@ def _fixture_instruments() -> dict:
         "fng_crypto": {"available": False},
         "futures_tape": {"valid": False},
         "liquidity": {"valid": False},
+        "credit": {"valid": False},
         "spy_last_bar_date": None,
     }
 
@@ -196,6 +197,16 @@ class TestDashboardContracts(unittest.TestCase):
         fixtures["liquidity"] = tight
         payload = _run_with_fixtures(fixtures)
         self.assertEqual(payload["liquidity"]["tone"], "Tightening")
+        self.assertEqual(payload["raw_total_score"], self.payload["raw_total_score"])
+
+    def test_credit_is_context_and_cannot_move_the_score(self):
+        """Stressed credit is passed through without touching the score (D-006)."""
+        stressed = {"valid": True, "summary": "Weakest junk is wider than 99% of days since Nov 2023; "
+                    "top-rated companies, 90%.", "items": [], "context_only": True}
+        fixtures = _fixture_instruments()
+        fixtures["credit"] = stressed
+        payload = _run_with_fixtures(fixtures)
+        self.assertEqual(payload["credit"], stressed)
         self.assertEqual(payload["raw_total_score"], self.payload["raw_total_score"])
 
     def test_keys_match_dashboard_result_typeddict(self):

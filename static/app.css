@@ -210,6 +210,7 @@
   .future-sym { font-size: 10px; font-weight: 700; }
   .future-px { color: var(--muted2); font-size: 10px; white-space: nowrap; }
   .future-name { color: var(--muted2); font-size: 10px; letter-spacing: 0.5px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .future-name.credit-read { white-space: normal; text-transform: none; letter-spacing: 0; }
   .future-chg { font-size: 11px; font-weight: 700; text-align: right; }
   .future-chg.up { color: var(--green); }
   .future-chg.dn { color: var(--red); }

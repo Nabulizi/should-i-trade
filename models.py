@@ -127,6 +127,16 @@ class FuturesTape(TypedDict, total=False):
     reason: str
 
 
+class Credit(TypedDict, total=False):
+    """Credit spreads by rating vs their last ~3 years. Context only, never scored."""
+
+    valid: bool
+    items: list[dict[str, Any]]
+    summary: str | None
+    source: str
+    context_only: bool
+
+
 class Liquidity(TypedDict, total=False):
     """FRED liquidity direction vs 4 weeks ago. Context only, never scored."""
 
@@ -290,6 +300,7 @@ class _DashboardResultRequired(TypedDict):
     ticker: list[TickerItem]
     futures_tape: FuturesTape
     liquidity: Liquidity
+    credit: Credit
     fear_greed_stock: FearGreed
     fear_greed_crypto: FearGreed
     spy_streak: SpyStreak
