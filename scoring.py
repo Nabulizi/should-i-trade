@@ -1466,10 +1466,12 @@ def risk_level(realized_vol_pct: float | None, spy_below_50: bool | None,
     if realized_vol_pct is None or spy_below_50 is None or hyg_below_50 is None:
         return {"level": None, "color": "gray", "flags": [], "checks": []}
     high_vol = realized_vol_pct >= LIQUIDITY_HIGH_VOL_PCT
+    ratio = realized_vol_pct / LIQUIDITY_HIGH_VOL_PCT
+    vs_usual = (f"about {round(ratio, 1):g}x" if ratio >= 1.5 else
+                "above" if ratio > 1 else "at" if ratio == 1 else "below")
     checks = [
         {"label": "SPY volatility", "on": high_vol,
-         "detail": (f"{realized_vol_pct}%, {'at or above' if high_vol else 'below'} "
-                    f"the usual {LIQUIDITY_HIGH_VOL_PCT}%")},
+         "detail": f"{realized_vol_pct}%, {vs_usual} the usual {LIQUIDITY_HIGH_VOL_PCT}%"},
         {"label": "SPY trend", "on": spy_below_50,
          "detail": "Below its 50-day average" if spy_below_50 else "At or above its 50-day average"},
         {"label": "Credit", "on": hyg_below_50,
@@ -1494,8 +1496,9 @@ def liquidity_with_vol_flag(liquidity: dict, vol_target: VolTargetInfo | None) -
     flagged = (liquidity.get("tone") == "Tightening" and vol is not None
                and vol >= LIQUIDITY_HIGH_VOL_PCT)
     return {**liquidity, "high_vol_tightening": flagged,
-            "high_vol_note": (f"Tightening with 20-day SPY volatility at {vol}%: past weeks with both "
-                              "saw 10%+ drops within 3 months 39% of the time. Exploratory replay, not a forecast.")
+            "high_vol_note": ("Warning: borrowing is getting harder while SPY swings more than usual. "
+                              "In past weeks like this, SPY fell 10%+ within 3 months 39% of the time, "
+                              "vs 19% normally. Not a forecast.")
                              if flagged else None}
 
 

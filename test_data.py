@@ -717,6 +717,9 @@ class TestLiquidity(unittest.TestCase):
         self.assertEqual(tight["tone"], "Tightening")
         self.assertIn("32%", tight["read"])
         self.assertIn("19%", tight["read"])
+        self.assertTrue(tight["read"].startswith("Over 4 weeks: "), tight["read"])
+        for jargon in ("Exploratory", "replay", "DXY", "share one vote"):
+            self.assertNotIn(jargon, tight["read"])
         loose = self._run(
             DFII10=[(35, "2.30"), (7, "2.00")], DGS2=[(35, "4.30"), (7, "4.00")],
             BAMLH0A0HYM2=[(35, "3.50"), (7, "3.00")],
@@ -724,16 +727,16 @@ class TestLiquidity(unittest.TestCase):
         self.assertIn("14%", loose["read"])
         neutral = self._run()
         self.assertEqual(neutral["tone"], "Neutral")
-        self.assertNotIn("%", neutral["read"].split("share one vote.")[1].split("USD")[0])
+        self.assertNotIn("%", neutral["read"].split("count as one vote).")[1].split("USD")[0])
 
     def test_summary_says_both_windows_in_one_sentence(self):
         for short, long, want in (
-            ("Neutral", "Tightening", "Little change over 4 weeks, but tighter than 3 months ago."),
-            ("Tightening", "Tightening", "Tightening over 4 weeks, and tighter than 3 months ago."),
-            ("Loosening", "Tightening", "Easing over 4 weeks, but tighter than 3 months ago."),
-            ("Tightening", "Loosening", "Tightening over 4 weeks, but easier than 3 months ago."),
-            ("Neutral", "Neutral", "Little change over 4 weeks, and about the same as 3 months ago."),
-            ("Loosening", "Unavailable", "Easing over 4 weeks."),
+            ("Neutral", "Tightening", "Borrowing is about as easy as 4 weeks ago, but harder than 3 months ago."),
+            ("Tightening", "Tightening", "Borrowing is harder than 4 weeks ago, and harder than 3 months ago."),
+            ("Loosening", "Tightening", "Borrowing is easier than 4 weeks ago, but harder than 3 months ago."),
+            ("Tightening", "Loosening", "Borrowing is harder than 4 weeks ago, but easier than 3 months ago."),
+            ("Neutral", "Neutral", "Borrowing is about as easy as 4 weeks ago, and about the same as 3 months ago."),
+            ("Loosening", "Unavailable", "Borrowing is easier than 4 weeks ago."),
             ("Unavailable", "Tightening", None),
         ):
             self.assertEqual(data._liquidity_summary(short, long), want, (short, long))
@@ -741,7 +744,7 @@ class TestLiquidity(unittest.TestCase):
     def test_payload_carries_the_summary(self):
         result = self._run()
         self.assertEqual(result["summary"],
-                         "Little change over 4 weeks, and about the same as 3 months ago.")
+                         "Borrowing is about as easy as 4 weeks ago, and about the same as 3 months ago.")
 
     def test_no_summary_without_enough_series(self):
         down = self._run(DFII10=None, DGS2=None, DTWEXBGS=None)

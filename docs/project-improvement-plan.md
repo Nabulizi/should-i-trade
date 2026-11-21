@@ -349,6 +349,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
 | P1-039 | done | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
+| P1-042 | in_progress | Put the risk and liquidity warnings in plain words | Each warning says what is happening and gives its past rate beside the normal rate (39% vs 19%); no "Exploratory replay" or tightening jargon on the first screen; wording only, no rule change |
 | P1-041 | in_progress | Put the page's labels in plain language | Every first-screen number says what it is and how to read it, with an explainer beside any term a new reader would not know; the score says which way it runs; details rows carry explainers; wording only, no score or rule change |
 | P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
 | P1-038 | done | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |

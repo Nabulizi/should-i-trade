@@ -424,15 +424,15 @@ _SHARED_VOTE_KEYS = {"real_yield", "two_year"}
 _LIQUIDITY_HEADLINE_VOTES = 2
 # Figures from backtest_liquidity.py (exploratory replay, docs/backtest-methodology.md).
 _LIQUIDITY_CONTEXT = {
-    "Tightening": ("Past Tightening weeks saw 10%+ SPY drops within 3 months more often: "
-                   "32% vs 19% for all weeks. Exploratory replay, not a forecast."),
-    "Loosening": ("Past Loosening weeks still saw 10%+ SPY drops within 3 months 14% of the time. "
-                  "Exploratory replay, not a forecast."),
-    "Neutral": "Most weeks read Neutral. This says little either way.",
+    "Tightening": ("When borrowing got harder in the past, SPY fell 10% or more within 3 months "
+                   "32% of the time, vs 19% for all weeks. Based on past data, not a forecast."),
+    "Loosening": ("Even when borrowing got easier, SPY still fell 10% or more within 3 months "
+                  "14% of the time. Based on past data, not a forecast."),
+    "Neutral": "Most weeks show little change, so this says little either way.",
 }
-_LIQUIDITY_READ_NOTE = ("The dollar is the Fed's broad index, not DXY. The junk bond spread measures credit risk; "
-                        "HYG's label is its price vs its 50-day average. "
-                        "Inputs act with long lags. Direction context, not an entry or timing signal.")
+_LIQUIDITY_READ_NOTE = ("The dollar here is the Fed's broad dollar index. The junk bond spread is the extra yield "
+                        "on risky company bonds; HYG's label compares its price with its 50-day average. "
+                        "These measures move slowly, so this shows direction, not when to buy or sell.")
 _FRED_RETRY_SECS = 900
 _FRED_LAST_GOOD: dict[str, list] = {}
 _FRED_RETRY_AT: dict[str, float] = {}
@@ -543,9 +543,9 @@ def _fed_path(two_year: list, fed_funds: list) -> dict | None:
 
 def _liquidity_summary(tone: str, longer_tone: str) -> str | None:
     """Both windows as one plain sentence, or None without a 4-week reading."""
-    short = {"Tightening": "Tightening over 4 weeks", "Loosening": "Easing over 4 weeks",
-             "Neutral": "Little change over 4 weeks"}.get(tone)
-    longer = {"Tightening": "tighter than 3 months ago", "Loosening": "easier than 3 months ago",
+    short = {"Tightening": "Borrowing is harder than 4 weeks ago", "Loosening": "Borrowing is easier than 4 weeks ago",
+             "Neutral": "Borrowing is about as easy as 4 weeks ago"}.get(tone)
+    longer = {"Tightening": "harder than 3 months ago", "Loosening": "easier than 3 months ago",
               "Neutral": "about the same as 3 months ago"}.get(longer_tone)
     if short is None:
         return None
@@ -617,8 +617,8 @@ def fetch_liquidity() -> dict:
             "loosening": loosening, "tightening": tightening, "flat": flat,
             "loosening_votes": loosening_votes, "tightening_votes": tightening_votes,
             "summary": _liquidity_summary(tone, longer["tone"]),
-            "read": (f"{loosening} loosening, {tightening} tightening, {flat} flat vs 4 weeks ago; "
-                     f"real and 2Y yields share one vote. {_LIQUIDITY_CONTEXT[tone]} {_LIQUIDITY_READ_NOTE}")}
+            "read": (f"Over 4 weeks: {loosening} easier, {tightening} harder, {flat} little changed "
+                     f"(real and 2-year yields count as one vote). {_LIQUIDITY_CONTEXT[tone]} {_LIQUIDITY_READ_NOTE}")}
 
 
 # ─── equity index futures tape ─────────────────────────────────────────────

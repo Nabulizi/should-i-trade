@@ -157,8 +157,8 @@ function liquidityHintHtml() {
   return hintHtml('liquidity', `<strong>Liquidity is how easy and cheap it is to borrow across the market.</strong>
     <span class="hint-rule">Tighter = borrowing is harder or costs more</span>
     <span class="hint-rule">Easier = borrowing is simpler or costs less</span>
-    <span>Past 4-week tightening readings saw 10%+ SPY drops within 3 months 32% of the time, vs 19% for all weeks.</span>
-    <span class="hint-note">Exploratory replay, not a forecast or timing signal.</span>`);
+    <span>When borrowing got harder over 4 weeks in the past, SPY fell 10% or more within 3 months 32% of the time, vs 19% for all weeks.</span>
+    <span class="hint-note">Based on past data, not a forecast or a signal for when to buy or sell.</span>`);
 }
 
 function hygHintHtml() {
@@ -229,7 +229,7 @@ function riskLineHtml(d) {
         <div class="risk-kicker">Risk today</div>
         <div class="risk-level">${esc(read.level)}</div>
         <div class="risk-scale" role="img" aria-label="Risk level ${esc(read.level)}, ${current?.ordinal || 'unknown'} of three">${steps}</div>
-        <p class="risk-history">% of past days followed by a 10%+ SPY drop within 3 months, 2007–2026 replay. Exploratory, not a forecast.</p>
+        <p class="risk-history">How often SPY fell 10% or more within 3 months after past days at each level, 2007–2026. Based on past data, not a forecast.</p>
       </div>
       <div class="risk-zone risk-checks-wrap">
         <div class="risk-kicker risk-checks-head"><span>What sets the level</span><span class="risk-count">${warnings} of ${checks.length} warnings</span></div>
@@ -401,7 +401,7 @@ function buildLiquidityChips(items) {
 }
 
 function liquidityVotesLine(liq) {
-  return liq?.valid ? `Votes: ${liq.loosening_votes} looser · ${liq.tightening_votes} tighter` : 'No read';
+  return liq?.valid ? `Votes: ${liq.loosening_votes} easier · ${liq.tightening_votes} harder` : 'No read';
 }
 
 function liquidityLongerLine(liq) {

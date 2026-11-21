@@ -158,6 +158,10 @@ class TestDashboardContracts(unittest.TestCase):
         self.assertEqual([(c["label"], c["on"]) for c in checks],
                          [("SPY volatility", False), ("SPY trend", True), ("Credit", False)])
         self.assertEqual(checks[0]["detail"], "11.6%, below the usual 13.2%")
+        self.assertEqual(scoring.risk_level(26.3, True, True)["checks"][0]["detail"],
+                         "26.3%, about 2x the usual 13.2%")
+        self.assertEqual(scoring.risk_level(14.0, True, True)["checks"][0]["detail"],
+                         "14.0%, above the usual 13.2%")
         self.assertEqual(checks[1]["detail"], "Below its 50-day average")
         self.assertEqual(checks[2]["detail"], "HYG at or above its 50-day average")
         self.assertEqual(scoring.risk_level(None, True, False)["checks"], [])
@@ -179,7 +183,10 @@ class TestDashboardContracts(unittest.TestCase):
                                (neutral, {"realized_annual_vol_pct": 30.0}, False),
                                (tight, None, False)):
             self.assertEqual(flag(liq, vol)["high_vol_tightening"], want, (liq, vol))
-        self.assertIn("39%", flag(tight, {"realized_annual_vol_pct": 20.0})["high_vol_note"])
+        note = flag(tight, {"realized_annual_vol_pct": 26.3})["high_vol_note"]
+        for text in ("Warning:", "39%", "19% normally", "Not a forecast"):
+            self.assertIn(text, note)
+        self.assertNotIn("replay", note)
         self.assertNotIn("high_vol_tightening", tight)   # input left untouched
 
     def test_liquidity_is_context_and_cannot_move_the_score(self):
