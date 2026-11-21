@@ -349,7 +349,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
 | P1-039 | done | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
-| P1-041 | in_progress | Put the page's labels in plain language | Every first-screen number says what it is and how to read it, with an explainer beside any term a new reader would not know; the score says which way it runs; details rows carry explainers; wording only, no score or rule change |
+| P1-041 | done | Put the page's labels in plain language | Every first-screen number says what it is and how to read it, with an explainer beside any term a new reader would not know; the score says which way it runs; details rows carry explainers; wording only, no score or rule change |
 | P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
 | P1-038 | done | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |
 | P1-037 | done | Lead with a risk line, three questions and one read | Rule and criteria frozen before replay; pillars, personas and series one click down; score calculation unchanged |
@@ -506,7 +506,8 @@ Outcomes are appended or joined later without mutating the forecast.
 | P3-002 | pending | Add 09:25 premarket track | Evaluated separately with time-available inputs |
 | P3-003 | pending | Add 10:00 early-session track | Partial-day features/time-normalized volume versioned separately |
 | P3-004 | pending | Add 12:00 midday track | Not pooled with EOD without stratification |
-| P3-019 | in_progress | Schedule the EOD job on a local machine | Records only after the close on trading days; a late wake cannot log a mid-session reading |
+| P3-019 | done | Schedule the EOD job on a local machine | Records only after the close on trading days; a late wake cannot log a mid-session reading |
+| P3-020 | in_progress | Record the EOD forecast after closing data settles | The record matches the final close; the 16:10 run on 2026-11-02 logged 45 where the final-close reading was 42 (trend 20 vs 12, volatility 6 vs 1). VIX settles at 16:15 ET. Moving the 16:05 time changes the declared protocol in `docs/prospective-log.md` |
 | P3-018 | done | Log liquidity readings with each forecast | 4-week and 13-week readings stored and hash-covered; evaluation declared before live data |
 
 ### P3-B — Predeclare outcomes
@@ -655,3 +656,5 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-10-31 | 1.9 | #69 and #72 merged (P1-036): calendar rows checked against BLS and BEA through June 2027, three missing GDP second estimates added, and calendar countdowns moved to the ET date | Claude |
 | 2026-10-31 | 2.0 | #75 merged: risk line leads the page (P1-037, D-010), renamed to Before You Trade (P1-038), about 60 trade instructions removed (P1-039). Forecast job installed on the maintainer machine; P3-019 stays open until its first real record. P1-040 pending | Claude |
 | 2026-11-01 | 2.1 | #77 merged (P2-022): the Execution Window failed its frozen test (0 of 5 rows), was removed from Classic and not added to the new page; Classic small-phone overflow fixed | Claude |
+| 2026-11-01 | 2.2 | #78 merged (P1-041): page labels in plain language, explainers beside unfamiliar terms, the score says which way it runs. Wording and layout only, no score or rule change | Claude |
+| 2026-11-04 | 2.3 | P3-019 done: the local job wrote its first real records on 2026-11-02 and 2026-11-03 and graded one. P3-020 added: the 16:10 run on 2026-11-02 read data before the close settled | Claude |

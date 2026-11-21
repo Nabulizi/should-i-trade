@@ -51,7 +51,7 @@ server.py (ThreadingHTTPServer, port 8765)
   ├─ /api/watchlist-health → watchlist.compute_watchlist_health() [5min cache]
   ├─ /api/stream      → SSE broadcast of score updates
   └─ /health, /metrics
-  └─ daily scheduler thread: 16:05 ET close snapshot (daily_history.py),
+  └─ daily scheduler thread: 16:30 ET close snapshot (daily_history.py),
      09:00 ET push report (notify.py) — trading days only, silent no-op
      when no Telegram/Discord channel is configured
        ↕
