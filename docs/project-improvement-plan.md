@@ -350,7 +350,7 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
 | P1-039 | done | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
 | P1-043 | in_progress | Show credit spreads by rating | Investment grade, BBB, all junk, BB, B, CCC, the CCC-BB gap and a private-credit fund (BIZD) each say where they sit vs the last ~3 years FRED serves and how they moved over 4 weeks; the first-screen junk spread compares with those years instead of only "Calm"; display only, never scored (D-006) |
-| P1-042 | in_progress | Put the risk and liquidity warnings in plain words | Each warning says what is happening and gives its past rate beside the normal rate (39% vs 19%); no "Exploratory replay" or tightening jargon on the first screen; wording only, no rule change |
+| P1-042 | done | Put the risk and liquidity warnings in plain words | Each warning says what is happening and gives its past rate beside the normal rate (39% vs 19%); no "Exploratory replay" or tightening jargon on the first screen; wording only, no rule change |
 | P1-041 | done | Put the page's labels in plain language | Every first-screen number says what it is and how to read it, with an explainer beside any term a new reader would not know; the score says which way it runs; details rows carry explainers; wording only, no score or rule change |
 | P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
 | P1-038 | done | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |
@@ -662,3 +662,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-11-01 | 2.2 | #78 merged (P1-041): page labels in plain language, explainers beside unfamiliar terms, the score says which way it runs. Wording and layout only, no score or rule change | Claude |
 | 2026-11-04 | 2.3 | P3-019 done: the local job wrote its first real records on 2026-11-02 and 2026-11-03 and graded one. P3-020 added: the 16:10 run on 2026-11-02 read data before the close settled | Claude |
 | 2026-11-21 | 2.4 | #79 merged (P3-020): the EOD record waits until 16:30 ET, after VIX settles; the prospective log notes the time change | Claude |
+| 2026-11-21 | 2.5 | #80 merged (P1-042): risk and liquidity warnings in plain words, with the normal rate beside each past rate; wording only, no rule change | Claude |
