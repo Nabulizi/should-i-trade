@@ -688,13 +688,16 @@ def fetch_futures_tape() -> dict:
     if {"ES", "NQ"} <= valid_labels and es.get("change_pct", 0) > 0.15 and nq.get("change_pct", 0) > 0.15:
         if rty.get("available") and rty.get("change_pct", 0) < -0.10:
             flags.append("Mega-cap bid, small caps lagging")
-    if any(abs(item["change_pct"]) >= 1.0 for item in valid):
+    # While stocks trade, futures mirror the session, so pre-open framing is wrong.
+    cash_open = market_state().get("state") == "open"
+    pending = "" if cash_open else ", before the cash session has confirmed"
+    if not cash_open and any(abs(item["change_pct"]) >= 1.0 for item in valid):
         flags.append("Gap risk elevated")
 
     if tone in {"Risk-On", "Mild Risk-On"}:
-        read = "Futures lean positive, before the cash session has confirmed."
+        read = f"Futures lean positive{pending}."
     elif tone in {"Risk-Off", "Mild Risk-Off"}:
-        read = "Futures lean defensive, before the cash session has confirmed."
+        read = f"Futures lean defensive{pending}."
     else:
         read = "Futures are mixed."
     if flags:

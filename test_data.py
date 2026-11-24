@@ -903,6 +903,29 @@ class TestLiquidity(unittest.TestCase):
         self.assertEqual(item["direction"], "tightening")
 
 
+class TestFuturesTapeSessionWording(unittest.TestCase):
+    """The pre-open framing only applies while the cash session is not trading."""
+
+    def _tape(self, state: str, chg: float = -1.2) -> dict:
+        quotes = {c["symbol"]: {"price": 100.0, "changePct": chg, "source": "yahoo"}
+                  for c in data.FUTURES_CONTRACTS}
+        with patch("data.fetch_quotes_parallel", return_value=quotes), \
+             patch("data.market_state", return_value={"state": state}):
+            return data.fetch_futures_tape()
+
+    def test_open_session_drops_pre_open_wording(self):
+        read = self._tape("open")["read"]
+        self.assertEqual(read, "Futures lean defensive.")
+
+    def test_premarket_keeps_pre_open_wording_and_gap_flag(self):
+        read = self._tape("premarket")["read"]
+        self.assertIn("before the cash session has confirmed", read)
+        self.assertIn("Gap risk elevated", read)
+
+    def test_open_session_positive_tone(self):
+        self.assertEqual(self._tape("open", chg=1.2)["read"], "Futures lean positive.")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Runner
 # ═══════════════════════════════════════════════════════════════════════════

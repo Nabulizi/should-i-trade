@@ -833,6 +833,65 @@ def test_claim_hygiene() -> None:
            len(band["action"]) < 90)
 
 
+def test_partial_day_volume() -> None:
+    """During the session today's bar holds only part of a day's volume, so it
+    is shown but not scored until the close."""
+    print("\n[score_trend — partial-day volume]")
+    closes = trending_closes(252, start=100.0, per_day=0.1)
+    quotes_dn = {"SPY": q(closes[-1], -0.6), "QQQ": q(300.0, -2.0)}
+    quotes_up = {"SPY": q(closes[-1], 0.8), "QQQ": q(300.0, 1.0)}
+
+    def ohlcv(today_vol: float) -> dict:
+        return {"closes": closes, "volumes": [100.0] * 20 + [today_vol],
+                "highs": [], "lows": []}
+
+    low_full = scoring.score_trend(quotes_dn, closes, closes, ohlcv(50.0))
+    low_part = scoring.score_trend(quotes_dn, closes, closes, ohlcv(50.0), True)
+    ok("Complete day: 0.5x volume still scores low conviction",
+       any("low conviction" in r for r in low_full["reasons"]))
+    ok("Partial day: 0.5x volume is not called low conviction",
+       not any("low conviction" in r for r in low_part["reasons"]))
+    ok("Partial day: label says the day is in progress",
+       low_part["details"]["vol_label"] == "Day in progress")
+    ok("Partial day: the -3 low-volume points are not applied",
+       low_part["score"] - low_full["score"] == 3)
+
+    high_full = scoring.score_trend(quotes_up, closes, closes, ohlcv(200.0))
+    high_part = scoring.score_trend(quotes_up, closes, closes, ohlcv(200.0), True)
+    ok("Partial day: the +8 high-volume points are not applied either",
+       high_full["score"] - high_part["score"] == 8)
+    ok("Partial day: the ratio is still shown",
+       high_part["details"]["vol_ratio"] == 2.0)
+
+    def run(state: str) -> dict:
+        instr = {**_make_instruments(), "spy_ohlcv": ohlcv(50.0),
+                 "mstate": {"state": state}}
+        return scoring._run_pillars(instr)["trend"]
+    ok("_run_pillars: open session treats volume as a partial day",
+       run("open")["details"]["vol_label"] == "Day in progress")
+    ok("_run_pillars: after the close volume is scored as before",
+       run("afterhours")["details"]["vol_label"] != "Day in progress")
+
+
+def test_vix_term_mild_backwardation() -> None:
+    """VIX above VIX3M is never called contango; the points stay unchanged."""
+    print("\n[VIX term structure — mild backwardation wording]")
+    base = {"TQQQ": q(40, 0), "SQQQ": q(10, 0), "UVXY": q(5, 0)}
+    hist = flat_closes(252, 26.0)
+    mild = scoring.score_volatility(
+        {**base, "^VIX": q(26.0, 0.0), "^VIX3M": q(25.1, 0.0)}, hist)
+    cont = scoring.score_volatility(
+        {**base, "^VIX": q(26.0, 0.0), "^VIX3M": q(27.4, 0.0)}, hist)
+    ok("VIX/VIX3M 1.04x → Mild Backwardation",
+       mild["details"]["vix_term_label"] == "Mild Backwardation")
+    ok("VIX/VIX3M 1.04x reason does not say contango",
+       not any("contango" in r.lower() for r in mild["reasons"]))
+    ok("VIX/VIX3M 0.95x stays Contango",
+       cont["details"]["vix_term_label"] == "Contango")
+    ok("Mild backwardation scores the same as contango (points unchanged)",
+       mild["score"] == cont["score"])
+
+
 def test_vol_target_exposure() -> None:
     """Evidence-backed vol-target dial: clamp(k / realized vol, 0..100%)."""
     print("\nVol-target exposure dial:")
@@ -882,6 +941,8 @@ if __name__ == "__main__":
     test_day_streak()
     test_claim_hygiene()
     test_vol_target_exposure()
+    test_partial_day_volume()
+    test_vix_term_mild_backwardation()
 
     total = _PASS + _FAIL
     print(f"\n{'=' * 55}")

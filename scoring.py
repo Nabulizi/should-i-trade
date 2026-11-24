@@ -562,6 +562,10 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> PillarResult:
             d, vix_term_label, vix_term_color = +8, "Steep Contango", "green"
             score += d
             reasons.append(f"+{d} VIX/VIX3M {ratio:.2f}x — calm, fear priced further out")
+        elif ratio > 1.0:
+            vix_term_label, vix_term_color = "Mild Backwardation", "yellow"
+            reasons.append(f"+0 VIX/VIX3M {ratio:.2f}x — near-term fear slightly above"
+                           " 3-month (mild backwardation)")
         else:
             vix_term_label, vix_term_color = "Contango", "yellow"
             reasons.append(f"+0 VIX/VIX3M {ratio:.2f}x — normal contango")
@@ -644,7 +648,8 @@ def score_volatility(quotes: dict, vix_closes: list[float]) -> PillarResult:
 
 # ─── pillar 2 — trend ──────────────────────────────────────────────────────
 def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
-                spy_ohlcv: dict | None = None) -> PillarResult:
+                spy_ohlcv: dict | None = None,
+                partial_day: bool = False) -> PillarResult:
     spy_q, qqq_q = quotes.get("SPY"), quotes.get("QQQ")
     spy_px, qqq_px = price(spy_q), price(qqq_q)
     spy_mas = compute_mas(spy_closes) if spy_closes else {}
@@ -703,7 +708,14 @@ def score_trend(quotes: dict, spy_closes: list[float], qqq_closes: list[float],
             today_vol = vols[-1]
             vol_ratio = round(today_vol / avg_vol, 2)
             spy_chg_val = pct(spy_q)
-            if vol_ratio >= VOL_HIGH_RATIO and spy_chg_val > 0:
+            if partial_day:
+                # Today's bar holds only part of a session's volume, so a full-day
+                # comparison is meaningless until the close. The replay passes
+                # complete bars and never takes this branch.
+                vol_label, vol_color = "Day in progress", "gray"
+                reasons.append(f"+0 Volume so far {vol_ratio:.1f}x a full day's average"
+                               " — day in progress, counted after the close")
+            elif vol_ratio >= VOL_HIGH_RATIO and spy_chg_val > 0:
                 d, vol_label, vol_color = +8, "High-Vol Rally", "green"
                 score += d
                 reasons.append(f"+{d} Volume {vol_ratio:.1f}x avg — confirming rally")
@@ -1623,8 +1635,9 @@ def _run_pillars(instruments: dict) -> dict[str, dict]:
     spliced_sector_h = {s: _splice_live(hist.get(s, []), _live(s)) for s in SECTOR_SYMBOLS}
 
     vol  = _safe_pillar(score_volatility, quotes, vix_hist, name="Volatility")
+    partial_day = (instruments.get("mstate") or {}).get("state") == "open"
     tr   = _safe_pillar(score_trend, quotes, spy_hist, qqq_hist,
-                        instruments["spy_ohlcv"], name="Trend")
+                        instruments["spy_ohlcv"], partial_day, name="Trend")
     br   = _safe_pillar(score_breadth, quotes, rsp_hist, spliced_sector_h, name="Breadth")
     mom  = _safe_pillar(score_momentum, quotes, spliced_sector_h, name="Momentum")
     mac  = _safe_pillar(score_macro, quotes,
