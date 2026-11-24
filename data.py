@@ -438,15 +438,16 @@ _FRED_LAST_GOOD: dict[str, list] = {}
 _FRED_RETRY_AT: dict[str, float] = {}
 
 
-def fred_series(series_id: str) -> list[tuple[date, float]]:
+def fred_series(series_id: str, days: int = 120) -> list[tuple[date, float]]:
     """Recent FRED observations (oldest-first, no API key). On failure, returns
     the last good observations ([] if none) and pauses retries, so an outage
     can't stall every dashboard refresh. Raw dated observations, not a computed
     result: callers still apply the staleness check to a long outage."""
-    if time.time() < _FRED_RETRY_AT.get(series_id, 0):
-        return _FRED_LAST_GOOD.get(series_id, [])
+    key = (series_id, days)
+    if time.time() < _FRED_RETRY_AT.get(key, 0):
+        return _FRED_LAST_GOOD.get(key, [])
     # Month-aligned start so the cache key (the URL) only changes monthly.
-    start = (date.today() - timedelta(days=120)).replace(day=1)
+    start = (date.today() - timedelta(days=days)).replace(day=1)
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={start}"
     try:
         rows = list(csv.reader(io.StringIO(fetch_url(
@@ -458,9 +459,9 @@ def fred_series(series_id: str) -> list[tuple[date, float]]:
             raise ValueError(f"no observations for {series_id}")
     except Exception as e:
         logger.debug("FRED fetch failed for %s: %s", series_id, e)
-        _FRED_RETRY_AT[series_id] = time.time() + _FRED_RETRY_SECS
-        return _FRED_LAST_GOOD.get(series_id, [])
-    _FRED_LAST_GOOD[series_id] = obs
+        _FRED_RETRY_AT[key] = time.time() + _FRED_RETRY_SECS
+        return _FRED_LAST_GOOD.get(key, [])
+    _FRED_LAST_GOOD[key] = obs
     return obs
 
 
@@ -619,6 +620,69 @@ def fetch_liquidity() -> dict:
             "summary": _liquidity_summary(tone, longer["tone"]),
             "read": (f"Over 4 weeks: {loosening} easier, {tightening} harder, {flat} little changed "
                      f"(real and 2-year yields count as one vote). {_LIQUIDITY_CONTEXT[tone]} {_LIQUIDITY_READ_NOTE}")}
+
+
+# ICE BofA option-adjusted spreads by rating. FRED serves only about the last
+# 3 years of these, so "vs its history" means vs those years, not past crises.
+_CREDIT_SERIES = [
+    ("ig", "Top-rated", "BAMLC0A0CM"),
+    ("bbb", "Lowest top-rated", "BAMLC0A4CBBB"),
+    ("hy", "All junk", "BAMLH0A0HYM2"),
+    ("bb", "Strong junk (BB)", "BAMLH0A1HYBB"),
+    ("b", "Middle junk (B)", "BAMLH0A2HYB"),
+    ("ccc", "Weakest junk (CCC)", "BAMLH0A3HYC"),
+]
+_CREDIT_HISTORY_DAYS = 1200
+
+
+def _credit_item(key: str, label: str, source: str, series: list) -> dict:
+    item = {"key": key, "label": label, "source": f"FRED {source}", "value": None, "change": None,
+            "pct": None, "since": None, "as_of": None, "available": False}
+    change = _liquidity_change(series, _LIQUIDITY_LOOKBACK_DAYS)
+    if change is None:
+        return item
+    last = series[-1][1]
+    earlier = [v for _, v in series[:-1]]
+    item.update(value=round(last, 2), change=round(change, 2),
+                pct=round(100 * sum(v < last for v in earlier) / len(earlier)),
+                since=series[0][0].isoformat(), as_of=series[-1][0].isoformat(), available=True)
+    return item
+
+
+def _private_credit_item() -> dict:
+    """BIZD (business development companies) as a stand-in for private credit,
+    where much data-center lending sits outside the bond indexes."""
+    closes = get_history("BIZD", 220)
+    item = {"key": "bizd", "label": "Private credit (BIZD)", "source": "Yahoo BIZD",
+            "change_pct": None, "above_50d": None, "available": False}
+    if len(closes) >= 50:
+        item.update(change_pct=round((closes[-1] / closes[-21] - 1) * 100, 1),
+                    above_50d=closes[-1] > sum(closes[-50:]) / 50, available=True)
+    return item
+
+
+def fetch_credit() -> dict:
+    """Where credit stress sits, by rating. Informational only; not scored."""
+    ids = [sid for _, _, sid in _CREDIT_SERIES]
+    with ThreadPoolExecutor(max_workers=len(ids)) as ex:
+        series = dict(zip(ids, ex.map(lambda sid: fred_series(sid, _CREDIT_HISTORY_DAYS), ids)))
+    items = [_credit_item(key, label, sid, series[sid]) for key, label, sid in _CREDIT_SERIES]
+    bb = dict(series["BAMLH0A1HYBB"])
+    gap = [(day, v - bb[day]) for day, v in series["BAMLH0A3HYC"] if day in bb]
+    items.append(_credit_item("ccc_bb", "Weak vs strong junk",
+                              "BAMLH0A3HYC - BAMLH0A1HYBB", gap))
+    items.append(_private_credit_item())
+    by_key = {i["key"]: i for i in items}
+    ig, ccc = by_key["ig"], by_key["ccc"]
+    summary = None
+    if ig["available"] and ccc["available"]:
+        since = date.fromisoformat(ccc["since"]).strftime("%b %Y")
+        weakest = (f"at its widest since {since}" if ccc["pct"] == 100
+                   else f"wider than {ccc['pct']}% of days since {since}")
+        summary = f"Weakest junk is {weakest}; top-rated companies are wider than {ig['pct']}% of days."
+    return {"valid": any(i["available"] for i in items[:len(_CREDIT_SERIES)]),
+            "items": items, "summary": summary, "source": "FRED (ICE BofA), Yahoo",
+            "context_only": True}
 
 
 # ─── equity index futures tape ─────────────────────────────────────────────

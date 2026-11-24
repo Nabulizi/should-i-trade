@@ -109,7 +109,7 @@ const LABEL_HELP = {
   'Growth 3': 'How many of three growth-heavy sectors rose on the day.',
   'Yield Curve': 'The 10-year yield minus the 3-month yield. Negative has historically come before recessions, often by 6–18 months.',
   DXY: 'The US dollar against six major currencies.',
-  'Junk bond spread': 'The extra yield junk bonds pay over Treasuries. Wider means lenders want more pay for the risk. Under 4 reads calm, 4–6 elevated and above 6 stress. These cutoffs are rules of thumb, not tested in a crisis.',
+  'Junk bond spread': 'The extra yield junk bonds pay over Treasuries. Wider means lenders want more pay for the risk. Under 4 reads calm, 4–6 elevated and above 6 stress. These cutoffs are rules of thumb, not tested in a crisis, and a fast rise matters more than the level. Details shows the spread by rating.',
   'Stocks F&G': "CNN's Fear &amp; Greed index for stocks, from 0 (fear) to 100 (greed).",
   'Crypto F&G': 'The same idea for crypto, from 0 (fear) to 100 (greed).',
   TLT: 'An ETF of long-term US Treasury bonds.',
@@ -286,6 +286,7 @@ function threeQuestionsHtml(d) {
   const realized = d?.vol_target?.realized_annual_vol_pct;
   const volCheck = (d?.risk_read?.checks || []).find(c => c.label === 'SPY volatility');
   const hy = (liq.items || []).find(i => i.key === 'hy_spread');
+  const creditHy = (d?.credit?.items || []).find(i => i.key === 'hy' && i.available);
   const sides = [maSide(trend.above_50, 50), maSide(trend.above_200, 200)].filter(Boolean);
   const hyg = macro.hyg_label && macro.hyg_label !== 'N/A' ? macro.hyg_label : null;
   const budget = volBudget(d?.vol_target, loadVolTarget());
@@ -306,7 +307,7 @@ function threeQuestionsHtml(d) {
       futures.length && questionRow('Futures', futures.join(', ')),
     ]),
     questionCard("What's the backdrop?", [
-      hy?.value != null && questionRow('Junk bond spread', `${esc(hy.value)}%${hy.level ? `, ${esc(hy.level)}` : ''}`),
+      hy?.value != null && questionRow('Junk bond spread', esc(junkSpreadText(hy, creditHy))),
       hyg && questionRow(`HYG${hygHintHtml()}`, esc(hyg.replace('50d', '50-day average'))),
       liq.fed_path && questionRow(`Fed rate outlook${fedOutlookHintHtml(liq.fed_path)}`, sentenceCase(esc(liq.fed_path.lean))),
       liq.summary && questionRow(`Liquidity${liquidityHintHtml()}`, esc(liq.summary)),
@@ -398,6 +399,55 @@ function buildLiquidityChips(items) {
       <div class="future-top"><span class="future-name">${esc(item.level)}</span></div>` : ''}
     </div>`;
   }).join('');
+}
+
+function junkSpreadText(hy, creditHy) {
+  // The 3-year comparison catches a rise that a 4-week change can miss after a spike and dip.
+  if (creditHy) return `${creditHy.value}%, wider than ${creditHy.pct}% of the last 3 years`;
+  const level = (hy.level || '').toLowerCase();
+  const base = `${hy.value}%${level ? `, ${level}` : ''}`;
+  if (hy.change == null) return base;
+  const change = `${hy.change >= 0 ? '+' : ''}${Number(hy.change).toFixed(2)} in 4 weeks`;
+  if (hy.direction === 'tightening') return `${base}${level === 'calm' ? ' but' : ' and'} rising: ${change}`;
+  if (hy.direction === 'loosening') return `${base} and falling: ${change}`;
+  return `${base}, little change in 4 weeks`;
+}
+
+const CREDIT_READ_NOTE = 'A spread is the extra yield lenders demand over Treasuries; wider means more fear of default. '
+  + 'Stress usually shows first in the weakest borrowers. FRED only publishes about 3 years of these, so "wider than" '
+  + 'compares with those years, not past crises. Private-credit funds lend outside the bond market, including to data centers. '
+  + 'Default insurance (CDS) on individual AI companies is not free, so it is not shown.';
+
+function buildCreditChips(items) {
+  if (!items?.length) return '<div style="color:var(--muted);font-size:10px;">Credit data unavailable</div>';
+  return items.map(item => {
+    const title = `${item.source || ''}${item.as_of ? ` · as of ${item.as_of}` : ''}`;
+    if (!item.available) {
+      return `<div class="future-chip" title="${esc(title)}">
+        <div class="future-top"><span class="future-sym">${esc(item.label)}</span></div>
+        <div class="future-top"><span class="future-chg flat">No data</span></div>
+      </div>`;
+    }
+    const sign = v => (v >= 0 ? '+' : '');
+    const since = new Date(`${item.since}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    const [value, read] = item.key === 'bizd'
+      ? [`${sign(item.change_pct)}${Number(item.change_pct).toFixed(1)}% in 4 weeks`, `${item.above_50d ? 'Above' : 'Below'} its 50-day average`]
+      : [`${Number(item.value).toFixed(2)}% (${sign(item.change)}${Number(item.change).toFixed(2)})`,
+        item.pct === 100 ? `Widest since ${since}` : `Wider than ${item.pct}% of days since ${since}`];
+    return `<div class="future-chip" title="${esc(title)}">
+      <div class="future-top"><span class="future-sym">${esc(item.label)}</span><span class="future-px">${esc(value)}</span></div>
+      <div class="future-top"><span class="future-name credit-read">${esc(read)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderCredit(credit) {
+  const itemsEl = $('credit-items');
+  const readEl = $('credit-read');
+  if (!itemsEl || !readEl) return;
+  itemsEl.innerHTML = buildCreditChips(credit?.items);
+  readEl.innerHTML = `${credit?.summary ? `<strong class="liquidity-summary">${esc(credit.summary)}</strong> ` : ''}${esc(CREDIT_READ_NOTE)}
+    <span class="futures-meta"><span>${esc(credit?.source || 'FRED')}</span><span>Context only</span><span>Not scored</span></span>`;
 }
 
 function liquidityVotesLine(liq) {
@@ -1514,6 +1564,7 @@ async function load(isManual = false) {
       renderPillars(raw);
       renderConflicts(raw);
       renderLiquidity(raw.liquidity);
+      renderCredit(raw.credit);
       renderWeights(weightScenario);
       // Show/hide sparkline paused indicator based on data quality
       const paused = $('spark-paused');
@@ -1761,6 +1812,7 @@ export {
   asOfLine,
   renderYesterdayStrip,
   buildLiquidityChips,
+  buildCreditChips,
   liquidityVotesLine,
   mrow,
   vixYearText,

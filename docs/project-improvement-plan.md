@@ -349,15 +349,16 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-027 | done | Remove seasonality point adjustment | Context-only or removed until validated |
 | P1-028 | done | Version and validate numerical change | Band occupancy measured; replay/report updated if totals change |
 | P1-039 | done | Remove remaining directives from personas and shared copy | About 60 strings in personas, conflicts, caps, futures and band legends describe conditions; claims test renders the personas |
-| P1-042 | in_progress | Put the risk and liquidity warnings in plain words | Each warning says what is happening and gives its past rate beside the normal rate (39% vs 19%); no "Exploratory replay" or tightening jargon on the first screen; wording only, no rule change |
+| P1-043 | in_progress | Show credit spreads by rating | Investment grade, BBB, all junk, BB, B, CCC, the CCC-BB gap and a private-credit fund (BIZD) each say where they sit vs the last ~3 years FRED serves and how they moved over 4 weeks; the first-screen junk spread compares with those years instead of only "Calm"; display only, never scored (D-006) |
+| P1-042 | done | Put the risk and liquidity warnings in plain words | Each warning says what is happening and gives its past rate beside the normal rate (39% vs 19%); no "Exploratory replay" or tightening jargon on the first screen; wording only, no rule change |
 | P1-041 | done | Put the page's labels in plain language | Every first-screen number says what it is and how to read it, with an explainer beside any term a new reader would not know; the score says which way it runs; details rows carry explainers; wording only, no score or rule change |
 | P1-040 | pending | Replace directive watchlist labels | "Wait", "Wait for Regime" and `entry_state` language replaced with conditions; label contract tests updated |
 | P1-038 | done | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |
 | P1-037 | done | Lead with a risk line, three questions and one read | Rule and criteria frozen before replay; pillars, personas and series one click down; score calculation unchanged |
 | P1-036 | done | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |
-| P1-044 | in_progress | Do not score SPY volume until the day is complete | While stocks trade, today's bar holds part of a day's volume; it shows as "Day in progress" and adds no points (it subtracted 3 at 1:53 pm on 2026-11-24 as "low conviction"). Complete bars score as before, so the replay output is byte-identical to `main` and the EOD record is unchanged; no model version bump because no validated output changes (D-006) |
-| P1-045 | in_progress | Stop calling a VIX above VIX3M "contango" | Ratios above 1.00 up to the 1.05 backwardation line read "Mild Backwardation"; points unchanged |
-| P1-046 | in_progress | Drop pre-open futures wording while stocks trade | During the open session the futures read omits "before the cash session has confirmed" and the gap-risk flag; premarket, after-hours and weekend wording unchanged |
+| P1-044 | done | Do not score SPY volume until the day is complete | While stocks trade, today's bar holds part of a day's volume; it shows as "Day in progress" and adds no points (it subtracted 3 at 1:53 pm on 2026-11-24 as "low conviction"). Complete bars score as before, so the replay output is byte-identical to `main` and the EOD record is unchanged; no model version bump because no validated output changes (D-006) |
+| P1-045 | done | Stop calling a VIX above VIX3M "contango" | Ratios above 1.00 up to the 1.05 backwardation line read "Mild Backwardation"; points unchanged |
+| P1-046 | done | Drop pre-open futures wording while stocks trade | During the open session the futures read omits "before the cash session has confirmed" and the gap-risk flag; premarket, after-hours and weekend wording unchanged |
 
 The replay already neutralizes these overlays, but removing them live changes totals.
 Treat this as a small model-version change.
@@ -439,6 +440,7 @@ prediction is optional and must be explicitly selected.
 | P2-010 | pending | Audit RSP/sector duplication | Shared exposure measured and reduced/disclosed |
 | P2-011 | pending | Audit volatility collinearity | VIX features tested jointly and individually |
 | P2-012 | pending | Compare five pillars with three factors | Trend, participation, stress/liquidity candidate evaluated |
+| P2-023 | pending | Test a credit-widening risk check | Rule and pass criteria frozen before replay on long-history proxies (HYG vs IEF since 2007, Baa spread since 1990), including the 2015-16 energy credit bust; becomes a fourth risk-line check only if it passes, versioned per D-006. Log the credit ladder with each forecast so its own history builds past FRED's 3-year window |
 | P2-022 | done | Test Classic's Execution Window | Frozen test failed (0 of 5 rows); not added to the new page; removed from Classic |
 | P2-021 | done | Audit HYG 50-day rule | A ±0.2% trigger for +8/-10 Macro points tested against the HY spread; versioned if changed. Audit found no case for a change: see `docs/backtest-methodology.md` |
 
@@ -663,3 +665,5 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-11-01 | 2.2 | #78 merged (P1-041): page labels in plain language, explainers beside unfamiliar terms, the score says which way it runs. Wording and layout only, no score or rule change | Claude |
 | 2026-11-04 | 2.3 | P3-019 done: the local job wrote its first real records on 2026-11-02 and 2026-11-03 and graded one. P3-020 added: the 16:10 run on 2026-11-02 read data before the close settled | Claude |
 | 2026-11-21 | 2.4 | #79 merged (P3-020): the EOD record waits until 16:30 ET, after VIX settles; the prospective log notes the time change | Claude |
+| 2026-11-21 | 2.5 | #80 merged (P1-042): risk and liquidity warnings in plain words, with the normal rate beside each past rate; wording only, no rule change | Claude |
+| 2026-11-24 | 2.6 | #82 merged (P1-044, P1-045, P1-046): SPY volume shows "Day in progress" and adds no points while stocks trade; a VIX above VIX3M reads "Mild Backwardation", not contango; the futures card drops pre-open wording during the session. Replay output byte-identical to the prior `main` (5,489 days), EOD record unchanged, no model version bump (D-006) | Claude |

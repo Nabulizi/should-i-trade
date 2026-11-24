@@ -903,6 +903,74 @@ class TestLiquidity(unittest.TestCase):
         self.assertEqual(item["direction"], "tightening")
 
 
+class TestCredit(unittest.TestCase):
+    """Credit ladder: where spread stress sits. Context only, never scored."""
+
+    def setUp(self):
+        data._FRED_LAST_GOOD.clear()
+        data._FRED_RETRY_AT.clear()
+        data._CACHE.clear()
+
+    def _run(self, bizd=None, **overrides):
+        flat = [(900, "1.00"), (35, "1.00"), (7, "1.00")]
+        fred = {sid: flat for _, _, sid in data._CREDIT_SERIES}
+        fred.update(overrides)
+
+        def fake_fetch(url, **kw):
+            sid = url.split("id=")[1].split("&")[0]
+            if fred[sid] is None:
+                raise OSError("FRED down")
+            return _fred_csv(sid, fred[sid])
+
+        with patch("data.fetch_url", side_effect=fake_fetch), \
+             patch("data.get_history", return_value=bizd or []):
+            return data.fetch_credit()
+
+    def _item(self, result, key):
+        return next(i for i in result["items"] if i["key"] == key)
+
+    def test_spread_says_where_it_sits_in_its_history_and_how_it_moved(self):
+        ccc = self._item(self._run(BAMLH0A3HYC=[(900, "9.0"), (600, "14.0"), (300, "11.0"),
+                                                (35, "12.0"), (7, "13.0")]), "ccc")
+        self.assertTrue(ccc["available"])
+        self.assertEqual((ccc["value"], ccc["change"], ccc["pct"]), (13.0, 1.0, 75))
+        self.assertEqual(ccc["since"], (date.today() - timedelta(days=900)).isoformat())
+
+    def test_ladder_includes_all_junk_for_the_first_screen(self):
+        self.assertTrue(self._item(self._run(), "hy")["available"])
+
+    def test_gap_is_weakest_minus_strongest_junk(self):
+        gap = self._item(self._run(BAMLH0A3HYC=[(900, "9.0"), (35, "12.0"), (7, "13.0")],
+                                   BAMLH0A1HYBB=[(900, "2.0"), (35, "2.0"), (7, "2.5")]), "ccc_bb")
+        self.assertEqual((gap["value"], gap["change"]), (10.5, 0.5))
+
+    def test_summary_contrasts_weakest_with_top_rated_in_plain_words(self):
+        result = self._run(BAMLH0A3HYC=[(900, "9.0"), (600, "14.0"), (300, "11.0"),
+                                        (35, "12.0"), (7, "13.0")])
+        self.assertTrue(result["valid"])
+        self.assertTrue(result["summary"].startswith("Weakest junk is wider than 75% of days since "),
+                        result["summary"])
+        self.assertIn("top-rated companies are wider than 0% of days", result["summary"])
+
+    def test_summary_says_widest_rather_than_wider_than_100_percent(self):
+        result = self._run(BAMLH0A3HYC=[(900, "9.0"), (35, "12.0"), (7, "13.0")])
+        self.assertTrue(result["summary"].startswith("Weakest junk is at its widest since "), result["summary"])
+        self.assertNotIn("100%", result["summary"])
+
+    def test_private_credit_fund_reads_4_week_change_and_50_day_side(self):
+        closes = [100.0] * 40 + [100.0 - i for i in range(1, 21)]   # last 20 days slide to 80
+        bizd = self._item(self._run(bizd=closes), "bizd")
+        self.assertTrue(bizd["available"])
+        self.assertEqual(bizd["change_pct"], -20.0)
+        self.assertFalse(bizd["above_50d"])
+
+    def test_outage_shows_no_data_and_no_summary(self):
+        result = self._run(**{sid: None for _, _, sid in data._CREDIT_SERIES})
+        self.assertFalse(result["valid"])
+        self.assertIsNone(result["summary"])
+        self.assertFalse(self._item(result, "ccc")["available"])
+
+
 class TestFuturesTapeSessionWording(unittest.TestCase):
     """The pre-open framing only applies while the cash session is not trading."""
 

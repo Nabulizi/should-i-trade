@@ -16,6 +16,7 @@ import {
   reliabilityLine,
   asOfLine,
   buildLiquidityChips,
+  buildCreditChips,
   liquidityVotesLine,
   mrow,
   vixYearText,
@@ -335,10 +336,27 @@ describe('threeQuestionsHtml', () => {
     },
   };
 
+  it('compares the junk bond spread with its last 3 years when the credit read has it', () => {
+    const html = threeQuestionsHtml({ ...dash, credit: { items: [{ key: 'hy', value: 3.52, pct: 92, available: true }] } });
+    expect(html).toContain('<dd>3.52%, wider than 92% of the last 3 years</dd>');
+  });
+
+  it('says which way the junk bond spread is moving, not just its level', () => {
+    const row = hy => threeQuestionsHtml({ ...dash, liquidity: { ...dash.liquidity, items: [{ key: 'hy_spread', ...hy }] } });
+    expect(row({ value: 3.52, level: 'Calm', change: 0.29, direction: 'tightening' }))
+      .toContain('<dd>3.52%, calm but rising: +0.29 in 4 weeks</dd>');
+    expect(row({ value: 4.4, level: 'Elevated', change: 0.5, direction: 'tightening' }))
+      .toContain('<dd>4.4%, elevated and rising: +0.50 in 4 weeks</dd>');
+    expect(row({ value: 3.1, level: 'Calm', change: -0.3, direction: 'loosening' }))
+      .toContain('<dd>3.1%, calm and falling: -0.30 in 4 weeks</dd>');
+    expect(row({ value: 3.1, level: 'Calm', change: 0.1, direction: 'flat' }))
+      .toContain('<dd>3.1%, calm, little change in 4 weeks</dd>');
+  });
+
   it('asks the three questions and answers from the payload', () => {
     const html = threeQuestionsHtml(dash);
     for (const text of ['How rough?', 'How healthy?', "What's the backdrop?", '19.42', 'Spiking', '11.6%',
-      'Below 50-day', 'above 200-day', '6 of 11', 'Defensive sectors leading', '3.26%, Calm',
+      'Below 50-day', 'above 200-day', '6 of 11', 'Defensive sectors leading', '3.26%, calm',
       'Below 50-day average', 'Leans toward hikes', 'Little change over 4 weeks, but tighter than 3 months ago.', '67% SPY, illustrative', 'S&amp;P -1.81%, Nasdaq -3.48%']) {
       expect(html).toContain(text);
     }
@@ -412,6 +430,35 @@ describe('threeQuestionsHtml', () => {
   it('shows the Tightening with high volatility flag when it applies', () => {
     const html = threeQuestionsHtml({ ...dash, liquidity: { ...dash.liquidity, high_vol_tightening: true, high_vol_note: 'Both are on' } });
     expect(html).toContain('Both are on');
+  });
+});
+
+describe('buildCreditChips', () => {
+  it('says where each spread sits in its last 3 years and how it moved', () => {
+    const html = buildCreditChips([{ key: 'ccc', label: 'Weakest junk (CCC)', value: 13.61, change: 0.45,
+      pct: 95, since: '2023-11-21', as_of: '2026-11-19', available: true, source: 'FRED BAMLH0A3HYC' }]);
+    for (const text of ['Weakest junk (CCC)', '13.61% (+0.45)', 'Wider than 95% of days since Nov 2023']) {
+      expect(html).toContain(text);
+    }
+  });
+
+  it('says widest rather than wider than 100%', () => {
+    const html = buildCreditChips([{ key: 'ccc', label: 'Weakest junk (CCC)', value: 13.61, change: 0.21,
+      pct: 100, since: '2023-11-21', available: true }]);
+    expect(html).toContain('Widest since Nov 2023');
+    expect(html).not.toContain('100%');
+  });
+
+  it('reads the private-credit fund as a price move', () => {
+    const html = buildCreditChips([{ key: 'bizd', label: 'Private-credit funds (BIZD)', change_pct: -6.2,
+      above_50d: false, available: true }]);
+    expect(html).toContain('-6.2% in 4 weeks');
+    expect(html).toContain('Below its 50-day average');
+  });
+
+  it('shows no data rather than a guess', () => {
+    expect(buildCreditChips([{ key: 'ig', label: 'Top-rated companies', available: false }])).toContain('No data');
+    expect(buildCreditChips([])).toContain('Credit data unavailable');
   });
 });
 
