@@ -356,9 +356,9 @@ spy_equivalent_exposure = clamp(target_annual_vol / realized_annual_vol, 0, 1)
 | P1-038 | done | Rename the product to Before You Trade | Name changed everywhere users see it; repo, Render service, filename and storage keys unchanged |
 | P1-037 | done | Lead with a risk line, three questions and one read | Rule and criteria frozen before replay; pillars, personas and series one click down; score calculation unchanged |
 | P1-036 | done | Correct calendar rows and count days on the ET date | Forward rows match BLS and BEA schedules; countdowns do not shift in the evening ET |
-| P1-044 | in_progress | Do not score SPY volume until the day is complete | While stocks trade, today's bar holds part of a day's volume; it shows as "Day in progress" and adds no points (it subtracted 3 at 1:53 pm on 2026-11-24 as "low conviction"). Complete bars score as before, so the replay output is byte-identical to `main` and the EOD record is unchanged; no model version bump because no validated output changes (D-006) |
-| P1-045 | in_progress | Stop calling a VIX above VIX3M "contango" | Ratios above 1.00 up to the 1.05 backwardation line read "Mild Backwardation"; points unchanged |
-| P1-046 | in_progress | Drop pre-open futures wording while stocks trade | During the open session the futures read omits "before the cash session has confirmed" and the gap-risk flag; premarket, after-hours and weekend wording unchanged |
+| P1-044 | done | Do not score SPY volume until the day is complete | While stocks trade, today's bar holds part of a day's volume; it shows as "Day in progress" and adds no points (it subtracted 3 at 1:53 pm on 2026-11-24 as "low conviction"). Complete bars score as before, so the replay output is byte-identical to `main` and the EOD record is unchanged; no model version bump because no validated output changes (D-006) |
+| P1-045 | done | Stop calling a VIX above VIX3M "contango" | Ratios above 1.00 up to the 1.05 backwardation line read "Mild Backwardation"; points unchanged |
+| P1-046 | done | Drop pre-open futures wording while stocks trade | During the open session the futures read omits "before the cash session has confirmed" and the gap-risk flag; premarket, after-hours and weekend wording unchanged |
 
 The replay already neutralizes these overlays, but removing them live changes totals.
 Treat this as a small model-version change.
@@ -666,3 +666,4 @@ A task or phase is complete only when applicable conditions hold:
 | 2026-11-04 | 2.3 | P3-019 done: the local job wrote its first real records on 2026-11-02 and 2026-11-03 and graded one. P3-020 added: the 16:10 run on 2026-11-02 read data before the close settled | Claude |
 | 2026-11-21 | 2.4 | #79 merged (P3-020): the EOD record waits until 16:30 ET, after VIX settles; the prospective log notes the time change | Claude |
 | 2026-11-21 | 2.5 | #80 merged (P1-042): risk and liquidity warnings in plain words, with the normal rate beside each past rate; wording only, no rule change | Claude |
+| 2026-11-24 | 2.6 | #82 merged (P1-044, P1-045, P1-046): SPY volume shows "Day in progress" and adds no points while stocks trade; a VIX above VIX3M reads "Mild Backwardation", not contango; the futures card drops pre-open wording during the session. Replay output byte-identical to the prior `main` (5,489 days), EOD record unchanged, no model version bump (D-006) | Claude |
